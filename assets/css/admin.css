@@ -1,0 +1,162 @@
+/* MBR WP Performance Admin Styles */
+
+.mbr-wp-performance-wrap {
+    max-width: 1200px;
+}
+
+.mbr-wp-performance-wrap .nav-tab-wrapper {
+    margin-bottom: 20px;
+}
+
+.mbr-wp-performance-section {
+    background: #fff;
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid #ccd0d4;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.mbr-wp-performance-section h2 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.mbr-wp-performance-section .form-table {
+    margin-top: 20px;
+}
+
+.mbr-wp-performance-child-row th {
+    padding-left: 30px;
+}
+
+.mbr-tooltip {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    line-height: 18px;
+    text-align: center;
+    background: #2271b1;
+    color: #fff;
+    border-radius: 50%;
+    cursor: help;
+    font-size: 12px;
+    font-weight: bold;
+    margin-left: 5px;
+    position: relative;
+}
+
+.mbr-tooltip:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: 30px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #000;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 4px;
+    white-space: normal;
+    width: 300px;
+    font-size: 13px;
+    font-weight: normal;
+    z-index: 1000;
+    line-height: 1.4;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.mbr-tooltip:hover::before {
+    content: '';
+    position: absolute;
+    left: 22px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 6px solid transparent;
+    border-right-color: #000;
+    z-index: 1001;
+}
+
+.mbr-wp-performance-notice {
+    background: #fff3cd;
+    border-left: 4px solid #ffc107;
+    padding: 12px;
+    margin-bottom: 20px;
+}
+
+.mbr-wp-performance-notice p {
+    margin: 0;
+}
+
+.mbr-wp-performance-actions {
+    background: #fff;
+    padding: 20px;
+    border: 1px solid #ccd0d4;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* Button spacing */
+.form-table button + button {
+    margin-left: 10px;
+}
+
+/* Disabled state */
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Success/Error messages */
+.mbr-wp-performance-message {
+    padding: 10px 15px;
+    margin: 10px 0;
+    border-left: 4px solid;
+    background: #fff;
+}
+
+.mbr-wp-performance-message.success {
+    border-color: #46b450;
+    background-color: #ecf7ed;
+}
+
+.mbr-wp-performance-message.error {
+    border-color: #dc3232;
+    background-color: #f9e7e7;
+}
+
+/* Loading spinner */
+.mbr-wp-performance-loading {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #2271b1;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    vertical-align: middle;
+    margin-left: 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media screen and (max-width: 782px) {
+    .mbr-wp-performance-section {
+        padding: 15px;
+    }
+    
+    .mbr-tooltip:hover::after {
+        left: auto;
+        right: 0;
+        width: 250px;
+    }
+    
+    .mbr-tooltip:hover::before {
+        display: none;
+    }
+}
