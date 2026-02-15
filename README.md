@@ -57,7 +57,6 @@ Unlike bloated all-in-one solutions:
 - [Installation Guide](docs/installation.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [FAQ](docs/faq.md)
-- [Developer Hooks](docs/developer-hooks.md)
 
 ## 🛠️ Requirements
 
