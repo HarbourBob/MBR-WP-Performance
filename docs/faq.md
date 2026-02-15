@@ -48,7 +48,7 @@ All features are available to everyone. This is a passion project built to solve
 
 ### Who created this plugin and why?
 
-Created by **Bob** (Made by Robert), a freelance WordPress developer from Cleethorpes, England. 
+Created by **Rob** (Made by Robert), a freelance WordPress developer from Cleethorpes, England. 
 
 **Why it was built:**
 
@@ -85,7 +85,6 @@ I built this plugin to scratch my own itch - then realized others might benefit 
 - MBR WP Performance: Fully free, self-hosted
 - **Privacy:** MBR doesn't phone home
 
-See [Comparison Guide](docs/comparison.md) for detailed breakdown.
 
 ---
 
@@ -732,7 +731,7 @@ Disable in this order:
 Find which feature broke it, exclude or disable that feature.
 ```
 
-See [Troubleshooting Guide](TROUBLESHOOTING.md) for more solutions.
+See [Troubleshooting Guide](troubleshooting.md) for more solutions.
 
 ---
 
@@ -752,7 +751,7 @@ menu
 Save and test.
 ```
 
-See [JavaScript Troubleshooting](TROUBLESHOOTING.md#javascript-problems).
+See [JavaScript Troubleshooting](troubleshooting.md#javascript-problems).
 
 ---
 
@@ -764,7 +763,7 @@ See [JavaScript Troubleshooting](TROUBLESHOOTING.md#javascript-problems).
 3. Check browser console (F12) for 404 errors
 4. Verify font file paths are correct
 
-See [Font Troubleshooting](TROUBLESHOOTING.md#font-loading-issues).
+See [Font Troubleshooting](troubleshooting.md#font-loading-issues).
 
 ---
 
@@ -778,7 +777,7 @@ See [Font Troubleshooting](TROUBLESHOOTING.md#font-loading-issues).
 4. **Testing cached version** → Clear all caches
 5. **Wrong features enabled** → Follow recommended setup order
 
-See [Performance Troubleshooting](TROUBLESHOOTING.md#performance-not-improving).
+See [Performance Troubleshooting](troubleshooting.md#performance-not-improving).
 
 ---
 
@@ -787,9 +786,9 @@ See [Performance Troubleshooting](TROUBLESHOOTING.md#performance-not-improving).
 **Resources:**
 
 1. 📚 **[User Guide](docs/user-guide.md)** - Complete documentation
-2. 🔧 **[Troubleshooting Guide](TROUBLESHOOTING.md)** - Common issues
-3. 💬 **[GitHub Discussions](https://github.com/yourusername/mbr-wp-performance/discussions)** - Q&A
-4. 🐛 **[GitHub Issues](https://github.com/yourusername/mbr-wp-performance/issues)** - Bug reports
+2. 🔧 **[Troubleshooting Guide](troubleshooting.md)** - Common issues
+3. 💬 **[GitHub Discussions](https://github.com/harbourbob/mbr-wp-performance/discussions)** - Q&A
+4. 🐛 **[GitHub Issues](https://github.com/harbourbob/mbr-wp-performance/issues)** - Bug reports
 5. 📖 **[FAQ](FAQ.md)** - You're here!
 
 **Before asking:**
@@ -876,8 +875,8 @@ See [Performance Troubleshooting](TROUBLESHOOTING.md#performance-not-improving).
 **GitHub Issues:** https://github.com/yourusername/mbr-wp-performance/issues
 
 **Before reporting:**
-1. Check [existing issues](https://github.com/yourusername/mbr-wp-performance/issues)
-2. Try [troubleshooting guide](TROUBLESHOOTING.md)
+1. Check [existing issues](https://github.com/harbourbob/mbr-wp-performance/issues)
+2. Try [troubleshooting guide](troubleshooting.md)
 3. Test with default theme + only this plugin active
 
 **Good bug report includes:**
@@ -892,7 +891,7 @@ See [Performance Troubleshooting](TROUBLESHOOTING.md#performance-not-improving).
 - Error messages
 - Screenshots
 
-See [Bug Report Template](https://github.com/yourusername/mbr-wp-performance/issues/new).
+See [Bug Report Template](https://github.com/harbourbob/mbr-wp-performance/issues/new).
 
 ---
 
@@ -937,8 +936,8 @@ See [Contributing Guide](CONTRIBUTING.md).
 
 **Stay updated:**
 - Watch repository on GitHub
-- Check [Releases](https://github.com/yourusername/mbr-wp-performance/releases)
-- Subscribe to [Discussions](https://github.com/yourusername/mbr-wp-performance/discussions)
+- Check [Releases](https://github.com/harbourbob/mbr-wp-performance/releases)
+- Subscribe to [Discussions](https://github.com/harbourbob/mbr-wp-performance/discussions)
 
 ---
 
@@ -985,7 +984,7 @@ See [Contributing Guide](CONTRIBUTING.md).
 **Can't find your answer?**
 
 1. 📚 Check [Complete User Guide](docs/user-guide.md)
-2. 🔧 Check [Troubleshooting Guide](TROUBLESHOOTING.md)
+2. 🔧 Check [Troubleshooting Guide](troubleshooting.md)
 3. 🔍 Search [GitHub Issues](https://github.com/yourusername/mbr-wp-performance/issues)
 4. 💬 Ask in [GitHub Discussions](https://github.com/yourusername/mbr-wp-performance/discussions)
 5. 🐛 Open [New Issue](https://github.com/yourusername/mbr-wp-performance/issues/new)
@@ -994,4 +993,4 @@ See [Contributing Guide](CONTRIBUTING.md).
 
 **This FAQ is updated regularly. Last updated: February 2026**
 
-**Found this helpful?** Star the repository: https://github.com/yourusername/mbr-wp-performance ⭐
+**Found this helpful?** Star the repository: https://github.com/harbourbob/mbr-wp-performance ⭐
