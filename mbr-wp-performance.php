@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: MBR WP Performance
- * Plugin URI: https://littlewebshack.com/mbr-wp-performance
+ * Plugin URI: https://littlewebshack.com/wp-performance
  * Description: Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, and database optimization.
  * Version: 1.4.9
  * Author: Made by Robert
