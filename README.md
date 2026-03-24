@@ -19,12 +19,7 @@
 - 🖼️ **Smart Loading**: Lazy load images/videos, preload critical resources
 - 🗄️ **Database Cleanup**: Remove bloat, optimize tables, scheduled maintenance
 - 🎯 **Granular Control**: Enable/disable individual optimizations
-
-## 📸 Screenshots
-
-| Fonts Tab | Database Optimization | Performance Results |
-|-----------|----------------------|---------------------|
-| ![Fonts](assets/screenshot-fonts.png) | ![Database](assets/screenshot-db.png) | ![Results](assets/screenshot-results.png) |
+- 🗄️ **Multisite Support**: Automatic multisite detection
 
 ## 🚀 Quick Start
 
