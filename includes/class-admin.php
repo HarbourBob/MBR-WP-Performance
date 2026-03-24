@@ -74,6 +74,9 @@ class MBR_WP_Performance_Admin {
         add_action( 'wp_ajax_mbr_wp_performance_download_fonts', array( $this, 'ajax_download_fonts' ) );
         add_action( 'wp_ajax_mbr_wp_performance_download_manual_fonts', array( $this, 'ajax_download_manual_fonts' ) );
         add_action( 'wp_ajax_mbr_wp_performance_clear_font_cache', array( $this, 'ajax_clear_font_cache' ) );
+        
+        // Multisite: import site settings into network defaults
+        add_action( 'wp_ajax_mbr_wp_performance_import_site_settings', array( $this, 'ajax_import_site_settings' ) );
     }
 
     /**
@@ -635,6 +638,21 @@ class MBR_WP_Performance_Admin {
             
             <?php settings_errors( 'mbr_wp_performance_options' ); ?>
             
+            <?php
+            // Multisite: show notice when per-site overrides are disabled
+            if ( is_multisite() && class_exists( 'MBR_WP_Performance_Multisite' ) ) {
+                if ( ! MBR_WP_Performance_Multisite::allow_site_overrides() && ! is_super_admin() ) {
+                    echo '<div class="notice notice-warning"><p>';
+                    esc_html_e( 'Per-site overrides are disabled by the network administrator. Settings shown below are read-only and managed at the network level.', 'mbr-wp-performance' );
+                    echo '</p></div>';
+                } elseif ( MBR_WP_Performance_Multisite::site_uses_network_defaults() ) {
+                    echo '<div class="notice notice-info"><p>';
+                    esc_html_e( 'This site is currently using network default settings. Saving changes will switch this site to its own custom settings.', 'mbr-wp-performance' );
+                    echo '</p></div>';
+                }
+            }
+            ?>
+            
             <?php $this->render_tabs(); ?>
             
             <form method="post" action="options.php" class="mbr-wp-performance-form">
@@ -667,8 +685,21 @@ class MBR_WP_Performance_Admin {
                 ?>
                 
                 <div class="mbr-wp-performance-actions">
-                    <?php submit_button( __( 'Save Changes', 'mbr-wp-performance' ), 'primary', 'submit', false ); ?>
-                    <button type="button" class="button button-secondary mbr-wp-performance-reset">
+                    <?php
+                    $readonly = is_multisite()
+                        && class_exists( 'MBR_WP_Performance_Multisite' )
+                        && ! MBR_WP_Performance_Multisite::allow_site_overrides()
+                        && ! is_super_admin();
+
+                    submit_button(
+                        __( 'Save Changes', 'mbr-wp-performance' ),
+                        'primary',
+                        'submit',
+                        false,
+                        $readonly ? array( 'disabled' => 'disabled' ) : array()
+                    );
+                    ?>
+                    <button type="button" class="button button-secondary mbr-wp-performance-reset" <?php echo $readonly ? 'disabled' : ''; ?>>
                         <?php esc_html_e( 'Reset to Defaults', 'mbr-wp-performance' ); ?>
                     </button>
                 </div>
@@ -775,6 +806,15 @@ class MBR_WP_Performance_Admin {
         
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'mbr-wp-performance' ) ) );
+        }
+
+        // Multisite: block saves when per-site overrides are disabled (unless super admin)
+        if ( is_multisite()
+            && class_exists( 'MBR_WP_Performance_Multisite' )
+            && ! MBR_WP_Performance_Multisite::allow_site_overrides()
+            && ! is_super_admin()
+        ) {
+            wp_send_json_error( array( 'message' => __( 'Per-site overrides are disabled by the network administrator.', 'mbr-wp-performance' ) ) );
         }
         
         // Get posted data
@@ -1982,5 +2022,54 @@ class MBR_WP_Performance_Admin {
         file_put_contents( $css_filepath, $local_css );
         
         return true;
+    }
+
+    /**
+     * AJAX import a site's settings as network defaults.
+     *
+     * @since 1.5.0
+     */
+    public function ajax_import_site_settings() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_network_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'mbr-wp-performance' ) ) );
+        }
+
+        $site_id = isset( $_POST['site_id'] ) ? absint( $_POST['site_id'] ) : 0;
+
+        if ( ! $site_id ) {
+            wp_send_json_error( array( 'message' => __( 'Invalid site ID.', 'mbr-wp-performance' ) ) );
+        }
+
+        $site = get_site( $site_id );
+
+        if ( ! $site ) {
+            wp_send_json_error( array( 'message' => __( 'Site not found.', 'mbr-wp-performance' ) ) );
+        }
+
+        switch_to_blog( $site_id );
+        $site_options = get_option( 'mbr_wp_performance_options', array() );
+        restore_current_blog();
+
+        if ( empty( $site_options ) ) {
+            wp_send_json_error( array(
+                'message' => sprintf(
+                    // translators: %s: site domain/path.
+                    __( 'No MBR WP Performance settings found on %s.', 'mbr-wp-performance' ),
+                    $site->domain . $site->path
+                ),
+            ) );
+        }
+
+        update_site_option( 'mbr_wp_performance_network_options', $site_options );
+
+        wp_send_json_success( array(
+            'message' => sprintf(
+                // translators: %s: site domain/path.
+                __( 'Successfully imported settings from %s as network defaults.', 'mbr-wp-performance' ),
+                $site->domain . $site->path
+            ),
+        ) );
     }
 }

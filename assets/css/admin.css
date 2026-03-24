@@ -1,49 +1,584 @@
-/* MBR WP Performance Admin Styles */
+/* ==========================================================================
+   MBR WP Performance — Dark Mode Admin UI
+   Version: 1.5.0
+   Author:  Made by Robert
+   ========================================================================== */
 
+/* --------------------------------------------------------------------------
+   CSS Custom Properties
+   -------------------------------------------------------------------------- */
+.mbr-wp-performance-wrap,
+.mbr-wp-performance-network-settings {
+    --mbr-bg-primary:       #1a1d23;
+    --mbr-bg-card:          #22262e;
+    --mbr-bg-card-hover:    #282c35;
+    --mbr-bg-input:         #2a2e37;
+    --mbr-bg-input-focus:   #30343e;
+    --mbr-border:           #363a44;
+    --mbr-border-light:     #3e424d;
+    --mbr-text-primary:     #e4e6eb;
+    --mbr-text-secondary:   #a0a4ad;
+    --mbr-text-muted:       #6c7080;
+    --mbr-accent:           #3ecfa0;
+    --mbr-accent-glow:      rgba(62, 207, 160, 0.2);
+    --mbr-accent-hover:     #34b88d;
+    --mbr-accent-dim:       rgba(62, 207, 160, 0.08);
+    --mbr-danger:           #f06c6c;
+    --mbr-danger-bg:        rgba(240, 108, 108, 0.1);
+    --mbr-warning:          #e8b94a;
+    --mbr-warning-bg:       rgba(232, 185, 74, 0.1);
+    --mbr-info:             #5fa8f5;
+    --mbr-info-bg:          rgba(95, 168, 245, 0.08);
+    --mbr-success:          #3ecfa0;
+    --mbr-success-bg:       rgba(62, 207, 160, 0.1);
+    --mbr-radius:           8px;
+    --mbr-radius-sm:        5px;
+    --mbr-radius-lg:        12px;
+    --mbr-shadow:           0 2px 8px rgba(0, 0, 0, 0.25);
+    --mbr-shadow-lg:        0 4px 20px rgba(0, 0, 0, 0.35);
+    --mbr-transition:       0.2s ease;
+    --mbr-transition-slow:  0.3s ease;
+}
+
+/* --------------------------------------------------------------------------
+   Page Wrapper & Base
+   -------------------------------------------------------------------------- */
 .mbr-wp-performance-wrap {
-    max-width: 1200px;
+    max-width: 960px;
+    color: var(--mbr-text-primary);
+    font-size: 14px;
+    line-height: 1.6;
+    padding-top: 12px;
 }
 
+.mbr-wp-performance-wrap *,
+.mbr-wp-performance-wrap *::before,
+.mbr-wp-performance-wrap *::after {
+    box-sizing: border-box;
+}
+
+.mbr-wp-performance-wrap h1 {
+    color: var(--mbr-text-primary);
+    font-weight: 600;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.mbr-wp-performance-wrap h1::before {
+    content: "";
+    display: inline-block;
+    width: 4px;
+    height: 22px;
+    background: var(--mbr-accent);
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Tabs
+   -------------------------------------------------------------------------- */
 .mbr-wp-performance-wrap .nav-tab-wrapper {
-    margin-bottom: 20px;
+    border-bottom: 1px solid var(--mbr-border);
+    margin-bottom: 24px;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    background: transparent;
 }
 
+.mbr-wp-performance-wrap .nav-tab {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--mbr-text-secondary);
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: color var(--mbr-transition), border-color var(--mbr-transition), background var(--mbr-transition);
+    border-radius: var(--mbr-radius-sm) var(--mbr-radius-sm) 0 0;
+    margin: 0;
+    float: none;
+}
+
+.mbr-wp-performance-wrap .nav-tab:hover,
+.mbr-wp-performance-wrap .nav-tab:focus {
+    background: var(--mbr-accent-dim);
+    color: var(--mbr-text-primary);
+    border-bottom-color: var(--mbr-border-light);
+}
+
+.mbr-wp-performance-wrap .nav-tab-active,
+.mbr-wp-performance-wrap .nav-tab-active:focus,
+.mbr-wp-performance-wrap .nav-tab-active:hover {
+    background: var(--mbr-accent-dim);
+    color: var(--mbr-accent);
+    border-bottom: 2px solid var(--mbr-accent);
+    font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   Section Cards
+   -------------------------------------------------------------------------- */
 .mbr-wp-performance-section {
-    background: #fff;
-    padding: 20px;
+    background: var(--mbr-bg-card);
+    border: 1px solid var(--mbr-border);
+    border-radius: var(--mbr-radius-lg);
+    padding: 24px 28px;
     margin-bottom: 20px;
-    border: 1px solid #ccd0d4;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+    box-shadow: var(--mbr-shadow);
+    transition: border-color var(--mbr-transition-slow);
+}
+
+.mbr-wp-performance-section:hover {
+    border-color: var(--mbr-border-light);
 }
 
 .mbr-wp-performance-section h2 {
-    margin-top: 0;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #e5e5e5;
+    margin: 0 0 6px 0;
+    padding: 0 0 14px 0;
+    border-bottom: 1px solid var(--mbr-border);
+    color: var(--mbr-text-primary);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
 }
 
-.mbr-wp-performance-section .form-table {
-    margin-top: 20px;
+/* --------------------------------------------------------------------------
+   Form Table Overrides
+   -------------------------------------------------------------------------- */
+.mbr-wp-performance-wrap .form-table {
+    margin-top: 12px;
+    border-collapse: separate;
+    border-spacing: 0;
 }
 
-.mbr-wp-performance-child-row th {
-    padding-left: 30px;
+.mbr-wp-performance-wrap .form-table th {
+    color: var(--mbr-text-primary);
+    font-weight: 500;
+    font-size: 13.5px;
+    padding: 14px 16px 14px 0;
+    vertical-align: middle;
+    width: 280px;
 }
 
-.mbr-tooltip {
-    display: inline-block;
+.mbr-wp-performance-wrap .form-table td {
+    padding: 14px 0;
+    vertical-align: middle;
+    color: var(--mbr-text-primary);
+}
+
+.mbr-wp-performance-wrap .form-table tr {
+    border-bottom: 1px solid rgba(54, 58, 68, 0.5);
+}
+
+.mbr-wp-performance-wrap .form-table tr:last-child {
+    border-bottom: none;
+}
+
+/* Child rows (indented sub-options) */
+.mbr-wp-performance-wrap .mbr-wp-performance-child-row th {
+    padding-left: 28px;
+    position: relative;
+}
+
+.mbr-wp-performance-wrap .mbr-wp-performance-child-row th::before {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    width: 8px;
+    height: 1px;
+    background: var(--mbr-border-light);
+}
+
+/* --------------------------------------------------------------------------
+   Toggle Switches  (CSS-only — transforms existing checkboxes)
+   -------------------------------------------------------------------------- */
+.mbr-wp-performance-wrap input[type="checkbox"],
+.mbr-wp-performance-network-settings input[type="checkbox"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background: var(--mbr-bg-input);
+    border: 2px solid var(--mbr-border);
+    border-radius: 24px;
+    cursor: pointer;
+    transition: background var(--mbr-transition), border-color var(--mbr-transition), box-shadow var(--mbr-transition);
+    vertical-align: middle;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.mbr-wp-performance-wrap input[type="checkbox"]::before,
+.mbr-wp-performance-network-settings input[type="checkbox"]::before {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: var(--mbr-text-secondary);
+    border-radius: 50%;
+    transition: transform var(--mbr-transition), background var(--mbr-transition), box-shadow var(--mbr-transition);
+}
+
+.mbr-wp-performance-wrap input[type="checkbox"]:checked,
+.mbr-wp-performance-network-settings input[type="checkbox"]:checked {
+    background: var(--mbr-accent);
+    border-color: var(--mbr-accent);
+    box-shadow: 0 0 10px var(--mbr-accent-glow);
+}
+
+.mbr-wp-performance-wrap input[type="checkbox"]:checked::before,
+.mbr-wp-performance-network-settings input[type="checkbox"]:checked::before {
+    transform: translateX(20px);
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.mbr-wp-performance-wrap input[type="checkbox"]:hover,
+.mbr-wp-performance-network-settings input[type="checkbox"]:hover {
+    border-color: var(--mbr-text-muted);
+}
+
+.mbr-wp-performance-wrap input[type="checkbox"]:checked:hover,
+.mbr-wp-performance-network-settings input[type="checkbox"]:checked:hover {
+    border-color: var(--mbr-accent-hover);
+    background: var(--mbr-accent-hover);
+}
+
+.mbr-wp-performance-wrap input[type="checkbox"]:focus,
+.mbr-wp-performance-network-settings input[type="checkbox"]:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--mbr-accent-glow);
+}
+
+.mbr-wp-performance-wrap input[type="checkbox"]:disabled,
+.mbr-wp-performance-network-settings input[type="checkbox"]:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* Hide the extra span from the network tab toggle wrapper */
+.mbr-wp-performance-wrap .mbr-toggle {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.mbr-wp-performance-wrap .mbr-toggle-slider {
+    display: none;
+}
+
+/* --------------------------------------------------------------------------
+   Radio Buttons
+   -------------------------------------------------------------------------- */
+.mbr-wp-performance-wrap input[type="radio"],
+.mbr-wp-performance-network-settings input[type="radio"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
     width: 18px;
     height: 18px;
-    line-height: 18px;
+    border: 2px solid var(--mbr-border);
+    border-radius: 50%;
+    background: var(--mbr-bg-input);
+    cursor: pointer;
+    transition: border-color var(--mbr-transition), box-shadow var(--mbr-transition);
+    vertical-align: middle;
+    margin: 0 6px 0 0;
+    position: relative;
+}
+
+.mbr-wp-performance-wrap input[type="radio"]::before,
+.mbr-wp-performance-network-settings input[type="radio"]::before {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 8px;
+    height: 8px;
+    background: transparent;
+    border-radius: 50%;
+    transition: background var(--mbr-transition);
+}
+
+.mbr-wp-performance-wrap input[type="radio"]:checked,
+.mbr-wp-performance-network-settings input[type="radio"]:checked {
+    border-color: var(--mbr-accent);
+    box-shadow: 0 0 8px var(--mbr-accent-glow);
+}
+
+.mbr-wp-performance-wrap input[type="radio"]:checked::before,
+.mbr-wp-performance-network-settings input[type="radio"]:checked::before {
+    background: var(--mbr-accent);
+}
+
+.mbr-wp-performance-wrap input[type="radio"]:hover,
+.mbr-wp-performance-network-settings input[type="radio"]:hover {
+    border-color: var(--mbr-text-muted);
+}
+
+/* Radio labels - stacked vertically with nicer spacing */
+.mbr-wp-performance-wrap td > label + br {
+    display: block;
+    content: "";
+    margin-bottom: 4px;
+}
+
+.mbr-wp-performance-wrap td label {
+    color: var(--mbr-text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: color var(--mbr-transition);
+}
+
+.mbr-wp-performance-wrap td label:hover {
+    color: var(--mbr-text-primary);
+}
+
+/* --------------------------------------------------------------------------
+   Select Dropdowns
+   -------------------------------------------------------------------------- */
+.mbr-wp-performance-wrap select,
+.mbr-wp-performance-network-settings select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background: var(--mbr-bg-input) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23a0a4ad' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center;
+    border: 1px solid var(--mbr-border);
+    border-radius: var(--mbr-radius-sm);
+    color: var(--mbr-text-primary);
+    padding: 8px 36px 8px 12px;
+    font-size: 13px;
+    min-width: 200px;
+    cursor: pointer;
+    transition: border-color var(--mbr-transition), box-shadow var(--mbr-transition), background-color var(--mbr-transition);
+    line-height: 1.5;
+}
+
+.mbr-wp-performance-wrap select:hover,
+.mbr-wp-performance-network-settings select:hover {
+    border-color: var(--mbr-border-light);
+}
+
+.mbr-wp-performance-wrap select:focus,
+.mbr-wp-performance-network-settings select:focus {
+    border-color: var(--mbr-accent);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--mbr-accent-glow);
+    background-color: var(--mbr-bg-input-focus);
+}
+
+.mbr-wp-performance-wrap select option {
+    background: var(--mbr-bg-card);
+    color: var(--mbr-text-primary);
+}
+
+/* --------------------------------------------------------------------------
+   Text Inputs & Number Inputs
+   -------------------------------------------------------------------------- */
+.mbr-wp-performance-wrap input[type="text"],
+.mbr-wp-performance-wrap input[type="number"],
+.mbr-wp-performance-wrap input[type="url"],
+.mbr-wp-performance-wrap input[type="email"] {
+    background: var(--mbr-bg-input);
+    border: 1px solid var(--mbr-border);
+    border-radius: var(--mbr-radius-sm);
+    color: var(--mbr-text-primary);
+    padding: 8px 12px;
+    font-size: 13px;
+    transition: border-color var(--mbr-transition), box-shadow var(--mbr-transition), background-color var(--mbr-transition);
+    line-height: 1.5;
+}
+
+.mbr-wp-performance-wrap input[type="text"]:focus,
+.mbr-wp-performance-wrap input[type="number"]:focus,
+.mbr-wp-performance-wrap input[type="url"]:focus,
+.mbr-wp-performance-wrap input[type="email"]:focus {
+    border-color: var(--mbr-accent);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--mbr-accent-glow);
+    background-color: var(--mbr-bg-input-focus);
+}
+
+.mbr-wp-performance-wrap input.small-text {
+    width: 72px;
     text-align: center;
-    background: #2271b1;
-    color: #fff;
+}
+
+/* --------------------------------------------------------------------------
+   Textareas
+   -------------------------------------------------------------------------- */
+.mbr-wp-performance-wrap textarea {
+    background: var(--mbr-bg-input);
+    border: 1px solid var(--mbr-border);
+    border-radius: var(--mbr-radius-sm);
+    color: var(--mbr-text-primary);
+    padding: 10px 14px;
+    font-size: 13px;
+    font-family: Consolas, Monaco, "Courier New", monospace;
+    line-height: 1.6;
+    resize: vertical;
+    transition: border-color var(--mbr-transition), box-shadow var(--mbr-transition), background-color var(--mbr-transition);
+}
+
+.mbr-wp-performance-wrap textarea:focus {
+    border-color: var(--mbr-accent);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--mbr-accent-glow);
+    background-color: var(--mbr-bg-input-focus);
+}
+
+.mbr-wp-performance-wrap textarea.large-text {
+    width: 100%;
+    max-width: 520px;
+}
+
+/* Placeholder text */
+.mbr-wp-performance-wrap textarea::placeholder,
+.mbr-wp-performance-wrap input::placeholder {
+    color: var(--mbr-text-muted);
+    opacity: 1;
+}
+
+/* --------------------------------------------------------------------------
+   Buttons
+   -------------------------------------------------------------------------- */
+
+/* Primary button */
+.mbr-wp-performance-wrap .button-primary,
+.mbr-wp-performance-wrap input[type="submit"].button-primary,
+.mbr-wp-performance-wrap #submit,
+.mbr-wp-performance-network-settings .button-primary {
+    background: var(--mbr-accent) !important;
+    border: none !important;
+    border-radius: var(--mbr-radius) !important;
+    color: #111318 !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    padding: 8px 22px !important;
+    cursor: pointer;
+    transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease !important;
+    text-shadow: none !important;
+    box-shadow: 0 2px 8px var(--mbr-accent-glow) !important;
+    line-height: 1.6 !important;
+    height: auto !important;
+}
+
+.mbr-wp-performance-wrap .button-primary:hover,
+.mbr-wp-performance-wrap input[type="submit"].button-primary:hover,
+.mbr-wp-performance-wrap #submit:hover,
+.mbr-wp-performance-network-settings .button-primary:hover {
+    background: var(--mbr-accent-hover) !important;
+    box-shadow: 0 4px 16px var(--mbr-accent-glow) !important;
+    transform: translateY(-1px);
+}
+
+.mbr-wp-performance-wrap .button-primary:active,
+.mbr-wp-performance-wrap #submit:active {
+    transform: translateY(0);
+}
+
+.mbr-wp-performance-wrap .button-primary:disabled,
+.mbr-wp-performance-wrap #submit:disabled {
+    opacity: 0.35 !important;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Secondary button */
+.mbr-wp-performance-wrap .button,
+.mbr-wp-performance-wrap .button-secondary,
+.mbr-wp-performance-network-settings .button,
+.mbr-wp-performance-network-settings .button-secondary {
+    background: var(--mbr-bg-input) !important;
+    border: 1px solid var(--mbr-border) !important;
+    border-radius: var(--mbr-radius) !important;
+    color: var(--mbr-text-secondary) !important;
+    font-size: 13px !important;
+    padding: 7px 18px !important;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+    line-height: 1.6 !important;
+    height: auto !important;
+}
+
+.mbr-wp-performance-wrap .button:hover,
+.mbr-wp-performance-wrap .button-secondary:hover,
+.mbr-wp-performance-network-settings .button:hover,
+.mbr-wp-performance-network-settings .button-secondary:hover {
+    background: var(--mbr-bg-card-hover) !important;
+    border-color: var(--mbr-border-light) !important;
+    color: var(--mbr-text-primary) !important;
+}
+
+.mbr-wp-performance-wrap .button:disabled,
+.mbr-wp-performance-wrap .button-secondary:disabled {
+    opacity: 0.35 !important;
+    cursor: not-allowed;
+}
+
+/* Button spacing */
+.mbr-wp-performance-wrap .form-table button + button,
+.mbr-wp-performance-wrap .button + .button {
+    margin-left: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   Actions Bar (Save / Reset)
+   -------------------------------------------------------------------------- */
+.mbr-wp-performance-actions {
+    background: var(--mbr-bg-card);
+    border: 1px solid var(--mbr-border);
+    border-radius: var(--mbr-radius-lg);
+    padding: 16px 24px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    box-shadow: var(--mbr-shadow);
+    margin-top: -4px;
+}
+
+/* --------------------------------------------------------------------------
+   Tooltips
+   -------------------------------------------------------------------------- */
+.mbr-tooltip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    line-height: 1;
+    text-align: center;
+    background: var(--mbr-border);
+    color: var(--mbr-text-secondary);
     border-radius: 50%;
     cursor: help;
-    font-size: 12px;
-    font-weight: bold;
-    margin-left: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 6px;
     position: relative;
+    transition: background var(--mbr-transition), color var(--mbr-transition);
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+.mbr-tooltip:hover {
+    background: var(--mbr-accent);
+    color: #111318;
 }
 
 .mbr-tooltip:hover::after {
@@ -52,17 +587,18 @@
     left: 30px;
     top: 50%;
     transform: translateY(-50%);
-    background: #000;
-    color: #fff;
-    padding: 8px 12px;
-    border-radius: 4px;
+    background: var(--mbr-bg-primary);
+    color: var(--mbr-text-primary);
+    padding: 10px 14px;
+    border-radius: var(--mbr-radius);
+    border: 1px solid var(--mbr-border-light);
     white-space: normal;
     width: 300px;
-    font-size: 13px;
-    font-weight: normal;
+    font-size: 12.5px;
+    font-weight: 400;
     z-index: 1000;
-    line-height: 1.4;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    line-height: 1.5;
+    box-shadow: var(--mbr-shadow-lg);
 }
 
 .mbr-tooltip:hover::before {
@@ -72,91 +608,330 @@
     top: 50%;
     transform: translateY(-50%);
     border: 6px solid transparent;
-    border-right-color: #000;
+    border-right-color: var(--mbr-border-light);
     z-index: 1001;
 }
 
+/* --------------------------------------------------------------------------
+   Notice Boxes
+   -------------------------------------------------------------------------- */
 .mbr-wp-performance-notice {
-    background: #fff3cd;
-    border-left: 4px solid #ffc107;
-    padding: 12px;
+    background: var(--mbr-warning-bg);
+    border: 1px solid rgba(232, 185, 74, 0.25);
+    border-left: 4px solid var(--mbr-warning);
+    border-radius: 0 var(--mbr-radius-sm) var(--mbr-radius-sm) 0;
+    padding: 14px 18px;
     margin-bottom: 20px;
+    color: var(--mbr-text-primary);
 }
 
 .mbr-wp-performance-notice p {
     margin: 0;
+    font-size: 13px;
 }
 
-.mbr-wp-performance-actions {
-    background: #fff;
-    padding: 20px;
-    border: 1px solid #ccd0d4;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
-    display: flex;
-    gap: 10px;
-    align-items: center;
+/* WordPress native notices inside our wrap */
+.mbr-wp-performance-wrap .notice {
+    background: var(--mbr-bg-card);
+    border-color: var(--mbr-border);
+    color: var(--mbr-text-primary);
+    border-radius: var(--mbr-radius-sm);
+    margin-bottom: 16px;
 }
 
-/* Button spacing */
-.form-table button + button {
-    margin-left: 10px;
+.mbr-wp-performance-wrap .notice-success {
+    border-left-color: var(--mbr-success);
+    background: var(--mbr-success-bg);
 }
 
-/* Disabled state */
-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+.mbr-wp-performance-wrap .notice-warning {
+    border-left-color: var(--mbr-warning);
+    background: var(--mbr-warning-bg);
 }
 
-/* Success/Error messages */
+.mbr-wp-performance-wrap .notice-error {
+    border-left-color: var(--mbr-danger);
+    background: var(--mbr-danger-bg);
+}
+
+.mbr-wp-performance-wrap .notice-info {
+    border-left-color: var(--mbr-info);
+    background: var(--mbr-info-bg);
+}
+
+.mbr-wp-performance-wrap .notice p {
+    color: var(--mbr-text-primary);
+}
+
+/* --------------------------------------------------------------------------
+   Success / Error Messages (AJAX feedback)
+   -------------------------------------------------------------------------- */
 .mbr-wp-performance-message {
-    padding: 10px 15px;
+    padding: 10px 16px;
     margin: 10px 0;
     border-left: 4px solid;
-    background: #fff;
+    border-radius: 0 var(--mbr-radius-sm) var(--mbr-radius-sm) 0;
+    font-size: 13px;
 }
 
 .mbr-wp-performance-message.success {
-    border-color: #46b450;
-    background-color: #ecf7ed;
+    border-color: var(--mbr-success);
+    background-color: var(--mbr-success-bg);
+    color: var(--mbr-text-primary);
 }
 
 .mbr-wp-performance-message.error {
-    border-color: #dc3232;
-    background-color: #f9e7e7;
+    border-color: var(--mbr-danger);
+    background-color: var(--mbr-danger-bg);
+    color: var(--mbr-text-primary);
 }
 
-/* Loading spinner */
+/* --------------------------------------------------------------------------
+   Description / Help Text
+   -------------------------------------------------------------------------- */
+.mbr-wp-performance-wrap p.description,
+.mbr-wp-performance-wrap .description {
+    color: var(--mbr-text-muted);
+    font-size: 12.5px;
+    margin-top: 6px;
+    line-height: 1.5;
+}
+
+.mbr-wp-performance-wrap label {
+    color: var(--mbr-text-primary);
+}
+
+/* --------------------------------------------------------------------------
+   Loading Spinner
+   -------------------------------------------------------------------------- */
 .mbr-wp-performance-loading {
     display: inline-block;
     width: 16px;
     height: 16px;
-    border: 2px solid #f3f3f3;
-    border-top: 2px solid #2271b1;
+    border: 2px solid var(--mbr-border);
+    border-top: 2px solid var(--mbr-accent);
     border-radius: 50%;
-    animation: spin 1s linear infinite;
+    animation: mbr-spin 0.7s linear infinite;
     vertical-align: middle;
     margin-left: 10px;
 }
 
-@keyframes spin {
-    0% { transform: rotate(0deg); }
+@keyframes mbr-spin {
+    0%   { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
 
-/* Responsive */
+/* WordPress spinner inside our wrap */
+.mbr-wp-performance-wrap .spinner,
+.mbr-wp-performance-network-settings .spinner {
+    filter: brightness(1.6);
+}
+
+/* --------------------------------------------------------------------------
+   Tables inside sections (e.g. CSS scan results, DB info)
+   -------------------------------------------------------------------------- */
+.mbr-wp-performance-wrap .widefat {
+    background: var(--mbr-bg-input);
+    border: 1px solid var(--mbr-border);
+    border-radius: var(--mbr-radius-sm);
+    color: var(--mbr-text-primary);
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+}
+
+.mbr-wp-performance-wrap .widefat thead th {
+    background: var(--mbr-bg-primary);
+    color: var(--mbr-text-secondary);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--mbr-border);
+    padding: 10px 14px;
+}
+
+.mbr-wp-performance-wrap .widefat tbody td {
+    border-bottom: 1px solid var(--mbr-border);
+    padding: 10px 14px;
+    font-size: 13px;
+}
+
+.mbr-wp-performance-wrap .widefat.striped tbody tr:nth-child(odd) {
+    background: rgba(42, 46, 55, 0.5);
+}
+
+.mbr-wp-performance-wrap .widefat tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* --------------------------------------------------------------------------
+   WP Settings Errors (inside our wrap)
+   -------------------------------------------------------------------------- */
+.mbr-wp-performance-wrap #setting-error-settings_updated {
+    background: var(--mbr-success-bg);
+    border-left-color: var(--mbr-success);
+    color: var(--mbr-text-primary);
+    border-radius: var(--mbr-radius-sm);
+}
+
+/* --------------------------------------------------------------------------
+   Network Admin Cards (.card overrides inside our wrap)
+   -------------------------------------------------------------------------- */
+.mbr-wp-performance-wrap .card,
+.mbr-wp-performance-network-settings .card {
+    background: var(--mbr-bg-card);
+    border: 1px solid var(--mbr-border);
+    border-radius: var(--mbr-radius-lg);
+    box-shadow: var(--mbr-shadow);
+    padding: 24px 28px;
+    color: var(--mbr-text-primary);
+}
+
+.mbr-wp-performance-wrap .card h2,
+.mbr-wp-performance-network-settings .card h2 {
+    color: var(--mbr-text-primary);
+    font-size: 15px;
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: 6px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--mbr-border);
+}
+
+.mbr-wp-performance-network-settings .form-table th {
+    color: var(--mbr-text-primary);
+}
+
+.mbr-wp-performance-network-settings .form-table td {
+    color: var(--mbr-text-primary);
+}
+
+.mbr-wp-performance-network-settings .description {
+    color: var(--mbr-text-muted);
+}
+
+.mbr-wp-performance-network-settings fieldset label {
+    display: block;
+    padding: 4px 0;
+    color: var(--mbr-text-secondary);
+}
+
+/* Checkbox list in network push section */
+.mbr-wp-performance-network-settings div[style*="overflow-y"] {
+    background: var(--mbr-bg-input) !important;
+    border-color: var(--mbr-border) !important;
+    border-radius: var(--mbr-radius-sm);
+}
+
+.mbr-wp-performance-network-settings div[style*="overflow-y"] label {
+    color: var(--mbr-text-secondary);
+    font-size: 13px;
+}
+
+/* Notice overrides for network page */
+.mbr-wp-performance-network-settings .notice.inline {
+    background: var(--mbr-bg-card);
+    color: var(--mbr-text-primary);
+    border-radius: var(--mbr-radius-sm);
+}
+
+.mbr-wp-performance-network-settings .notice-success.inline {
+    border-left-color: var(--mbr-success);
+    background: var(--mbr-success-bg);
+}
+
+.mbr-wp-performance-network-settings .notice-error.inline {
+    border-left-color: var(--mbr-danger);
+    background: var(--mbr-danger-bg);
+}
+
+/* --------------------------------------------------------------------------
+   Scrollbar (for overflowing containers)
+   -------------------------------------------------------------------------- */
+.mbr-wp-performance-wrap ::-webkit-scrollbar,
+.mbr-wp-performance-network-settings ::-webkit-scrollbar {
+    width: 6px;
+}
+
+.mbr-wp-performance-wrap ::-webkit-scrollbar-track,
+.mbr-wp-performance-network-settings ::-webkit-scrollbar-track {
+    background: var(--mbr-bg-primary);
+    border-radius: 3px;
+}
+
+.mbr-wp-performance-wrap ::-webkit-scrollbar-thumb,
+.mbr-wp-performance-network-settings ::-webkit-scrollbar-thumb {
+    background: var(--mbr-border-light);
+    border-radius: 3px;
+}
+
+.mbr-wp-performance-wrap ::-webkit-scrollbar-thumb:hover,
+.mbr-wp-performance-network-settings ::-webkit-scrollbar-thumb:hover {
+    background: var(--mbr-text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
 @media screen and (max-width: 782px) {
     .mbr-wp-performance-section {
-        padding: 15px;
+        padding: 16px;
+        border-radius: var(--mbr-radius);
     }
-    
+
+    .mbr-wp-performance-wrap .form-table th {
+        width: auto;
+        display: block;
+        padding-bottom: 4px;
+    }
+
+    .mbr-wp-performance-wrap .form-table td {
+        display: block;
+        padding-top: 4px;
+        padding-bottom: 14px;
+    }
+
+    .mbr-wp-performance-wrap .nav-tab {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+
     .mbr-tooltip:hover::after {
         left: auto;
         right: 0;
-        width: 250px;
+        width: 220px;
     }
-    
+
     .mbr-tooltip:hover::before {
         display: none;
+    }
+
+    .mbr-wp-performance-actions {
+        flex-wrap: wrap;
+        padding: 14px 16px;
+    }
+
+    .mbr-wp-performance-wrap select {
+        min-width: 160px;
+        width: 100%;
+        max-width: 300px;
+    }
+
+    .mbr-wp-performance-wrap textarea.large-text {
+        max-width: 100%;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .mbr-wp-performance-wrap .nav-tab-wrapper {
+        gap: 0;
+    }
+
+    .mbr-wp-performance-wrap .nav-tab {
+        flex: 1 0 auto;
+        text-align: center;
+        padding: 8px 8px;
+        font-size: 11px;
     }
 }

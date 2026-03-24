@@ -65,3 +65,57 @@ function mbr_wp_performance_log( $message, $level = 'info' ) {
         error_log( sprintf( '[MBR WP Performance] [%s] %s', strtoupper( $level ), $message ) );
     }
 }
+
+// ------------------------------------------------------------------
+//  Multisite helpers
+// ------------------------------------------------------------------
+
+/**
+ * Check whether the plugin is network-activated.
+ *
+ * @since 1.5.0
+ * @return bool
+ */
+function mbr_wp_performance_is_network_active() {
+    if ( ! is_multisite() ) {
+        return false;
+    }
+
+    if ( ! function_exists( 'is_plugin_active_for_network' ) ) {
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+    }
+
+    return is_plugin_active_for_network( MBR_WP_PERFORMANCE_PLUGIN_BASENAME );
+}
+
+/**
+ * Check whether the current site is using network defaults.
+ *
+ * Returns false on single-site installs.
+ *
+ * @since 1.5.0
+ * @return bool
+ */
+function mbr_wp_performance_using_network_defaults() {
+    if ( ! is_multisite() || ! class_exists( 'MBR_WP_Performance_Multisite' ) ) {
+        return false;
+    }
+
+    return MBR_WP_Performance_Multisite::site_uses_network_defaults();
+}
+
+/**
+ * Check whether per-site overrides are allowed on the current network.
+ *
+ * Always returns true on single-site installs.
+ *
+ * @since 1.5.0
+ * @return bool
+ */
+function mbr_wp_performance_site_overrides_allowed() {
+    if ( ! is_multisite() || ! class_exists( 'MBR_WP_Performance_Multisite' ) ) {
+        return true;
+    }
+
+    return MBR_WP_Performance_Multisite::allow_site_overrides();
+}

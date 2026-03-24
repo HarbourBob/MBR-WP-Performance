@@ -1,9 +1,9 @@
 <?php
 /**
  * Plugin Name: MBR WP Performance
- * Plugin URI: https://littlewebshack.com/wp-performance
+ * Plugin URI: https://littlewebshack.com/mbr-wp-performance
  * Description: Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, and database optimization.
- * Version: 1.4.9
+ * Version: 1.5.0
  * Author: Made by Robert
  * Author URI: https://madebyrobert.co.uk
  * Text Domain: mbr-wp-performance
@@ -39,7 +39,7 @@ add_filter( 'plugin_row_meta', function ( $links, $file, $data ) {
 }, 10, 3 );
 
 // Define plugin constants
-define( 'MBR_WP_PERFORMANCE_VERSION', '1.4.9' );
+define( 'MBR_WP_PERFORMANCE_VERSION', '1.5.0' );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -107,6 +107,9 @@ class MBR_WP_Performance {
         
         // Helper functions
         require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/functions.php';
+        
+        // Multisite support
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/class-multisite.php';
     }
 
     /**
@@ -123,6 +126,14 @@ class MBR_WP_Performance {
         // Initialize admin
         if ( is_admin() ) {
             MBR_WP_Performance_Admin::instance();
+        }
+        
+        // Multisite: initialise network admin functionality
+        if ( is_multisite() ) {
+            MBR_WP_Performance_Multisite::instance();
+
+            // Activate plugin on newly-created sites (WP 5.1+).
+            add_action( 'wp_initialize_site', array( 'MBR_WP_Performance_Multisite', 'on_new_site' ), 900 );
         }
         
         // Activation/deactivation hooks
@@ -223,9 +234,17 @@ class MBR_WP_Performance {
 
     /**
      * Plugin activation
+     *
+     * @param bool $network_wide Whether the plugin is being activated network-wide.
      */
-    public function activate() {
-        // Only set defaults on first install, not on update/reactivation
+    public function activate( $network_wide = false ) {
+        // Network-wide activation on multisite
+        if ( is_multisite() && $network_wide ) {
+            MBR_WP_Performance_Multisite::network_activate();
+            return;
+        }
+
+        // Single-site (or per-site on multisite) activation
         $installed_version = get_option( 'mbr_wp_performance_version', false );
         
         if ( false === $installed_version ) {
@@ -256,8 +275,16 @@ class MBR_WP_Performance {
 
     /**
      * Plugin deactivation
+     *
+     * @param bool $network_wide Whether the plugin is being deactivated network-wide.
      */
-    public function deactivate() {
+    public function deactivate( $network_wide = false ) {
+        // Network-wide deactivation on multisite
+        if ( is_multisite() && $network_wide ) {
+            MBR_WP_Performance_Multisite::network_deactivate();
+            return;
+        }
+
         // Clear scheduled events
         wp_clear_scheduled_hook( 'mbr_wp_performance_database_cleanup' );
         
@@ -268,12 +295,18 @@ class MBR_WP_Performance {
     /**
      * Get plugin options
      *
-     * @param string $section Optional section to retrieve
+     * On multisite, respects network defaults and per-site overrides.
+     *
+     * @param string $section Optional section to retrieve.
      * @return array|mixed
      */
     public function get_options( $section = '' ) {
         if ( empty( $this->options ) ) {
-            $this->options = get_option( 'mbr_wp_performance_options', array() );
+            if ( is_multisite() && class_exists( 'MBR_WP_Performance_Multisite' ) ) {
+                $this->options = MBR_WP_Performance_Multisite::get_effective_options();
+            } else {
+                $this->options = get_option( 'mbr_wp_performance_options', array() );
+            }
         }
         
         if ( ! empty( $section ) && isset( $this->options[ $section ] ) ) {
@@ -286,11 +319,20 @@ class MBR_WP_Performance {
     /**
      * Update plugin options
      *
-     * @param array $options
+     * On multisite, also marks the site as having its own overrides.
+     *
+     * @param array $options Options to save.
      * @return bool
      */
     public function update_options( $options ) {
         $this->options = $options;
+
+        // When a site admin saves settings on multisite, mark the site
+        // as no longer using network defaults (it now has its own).
+        if ( is_multisite() && ! is_network_admin() ) {
+            update_option( 'mbr_wp_performance_using_network_defaults', false );
+        }
+
         return update_option( 'mbr_wp_performance_options', $options );
     }
 }

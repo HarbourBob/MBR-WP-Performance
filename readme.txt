@@ -4,7 +4,7 @@ Tags: performance, optimization, speed, cache, database
 Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.4.9
+Stable tag: 1.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -88,6 +88,14 @@ MBR WP Performance is a powerful, all-in-one performance optimization plugin tha
 * Table repair functionality
 * Scheduled automatic cleanups
 
+**Multisite Network Support**
+* Network-wide activation and deactivation
+* Network default settings managed from the Network Admin
+* Push settings to all sites (or selected sites) in one click
+* Import settings from any existing site as network defaults
+* Per-site override control — super admins can lock or unlock site-level customisation
+* Automatic setup for newly-created sites using network defaults
+
 == Installation ==
 
 1. Upload the `mbr-wp-performance` folder to the `/wp-content/plugins/` directory
@@ -113,6 +121,10 @@ Yes! This plugin works alongside caching plugins and provides complementary opti
 
 Yes, the plugin is fully compatible with Elementor, Beaver Builder, Divi, Oxygen, Bricks, and WPBakery. Optimizations are automatically disabled in editor/preview modes.
 
+= Does this work with WordPress Multisite? =
+
+Yes! From v1.5.0 onwards the plugin fully supports WordPress Multisite networks. You can network-activate the plugin and manage default settings from the Network Admin (Settings > WP Performance). You can push those defaults to all sites at once, import settings from any existing site, and choose whether individual site admins are allowed to override the network defaults.
+
 = How do I access the settings? =
 
 Click 'WP Performance' in the WordPress admin toolbar at the top of the screen. You can also access individual tabs from the dropdown menu.
@@ -122,6 +134,18 @@ Click 'WP Performance' in the WordPress admin toolbar at the top of the screen. 
 Lazy Loading delays loading of images/videos until they're needed (saving bandwidth), while Preloading loads critical resources early (improving perceived speed). They work together for optimal performance.
 
 == Changelog ==
+
+= 1.5.0 =
+* Feature: Full WordPress Multisite network support
+* Feature: Network Admin settings page (Settings > WP Performance)
+* Feature: Network-wide default settings with one-click push to all sites
+* Feature: Import settings from any site as the network defaults
+* Feature: Per-site override toggle — super admins can lock or unlock site customisation
+* Feature: Automatic activation and default settings for newly-created network sites
+* Feature: Network Admin toolbar shortcut
+* Improvement: Options resolution now respects network defaults with per-site override priority
+* Improvement: Save button and reset are disabled when per-site overrides are locked
+* Improvement: Informational notices on per-site settings pages in multisite context
 
 = 1.4.9 =
 * Feature: Added comprehensive lazy loading controls
@@ -147,6 +171,9 @@ Lazy Loading delays loading of images/videos until they're needed (saving bandwi
 * Database optimization
 
 == Upgrade Notice ==
+
+= 1.5.0 =
+Adds full WordPress Multisite support — manage performance settings across your entire network from one place. Backup before upgrading.
 
 = 1.4.9 =
 Major update with lazy loading, preloading, improved font management, and better page builder compatibility. Backup before upgrading and test features individually.
