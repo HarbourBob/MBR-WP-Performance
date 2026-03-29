@@ -75,11 +75,6 @@ I built this plugin to scratch my own itch - then realized others might benefit 
 - MBR WP Performance: Free, more features, newer
 - **Difference:** More granular control, self-hosted fonts, database cleanup
 
-**vs Perfmatters:**
-- Perfmatters: $29.95/year, removes unused assets
-- MBR WP Performance: Free, optimizes loaded assets
-- **Use together:** Perfmatters removes, MBR optimizes what's left
-
 **vs Jetpack Boost:**
 - Jetpack Boost: Freemium, cloud-based
 - MBR WP Performance: Fully free, self-hosted
@@ -176,6 +171,23 @@ The plugin:
 - Table optimization
 - Scheduled cleanups
 
+**WebP Image Conversion:**
+- Convert JPG, JPEG, and PNG to WebP
+- Automatic conversion on upload
+- Bulk converter for existing images
+- Configurable compression (1–100)
+- HTML `<picture>` tag delivery with fallback
+- Apache/LiteSpeed `.htaccess` rewrite rules
+- Gutenberg and Elementor integration
+- Revert all with one click
+
+**Multisite Network Support:**
+- Network-wide default settings
+- Push settings to all sites (or selected sites)
+- Import settings from any site as defaults
+- Per-site override control
+- Automatic setup for new sites
+
 ---
 
 ### Does it include page caching?
@@ -189,7 +201,7 @@ The plugin:
 
 **Recommended setup:**
 ```
-MBR WP Performance (optimization)
+MBR WP Performance (optimization + WebP)
 +
 WP Rocket / LiteSpeed Cache / WP Super Cache (caching)
 =
@@ -200,20 +212,27 @@ Maximum performance
 
 ### Does it optimize images?
 
-**No.** This plugin doesn't compress or resize images.
+**Yes — it converts images to WebP format.** From v1.6.0, the plugin includes a full WebP converter that creates smaller WebP copies of your JPG, JPEG, and PNG images.
 
-**Why?**
-- Image optimization is specialized
-- Many great tools already exist
-- Keeps plugin size small
+**What it does:**
+- ✅ Converts images to WebP (typically 60–95% smaller)
+- ✅ Automatic conversion on upload
+- ✅ Bulk converter for existing Media Library images
+- ✅ Serves WebP via `<picture>` tags with automatic fallback
+- ✅ Configurable compression level (1–100)
+- ✅ Server diagnostics panel
+- ✅ Full revert capability (originals never touched)
 
-**Recommended image plugins:**
+**What it doesn't do:**
+- ❌ Lossy compression of originals (resizing, stripping metadata)
+- ❌ CDN-based image transformation
+
+**For lossy compression of originals**, pair with:
 - ShortPixel (freemium)
 - Imagify (freemium)
 - Smush (free)
-- TinyPNG (freemium)
 
-**Best practice:** Optimize images first, then use this plugin for everything else.
+**Best practice:** Use this plugin for WebP conversion, use a dedicated tool for lossy compression of the originals if needed. Disable their WebP feature to avoid duplicates.
 
 ---
 
@@ -354,9 +373,10 @@ Result: 57% faster, 61% smaller
 
 **Biggest impacts:**
 1. Lazy loading: -50% initial payload
-2. Self-hosted fonts: -300ms
-3. Defer JavaScript: -1-2s
-4. Database cleanup: Better admin performance
+2. WebP conversion: -60-95% image file sizes
+3. Self-hosted fonts: -300ms
+4. Defer JavaScript: -1-2s
+5. Database cleanup: Better admin performance
 
 **Remember:** If your hosting is slow (1+ second server response), optimization can only do so much. Start with decent hosting.
 
@@ -377,6 +397,7 @@ PageSpeed Insights measures:
 - Critical CSS → Better FCP
 - Defer JavaScript → Better TBT
 - Font preloading → Better CLS
+- WebP conversion → Better LCP and reduced transfer size
 
 **Realistic expectations:**
 ```
@@ -548,18 +569,20 @@ Exclude from lazy loading:
 **Good combinations:**
 ```
 ✅ MBR WP Performance + WP Rocket (caching)
-✅ MBR WP Performance + Imagify (images)
+✅ MBR WP Performance + Imagify (lossy compression — disable their WebP)
+✅ MBR WP Performance + ShortPixel (lossy compression — disable their WebP)
 ✅ MBR WP Performance + Cloudflare (CDN)
-✅ MBR WP Performance + Perfmatters (asset removal)
+✅ MBR WP Performance + MBR Advanced Asset Manager (asset removal)
 ```
 
 **Bad combinations:**
 ```
 ❌ MBR WP Performance + Autoptimize (both optimize JS/CSS)
 ❌ MBR WP Performance + WP Super Minify (duplicate features)
+❌ MBR WP Performance + another WebP converter (duplicate WebP files)
 ```
 
-**Rule:** Use MBR WP Performance for JS/CSS/fonts/database, use other plugins for caching/images/CDN.
+**Rule:** Use MBR WP Performance for JS/CSS/fonts/WebP/database, use other plugins for caching/CDN.
 
 **If using WP Rocket:** Disable WP Rocket's JS/CSS optimization, keep its caching.
 
@@ -567,13 +590,58 @@ Exclude from lazy loading:
 
 ### Does it work on WordPress Multisite?
 
-**Yes!** Compatible with WordPress Multisite.
+**Yes!** Full Multisite network support from v1.5.0.
 
-**Installation:**
-- Network activate: Settings available per site
-- Site activate: Only available on that site
+**What you can do:**
+- ✅ Network-activate across all sites at once
+- ✅ Set network-wide default settings from Network Admin
+- ✅ Push settings to all sites (or selected sites) in one click
+- ✅ Import a site's settings as the network defaults
+- ✅ Allow or lock per-site overrides
+- ✅ New sites automatically inherit network defaults
 
-**Settings:** Per-site, not network-wide (each site can have different settings).
+**Where to find it:** Network Admin → Settings → WP Performance
+
+**How it works:**
+```
+Network Defaults (set by super admin)
+    ↓
+All sites use these defaults
+    ↓
+Site admin saves custom settings → site switches to its own config
+    ↓
+Super admin pushes defaults again → site resets to network config
+```
+
+**Per-site override control:**
+- **Enabled:** Site admins can customise their own settings
+- **Disabled:** All sites locked to network defaults (save button greyed out)
+
+---
+
+### How do I set up Multisite network settings?
+
+**Step by step:**
+
+1. **Network-activate** the plugin (Plugins → Network Activate)
+2. Go to **Network Admin → Settings → WP Performance**
+3. Configure your baseline settings across all tabs
+4. Click **Save Changes**
+5. Use **"Push to Sites"** to apply to existing sites
+6. Optionally disable per-site overrides if you want all sites locked to your config
+
+**Importing from an existing site:**
+If one of your sites already has a good configuration, click **"Import as Network Defaults"** and select that site. Its settings become the new baseline for the network.
+
+**New sites:** Automatically get the network defaults when created. No manual setup needed.
+
+---
+
+### Will WebP conversion work across all Multisite sites?
+
+**Yes.** Each site in the network has its own WebP settings, conversion history, and file registry. The WebP tab works identically on each site.
+
+If you push network defaults that include WebP settings (auto-convert enabled, compression level, etc.), all target sites will receive those settings. However, the bulk conversion itself needs to be run per-site since each site has its own Media Library.
 
 ---
 
@@ -598,6 +666,9 @@ WordPress.com doesn't allow plugin installation on free/personal plans. You need
 ☑ Lazy Loading → Enable for images & videos
 ☑ Fonts → Self-host Google Fonts
 ☑ Fonts → Preload critical fonts
+☑ WebP → Check server diagnostics
+☑ WebP → Enable auto-convert + run bulk converter
+☑ WebP → Enable <picture> tags
 ```
 
 **Week 2 - CSS:**
@@ -683,6 +754,63 @@ WordPress.com doesn't allow plugin installation on free/personal plans. You need
 **Or:** Enable "Scheduled Cleanup" to run automatically weekly.
 
 **Safe to run:** Database cleanup only removes unused data.
+
+---
+
+### Will WebP conversion affect my original images?
+
+**No.** Original JPG, JPEG, and PNG files are **never** modified or deleted. WebP copies are created alongside the originals in the same uploads folder (same name, `.webp` extension).
+
+```
+wp-content/uploads/2025/03/photo.jpg       ← original (untouched)
+wp-content/uploads/2025/03/photo.webp       ← WebP copy
+wp-content/uploads/2025/03/photo-300x200.jpg    ← thumbnail (untouched)
+wp-content/uploads/2025/03/photo-300x200.webp   ← thumbnail WebP copy
+```
+
+If you click "Revert All WebP Files" or deactivate the plugin, all WebP copies are removed and your originals remain exactly as they were.
+
+---
+
+### What compression level should I use for WebP?
+
+**Default (75) is excellent for most sites.** Here's what to expect:
+
+| Level | Quality | Typical saving | Best for |
+|-------|---------|---------------|----------|
+| 50 | Good | 90-97% smaller | Maximum speed, less visual fidelity |
+| 75 | Very good | 80-95% smaller | Best balance (recommended) |
+| 90 | Excellent | 70-89% smaller | Photography, portfolio sites |
+| 100 | Lossless | 20-40% smaller | When every pixel matters |
+
+**If unsure:** Stick with 75, run the bulk converter, and spot-check a few images on the frontend.
+
+---
+
+### What happens to WebP files if I deactivate the plugin?
+
+On deactivation, the plugin automatically deletes all WebP files it created (tracked in its registry), removes `.htaccess` rules, and clears Elementor cache. Your original images are untouched.
+
+If you prefer to clean up manually first, use the **"Revert All WebP Files"** button in the WebP tab.
+
+---
+
+### Should I use `<picture>` tags or `.htaccess` rules for WebP?
+
+**Use `<picture>` tags** (recommended). They work on any server (Apache, Nginx, CDN), provide clean browser fallback, and integrate with Gutenberg and Elementor.
+
+`.htaccess` rules are only useful on Apache/LiteSpeed and don't work on Nginx. If you're already using `<picture>` tags, you don't need `.htaccess` rules at all.
+
+---
+
+### I was using the standalone MBR WebP Converter — what do I do?
+
+1. Upgrade to MBR WP Performance v1.6.0
+2. Go to **WP Performance > WebP** and confirm your settings
+3. Deactivate the standalone MBR WebP Converter plugin
+4. Optionally delete the standalone plugin
+
+Your conversion history and WebP file registry are migrated automatically. All existing WebP files remain in place.
 
 ---
 
@@ -781,6 +909,44 @@ See [Performance Troubleshooting](troubleshooting.md#performance-not-improving).
 
 ---
 
+### WebP conversion not working
+
+**Server diagnostics show errors:**
+- GD Library not installed → contact your host to install `php-gd`
+- WebP support missing → host needs GD compiled with WebP support
+- Uploads not writable → check folder permissions (755 or 775)
+
+**Conversion runs but no files appear:**
+- Check uploads folder via FTP for `.webp` files alongside originals
+- Ensure sufficient disk space
+- Very small images may be skipped (WebP would be larger)
+
+**`<picture>` tags not showing on frontend:**
+- Ensure "HTML `<picture>` Tags" is enabled in WebP settings
+- Clear all caches (plugin, server, CDN, browser)
+- Tags are automatically skipped in admin and page builder editors
+
+**Images broken after `.htaccess` rules:**
+- If on Nginx, `.htaccess` rules don't apply — use `<picture>` tags instead
+- Disable the `.htaccess` option, save, and clear caches
+
+---
+
+### Multisite settings not applying to sites
+
+**Sites not using network defaults:**
+- Ensure plugin is **network-activated** (not individually per site)
+- If a site admin has saved custom settings, that site uses its own config — push network defaults to reset it
+
+**Site admins can't save settings:**
+- Check "Allow site overrides" in Network Admin → Settings → WP Performance
+- If disabled, settings are intentionally read-only for non-super-admins
+
+**New sites have wrong settings:**
+- New sites inherit defaults at creation time — if you changed defaults after the site was created, push the updated defaults to that site
+
+---
+
 ### Where can I get help?
 
 **Resources:**
@@ -818,6 +984,8 @@ See [Performance Troubleshooting](troubleshooting.md#performance-not-improving).
 | **Database Cleanup** | ✅ | ✅ |
 | **Lazy Loading** | ✅ | ✅ |
 | **Critical CSS** | ✅ | ✅ |
+| **WebP Conversion** | ✅ | ❌ |
+| **Multisite Network** | ✅ | ✅ |
 | **CDN Integration** | ❌ | ✅ |
 | **Control Level** | Granular | Medium |
 | **Support** | Community | Premium |
@@ -841,6 +1009,8 @@ See [Performance Troubleshooting](troubleshooting.md#performance-not-improving).
 | **Lazy Loading** | ✅ | ✅ |
 | **Critical CSS** | ✅ | ✅ (Pro) |
 | **Preloading** | ✅ | ❌ |
+| **WebP Conversion** | ✅ | ❌ |
+| **Multisite Network** | ✅ | Basic |
 | **Control Level** | More granular | Simpler |
 | **Age** | Newer (2026) | Established (2010+) |
 
@@ -850,29 +1020,11 @@ See [Performance Troubleshooting](troubleshooting.md#performance-not-improving).
 
 ---
 
-### MBR WP Performance vs Perfmatters
-
-| Feature | MBR WP Performance | Perfmatters |
-|---------|-------------------|-------------|
-| **Price** | Free | $29.95/year |
-| **Disables Assets** | ❌ | ✅ |
-| **Optimizes Assets** | ✅ | ❌ |
-| **Self-Hosted Fonts** | ✅ | ✅ |
-| **Database Cleanup** | ✅ | ✅ |
-| **Lazy Loading** | ✅ | ✅ |
-| **Script Manager** | Basic | Advanced |
-
-**Best together!**
-- Perfmatters: Removes unused scripts/styles
-- MBR WP Performance: Optimizes what's left
-
----
-
 ## Support & Development
 
 ### How do I report a bug?
 
-**GitHub Issues:** https://github.com/yourusername/mbr-wp-performance/issues
+**GitHub Issues:** https://github.com/harbourbob/mbr-wp-performance/issues
 
 **Before reporting:**
 1. Check [existing issues](https://github.com/harbourbob/mbr-wp-performance/issues)
@@ -897,9 +1049,9 @@ See [Bug Report Template](https://github.com/harbourbob/mbr-wp-performance/issue
 
 ### How do I request a feature?
 
-**GitHub Discussions:** https://github.com/yourusername/mbr-wp-performance/discussions
+**GitHub Discussions:** https://github.com/harbourbob/mbr-wp-performance/discussions
 
-Or **GitHub Issues:** https://github.com/yourusername/mbr-wp-performance/issues/new?template=feature_request
+Or **GitHub Issues:** https://github.com/harbourbob/mbr-wp-performance/issues/new?template=feature_request
 
 **Good feature requests:**
 - Explain use case
@@ -971,11 +1123,11 @@ See [Contributing Guide](CONTRIBUTING.md).
 
 ### Where can I follow development?
 
-**GitHub:** https://github.com/yourusername/mbr-wp-performance
+**GitHub:** https://github.com/harbourbob/mbr-wp-performance
 
 **Blog:** https://littlewebshack.com (plugin updates posted here)
 
-**Twitter:** @yourusername (if active)
+**LinkedIn:** [Robert Palmer](https://www.linkedin.com/in/robert-palmer-cleethorpes/)
 
 ---
 
@@ -983,14 +1135,12 @@ See [Contributing Guide](CONTRIBUTING.md).
 
 **Can't find your answer?**
 
-1. 📚 Check [Complete User Guide](docs/user-guide.md)
-2. 🔧 Check [Troubleshooting Guide](troubleshooting.md)
-3. 🔍 Search [GitHub Issues](https://github.com/yourusername/mbr-wp-performance/issues)
-4. 💬 Ask in [GitHub Discussions](https://github.com/yourusername/mbr-wp-performance/discussions)
-5. 🐛 Open [New Issue](https://github.com/yourusername/mbr-wp-performance/issues/new)
+3. 🔍 Search [GitHub Issues](https://github.com/harbourbob/mbr-wp-performance/issues)
+4. 💬 Ask in [GitHub Discussions](https://github.com/harbourbob/mbr-wp-performance/discussions)
+5. 🐛 Open [New Issue](https://github.com/harbourbob/mbr-wp-performance/issues/new)
 
 ---
 
-**This FAQ is updated regularly. Last updated: February 2026**
+**This FAQ is updated regularly. Last updated: March 2026**
 
 **Found this helpful?** Star the repository: https://github.com/harbourbob/mbr-wp-performance ⭐

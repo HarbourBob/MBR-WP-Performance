@@ -13,9 +13,11 @@ Welcome to MBR WP Performance! This comprehensive guide will help you optimize y
 7. [Preloading](#preloading)
 8. [Lazy Loading](#lazy-loading)
 9. [Database Optimization](#database-optimization)
-10. [Best Practices](#best-practices)
-11. [Troubleshooting](#troubleshooting)
-12. [FAQ](#faq)
+10. [WebP Image Conversion](#webp-image-conversion)
+11. [Multisite Network Support](#multisite-network-support)
+12. [Best Practices](#best-practices)
+13. [Troubleshooting](#troubleshooting)
+14. [FAQ](#faq)
 
 ---
 
@@ -38,6 +40,8 @@ MBR WP Performance is an all-in-one WordPress performance optimization plugin de
 - 🎨 **Font Management**: Self-host Google Fonts, preload critical fonts
 - 🖼️ **Smart Loading**: Lazy load images and videos, preload critical resources
 - 🗄️ **Database Cleanup**: Remove bloat, optimize tables, scheduled maintenance
+- 📷 **WebP Conversion**: Convert images to WebP with automatic fallback delivery
+- 🌐 **Multisite Support**: Network-wide settings with per-site override control
 - 🎯 **Granular Control**: Enable/disable individual optimizations
 - 🔧 **Developer-Friendly**: Clean code, no vendor lock-in
 
@@ -50,7 +54,7 @@ MBR WP Performance is an all-in-one WordPress performance optimization plugin de
 1. **Upload the Plugin**
    - Go to `Plugins > Add New` in WordPress admin
    - Click `Upload Plugin`
-   - Choose `mbr-wp-performance-v1.4.9.zip`
+   - Choose `mbr-wp-performance-v1.6.0.zip`
    - Click `Install Now`
 
 2. **Activate**
@@ -76,10 +80,11 @@ Follow this order for safest implementation:
 1. **Database** → Clean up unnecessary data (safest, immediate impact)
 2. **Fonts** → Self-host Google Fonts
 3. **Lazy Loading** → Enable for images and videos
-4. **Preloading** → Preload critical resources
-5. **CSS** → Enable critical CSS and minification
-6. **JavaScript** → Defer scripts carefully
-7. **Core Features** → Fine-tune WordPress features
+4. **WebP** → Check diagnostics, run bulk conversion, enable auto-convert
+5. **Preloading** → Preload critical resources
+6. **CSS** → Enable critical CSS and minification
+7. **JavaScript** → Defer scripts carefully
+8. **Core Features** → Fine-tune WordPress features
 
 ---
 
@@ -837,12 +842,178 @@ Actions:
 
 ---
 
+## WebP Image Conversion
+
+Access via: **WP Performance > WebP**
+
+WebP is a modern image format developed by Google that delivers significantly smaller file sizes than JPEG and PNG while maintaining equivalent visual quality. The WebP tab lets you convert your entire Media Library and serve WebP images automatically.
+
+### Server Diagnostics
+
+Before converting anything, the diagnostics panel at the top of the tab checks three requirements:
+
+1. **GD Library installed** — the PHP image processing library
+2. **WebP support in GD** — not all GD builds include WebP
+3. **Uploads folder writable** — the plugin needs to write files alongside your originals
+
+All three must show green ticks before conversion will work. If any fail, contact your host.
+
+### Settings
+
+**Automatic Conversion**
+
+Converts new JPG, JPEG, and PNG images to WebP the moment they're uploaded through the Media Library. This includes all WordPress-generated thumbnail sizes, so every variant gets a WebP copy.
+
+**Compression Level**
+
+Controls the quality/size trade-off for WebP output. The scale runs from 1 (smallest file, lowest quality) to 100 (best quality, largest file). The default is 75, which gives excellent results for most sites — typically 80–95% smaller than the original with no visible quality loss.
+
+```
+Compression 75 (default):  hero-top.png 2.66 MB → hero-top.webp 125 KB (95% saving)
+Compression 90 (high):     hero-top.png 2.66 MB → hero-top.webp 280 KB (89% saving)
+Compression 50 (aggressive): hero-top.png 2.66 MB → hero-top.webp 65 KB (97% saving)
+```
+
+**HTML `<picture>` Tags**
+
+Wraps images in `<picture>` elements with a WebP `<source>`. This is the recommended delivery method because it works on any server (Apache, Nginx, CDN) and falls back to the original format for browsers without WebP support.
+
+```html
+<!-- Before -->
+<img src="photo.jpg" alt="Example">
+
+<!-- After -->
+<picture>
+    <source type="image/webp" srcset="photo.webp">
+    <img src="photo.jpg" alt="Example">
+</picture>
+```
+
+Works with Gutenberg blocks, Elementor widgets, classic editor content, post thumbnails, and `wp_get_attachment_image()` output. Automatically skipped inside page builder editors and the admin area.
+
+**.htaccess Rewrite Rules**
+
+An alternative delivery method for Apache and LiteSpeed servers. Adds server-level rules that transparently serve the WebP file when the browser supports it, without modifying any HTML.
+
+Not needed if you're using `<picture>` tags (which is the more reliable option). Does not work on Nginx — a warning is shown if Nginx is detected.
+
+### Bulk Converter
+
+Converts existing images in your Media Library that were uploaded before the auto-convert setting was enabled.
+
+**How to use**:
+
+1. Click **"Start Conversion"**
+2. The plugin scans your uploads folder for JPG, JPEG, and PNG files that don't already have a WebP counterpart
+3. Each image is converted one at a time with a progress bar
+4. Results appear in the Conversion History table below
+
+**Smart skip**: If the WebP output would be larger than the original (rare, but possible with very small or already-compressed images), the file is skipped and the original is left as-is.
+
+### Where WebP Files Are Stored
+
+WebP files are created alongside the originals in the same uploads folder:
+
+```
+wp-content/uploads/2025/03/hero-top.png          ← original (untouched)
+wp-content/uploads/2025/03/hero-top.webp          ← WebP copy
+wp-content/uploads/2025/03/hero-top-300x200.png   ← thumbnail (untouched)
+wp-content/uploads/2025/03/hero-top-300x200.webp  ← thumbnail WebP copy
+```
+
+Original images are **never** modified or deleted.
+
+### Conversion History
+
+A table showing every image that has been converted, with original size, WebP size, and compression percentage. You can:
+
+- **Select and bulk-remove** items from the history
+- **Clear All History** to wipe the log (does not delete WebP files)
+- **Revert All WebP Files** to delete every WebP file the plugin created and clear all history
+
+### Revert All WebP Files
+
+This is the nuclear option. It deletes every WebP file tracked in the plugin's registry, clears the conversion history, removes `.htaccess` rules, and clears Elementor cache.
+
+**What it deletes**: Only files this plugin created (tracked in the registry).
+**What it keeps**: Original JPG/PNG files (always untouched), and any images that were uploaded natively as WebP.
+
+Use this if you want to completely undo all WebP conversion and return to serving originals only.
+
+### Migrating from MBR WebP Converter
+
+If you were previously using the standalone **MBR WebP Converter** plugin, upgrading to MBR WP Performance v1.6.0 will automatically migrate your conversion history and file registry. After upgrading:
+
+1. Go to **WP Performance > WebP** and confirm your settings
+2. Deactivate the standalone MBR WebP Converter plugin
+3. Optionally delete the standalone plugin
+
+All existing WebP files remain in place and continue to be served.
+
+---
+
+## Multisite Network Support
+
+Available from v1.5.0 onwards. Requires **Network Activation** of the plugin.
+
+### Overview
+
+On a WordPress Multisite network, MBR WP Performance lets you manage performance settings centrally from the Network Admin while optionally allowing individual site admins to customise their own settings.
+
+### Network Admin Settings
+
+Access via: **Network Admin > Settings > WP Performance**
+
+This page lets you configure the **network default settings** — the baseline configuration that all sites in the network will use unless they have their own overrides.
+
+The network settings page has the same tabs and options as the regular settings page (Core Features, JavaScript, CSS, Fonts, Preloading, Lazy Loading, Database, WebP).
+
+### Push Settings to Sites
+
+From the Network Admin settings page, you can push the current network defaults to all sites in the network — or select specific sites from a checkbox list. This overwrites any per-site customisations on the target sites.
+
+**When to use**:
+
+- ✅ Rolling out a standardised configuration across all sites
+- ✅ Applying a tested configuration to new or unconfigured sites
+- ⚠️ Use with caution — it overwrites any per-site customisations
+
+### Import Settings from a Site
+
+If one of your sites already has a well-tuned configuration, you can import its settings as the new network defaults. Select the site from the dropdown and click **"Import as Network Defaults"**.
+
+### Per-Site Overrides
+
+**Allow site overrides** (toggle in Network Admin):
+
+- **Enabled**: Individual site admins can customise their own performance settings. Their changes override the network defaults for that site only.
+- **Disabled**: All sites use the network defaults. The settings page is read-only for non-super-admins, with save and reset buttons greyed out.
+
+**How it works**:
+
+1. A new site starts by using the network defaults
+2. If a site admin saves their own settings, the site switches to its own custom configuration
+3. Pushing network defaults to that site resets it back to the network configuration
+
+Sites that are using network defaults show an informational notice at the top of their settings page: *"This site is currently using network default settings. Saving changes will switch this site to its own custom settings."*
+
+### New Site Setup
+
+When a new site is created on the network, it automatically inherits the current network default settings. No manual configuration needed.
+
+### Network Activation and Deactivation
+
+- **Network Activate**: Activates the plugin on all existing sites and sets up network defaults
+- **Network Deactivate**: Deactivates on all sites, clears scheduled events, and removes WebP `.htaccess` rules across the network
+
+---
+
 ## Best Practices
 
 ### Start Simple, Add Gradually
 
 **Week 1**: Database cleanup + Lazy loading
-**Week 2**: Add font optimization
+**Week 2**: Add font optimization + WebP conversion
 **Week 3**: Add preloading
 **Week 4**: CSS optimization
 **Week 5**: JavaScript defer (test carefully!)
@@ -869,8 +1040,9 @@ Focus on these high-impact, low-risk optimizations:
 1. ✅ Lazy load images
 2. ✅ Preload hero image
 3. ✅ Self-host Google Fonts
-4. ✅ Database cleanup
-5. ✅ Defer JavaScript
+4. ✅ Convert images to WebP
+5. ✅ Database cleanup
+6. ✅ Defer JavaScript
 
 Skip advanced features until you've mastered basics.
 
@@ -907,6 +1079,7 @@ After ANY change:
 - CSS combination
 - Remove unused CSS
 - Database conversion to InnoDB
+- WebP bulk conversion (though originals are always kept)
 
 **Use**:
 - UpdraftPlus
@@ -1026,15 +1199,49 @@ After ANY change:
 1. **Server is slow**: Optimize WP, but need better hosting
 2. **Theme is bloated**: Consider a faster theme
 3. **Too many plugins**: Deactivate unused plugins
-4. **Large images**: Optimize images first (use ShortPixel, Imagify)
+4. **Large images**: Convert to WebP (WebP tab) or use ShortPixel/Imagify
 5. **No caching**: Add caching plugin (WP Rocket, LiteSpeed Cache)
 
 **Next steps**:
 1. Test server response time (should be <200ms)
 2. Test with default theme
 3. Disable all other plugins, test
-4. Optimize images
+4. Convert images to WebP
 5. Add caching
+
+### WebP Conversion Not Working
+
+**Server diagnostics fail**:
+- GD Library not installed → contact your host to install `php-gd`
+- WebP support missing → host needs to recompile GD with WebP support
+- Uploads not writable → check folder permissions (should be 755 or 775)
+
+**Conversion runs but no WebP files appear**:
+- Check the uploads folder directly via FTP/file manager
+- Ensure there's enough disk space
+- Very small images may be skipped if the WebP would be larger
+
+**`<picture>` tags not appearing on the frontend**:
+- Ensure "HTML `<picture>` Tags" is enabled in the WebP settings
+- Clear all caches (plugin cache, server cache, CDN, browser)
+- Check that you're viewing the frontend, not the admin or a page builder editor (wrapping is automatically skipped in editors)
+
+**Images broken after enabling `.htaccess` rules**:
+- If you're on Nginx, `.htaccess` rules don't apply — use `<picture>` tags instead
+- Disable the `.htaccess` option, save, and clear caches
+
+### Multisite Settings Not Applying
+
+**Sites not using network defaults**:
+- Check that the plugin is **network-activated** (not individually activated per site)
+- If a site admin has saved their own settings, the site uses its own configuration — push network defaults to reset it
+
+**Site admins can't save settings**:
+- Check whether "Allow site overrides" is enabled in the Network Admin settings
+- If disabled, settings are read-only for non-super-admins (this is intentional)
+
+**New sites don't have the right settings**:
+- New sites inherit defaults at the moment of creation — if you changed the network defaults after the site was created, push the updated defaults to that site
 
 ---
 
@@ -1046,14 +1253,15 @@ After ANY change:
 
 **Good combinations**:
 - ✅ MBR WP Performance + WP Rocket (caching)
-- ✅ MBR WP Performance + Imagify (image optimization)
+- ✅ MBR WP Performance + Imagify (lossy compression of originals — disable their WebP)
 - ✅ MBR WP Performance + Cloudflare (CDN)
 
 **Bad combinations**:
 - ❌ MBR WP Performance + Autoptimize (both defer JS/CSS)
 - ❌ MBR WP Performance + WP Super Minify (duplicate minification)
+- ❌ MBR WP Performance + another WebP converter (duplicate WebP files)
 
-**Rule**: Use MBR WP Performance for JS/CSS/fonts, use other plugins for caching/images/CDN
+**Rule**: Use MBR WP Performance for JS/CSS/fonts/WebP, use other plugins for caching/CDN
 
 ### Will this work with my page builder?
 
@@ -1066,6 +1274,45 @@ After ANY change:
 - ✅ WPBakery
 
 **How it works**: Plugin detects editor mode and disables optimizations automatically
+
+### Does it work with WordPress Multisite?
+
+**Yes!** From v1.5.0 onwards, the plugin fully supports Multisite networks.
+
+**What you can do**:
+- ✅ Network-activate the plugin
+- ✅ Set network-wide default settings from the Network Admin
+- ✅ Push settings to all sites (or selected sites) in one click
+- ✅ Import a site's settings as the network defaults
+- ✅ Allow or lock per-site overrides
+- ✅ New sites automatically inherit network defaults
+
+**Where to find it**: Network Admin → Settings → WP Performance
+
+### Will WebP conversion affect my original images?
+
+**No.** Original JPG, JPEG, and PNG files are **never** modified or deleted. WebP copies are created alongside the originals in the same uploads folder. If you deactivate the plugin or click "Revert All WebP Files", the WebP copies are removed and your originals remain exactly as they were.
+
+### What happens to WebP files if I deactivate the plugin?
+
+On deactivation, the plugin automatically deletes all WebP files it created (tracked in its registry), removes `.htaccess` rules, and clears Elementor cache. Your original images are untouched.
+
+If you prefer to clean up manually before deactivating, use the **"Revert All WebP Files"** button in the WebP tab.
+
+### Can I use WebP conversion with other image optimisation plugins?
+
+**Yes**, but avoid running two WebP converters at the same time. If you're already using ShortPixel, Imagify, or EWWW for WebP conversion, disable their WebP feature and use this plugin's converter instead — or vice versa.
+
+**Good combinations**:
+- ✅ MBR WP Performance WebP + ShortPixel (for lossy optimisation of originals)
+- ✅ MBR WP Performance WebP + Imagify (for image resizing/compression)
+
+**Bad combinations**:
+- ❌ Two plugins both creating WebP copies (duplicate files, conflicting `<picture>` tags)
+
+### I was using the standalone MBR WebP Converter — what do I do?
+
+Upgrade to MBR WP Performance v1.6.0 and your conversion history and file registry will be migrated automatically. Then deactivate the standalone MBR WebP Converter plugin. All existing WebP files remain in place.
 
 ### How often should I run database cleanup?
 
@@ -1181,7 +1428,7 @@ Exclude script handles that only load on specific pages
 
 ### Can I revert all changes?
 
-**Yes!** Two ways:
+**Yes!** Several ways:
 
 **Option 1 - Disable specific features**:
 - Go to each tab
@@ -1192,6 +1439,12 @@ Exclude script handles that only load on specific pages
 - Any tab → "Reset to Defaults" button
 - Confirms before resetting
 - Restores original settings
+
+**Option 3 - Revert WebP files**:
+- WebP tab → "Revert All WebP Files" button
+- Deletes all plugin-created WebP files
+- Clears history and registry
+- Originals are never touched
 
 **Database cleanups**: Irreversible (use backups!)
 
@@ -1206,9 +1459,10 @@ Exclude script handles that only load on specific pages
 
 **Biggest impacts**:
 1. Lazy loading: -50% initial payload
-2. Font optimization: -300ms render time
-3. Defer JavaScript: -1-2s load time
-4. Database cleanup: Better admin speed
+2. WebP conversion: -60-95% image file sizes
+3. Font optimization: -300ms render time
+4. Defer JavaScript: -1-2s load time
+5. Database cleanup: Better admin speed
 
 **Real example**:
 ```
@@ -1311,7 +1565,41 @@ WHERE p.ID IS NULL;
 
 ## Changelog
 
-### Version 1.4.9 (Current)
+### Version 1.6.0 (Current)
+
+**New Features**:
+- ✨ Integrated WebP image conversion (previously the standalone MBR WebP Converter plugin)
+- ✨ New "WebP" tab with settings, server diagnostics, and bulk converter
+- ✨ Automatic WebP conversion on image upload
+- ✨ Configurable compression level (1–100)
+- ✨ HTML `<picture>` tag delivery with automatic browser fallback
+- ✨ Apache/LiteSpeed `.htaccess` rewrite rules for transparent WebP serving
+- ✨ Gutenberg block and Elementor widget integration for `<picture>` tags
+- ✨ Conversion history with bulk management and "Revert All" functionality
+- ✨ Automatic migration of data from standalone MBR WebP Converter plugin
+
+**Improvements**:
+- 🔧 Smart skip when WebP output would be larger than the original
+- 🔧 Redesigned admin UI with pill-style tab navigation
+- 🔧 Dark mode page background
+
+### Version 1.5.0
+
+**New Features**:
+- ✨ Full WordPress Multisite network support
+- ✨ Network Admin settings page (Settings > WP Performance)
+- ✨ Network-wide default settings with one-click push to all sites
+- ✨ Import settings from any site as the network defaults
+- ✨ Per-site override toggle — super admins can lock or unlock site customisation
+- ✨ Automatic activation and default settings for newly-created network sites
+- ✨ Network Admin toolbar shortcut
+
+**Improvements**:
+- 🔧 Options resolution respects network defaults with per-site override priority
+- 🔧 Save button and reset disabled when per-site overrides are locked
+- 🔧 Informational notices on per-site settings pages in multisite context
+
+### Version 1.4.9
 
 **New Features**:
 - ✨ Comprehensive lazy loading controls
@@ -1350,6 +1638,10 @@ Copy this checklist for your first optimization session:
 ☐ Fonts → Enable "Preload Critical Fonts"
 ☐ Lazy Loading → Enable "Lazy Load Images"
 ☐ Lazy Loading → Enable "Lazy Load iFrames and Videos"
+☐ WebP → Check server diagnostics (all green)
+☐ WebP → Enable "Automatic Conversion"
+☐ WebP → Run "Start Conversion" for existing images
+☐ WebP → Enable "HTML <picture> Tags"
 ☐ Preloading → Set "Preload Critical Images" to 1
 ☐ Preloading → Enable "Fetch Priority"
 ☐ Core → Enable "Disable Emojis"
@@ -1410,5 +1702,5 @@ Performance optimization is a journey, not a destination. This plugin gives you 
 
 ---
 
-*Last updated: Version 1.4.9 - February 2026*
-*Created with ❤️ by Made by Robert*
+*Last updated: Version 1.6.0 - March 2026*
+*Created with ❤️ by Robert Palmer*
