@@ -67,6 +67,15 @@ console.log('==========================================');
             // Font operations
             $('#download-manual-fonts').on('click', function(e) { self.downloadManualFonts.call(this, e); });
             $('#clear-font-cache').on('click', function(e) { self.clearFontCache.call(this, e); });
+            
+            // WebP Converter operations
+            $('#mbr-webp-start-conversion').on('click', function(e) { self.webpStartConversion.call(this, e); });
+            $('#mbr-webp-clear-history').on('click', function(e) { self.webpClearHistory.call(this, e); });
+            $('#mbr-webp-apply-bulk').on('click', function(e) { self.webpApplyBulk.call(this, e); });
+            $('#mbr-webp-revert-all').on('click', function(e) { self.webpRevertAll.call(this, e); });
+            $('#mbr-webp-select-all').on('change', function() {
+                $('.mbr-webp-item-checkbox').prop('checked', $(this).prop('checked'));
+            });
         },
 
         /**
@@ -697,6 +706,226 @@ console.log('==========================================');
                 } else {
                     MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
                 }
+            });
+        },
+
+        /* ==================================================================
+         * WebP Converter
+         * ================================================================ */
+
+        /**
+         * Start bulk WebP conversion
+         */
+        webpStartConversion: function(e) {
+            e.preventDefault();
+            var $startBtn   = $('#mbr-webp-start-conversion');
+            var $clearBtn   = $('#mbr-webp-clear-history');
+            var $bulkBtn    = $('#mbr-webp-apply-bulk');
+            var $progress   = $('#mbr-webp-progress-container');
+            var $bar        = $('#mbr-webp-progress-bar');
+            var $status     = $('#mbr-webp-status');
+            var $list       = $('#mbr-webp-history-list');
+
+            $startBtn.prop('disabled', true).text('Processing…');
+            $clearBtn.prop('disabled', true);
+            $bulkBtn.prop('disabled', true);
+            $status.text('Finding images to convert…');
+            $progress.show();
+
+            $.post(mbrWpPerformance.ajaxUrl, {
+                action: 'mbr_wp_performance_webp_get_images',
+                nonce: mbrWpPerformance.nonce
+            }, function(response) {
+                if (!response || !response.success || !Array.isArray(response.data)) {
+                    $status.text('Failed to list images.');
+                    $startBtn.prop('disabled', false).text('Start Conversion');
+                    $clearBtn.prop('disabled', false);
+                    $bulkBtn.prop('disabled', false);
+                    return;
+                }
+
+                var allImages = response.data;
+                if (allImages.length === 0) {
+                    $status.text('No unconverted images found — everything is up to date.');
+                    $startBtn.prop('disabled', false).text('Start Conversion');
+                    $clearBtn.prop('disabled', false);
+                    $bulkBtn.prop('disabled', false);
+                    return;
+                }
+
+                var idx = 0;
+                function updateProgress() {
+                    var pct = Math.round((idx / allImages.length) * 100);
+                    $bar.css('width', pct + '%').text(pct + '%');
+                }
+                function processNext() {
+                    if (idx >= allImages.length) {
+                        $status.text('Done — ' + allImages.length + ' image(s) processed.');
+                        updateProgress();
+                        $startBtn.prop('disabled', false).text('Start Conversion');
+                        $clearBtn.prop('disabled', false);
+                        $bulkBtn.prop('disabled', false);
+                        return;
+                    }
+                    var imagePath = allImages[idx];
+                    $.post(mbrWpPerformance.ajaxUrl, {
+                        action: 'mbr_wp_performance_webp_process_image',
+                        nonce: mbrWpPerformance.nonce,
+                        image_path: imagePath
+                    })
+                    .done(function(resp) {
+                        if (resp && resp.success) {
+                            var d = resp.data || {};
+                            var filename = (d.original_path || imagePath).split('/').pop();
+                            var fullUrl  = mbrWpPerformance.uploadUrl + '/' + (d.original_path || imagePath);
+                            var row = '<tr>' +
+                                '<th scope="row" class="check-column"><input type="checkbox" class="mbr-webp-item-checkbox" value="' + imagePath + '"></th>' +
+                                '<td><a href="' + fullUrl + '" target="_blank">' + filename + '</a></td>' +
+                                '<td>' + (d.original_size || '') + '</td>' +
+                                '<td>' + (d.webp_size || '') + '</td>' +
+                                '<td>' + (d.compression || '') + '</td>' +
+                                '</tr>';
+                            $list.prepend(row);
+                            $status.text('Converted: ' + (d.original_path || imagePath));
+                        } else {
+                            var msg = (resp && resp.data) ? resp.data : 'Unknown error';
+                            $list.prepend('<tr><th scope="row" class="check-column"></th><td colspan="4" style="color: var(--mbr-danger);">Failed: ' + imagePath + ' — ' + msg + '</td></tr>');
+                        }
+                    })
+                    .fail(function() {
+                        $list.prepend('<tr><th scope="row" class="check-column"></th><td colspan="4" style="color: var(--mbr-danger);">AJAX error processing ' + imagePath + '</td></tr>');
+                    })
+                    .always(function() {
+                        idx++;
+                        updateProgress();
+                        processNext();
+                    });
+                }
+                updateProgress();
+                processNext();
+            }).fail(function() {
+                $status.text('AJAX failed while listing images.');
+                $startBtn.prop('disabled', false).text('Start Conversion');
+                $clearBtn.prop('disabled', false);
+                $bulkBtn.prop('disabled', false);
+            });
+        },
+
+        /**
+         * Clear all WebP conversion history
+         */
+        webpClearHistory: function(e) {
+            e.preventDefault();
+            if (!confirm('Are you sure you want to clear all conversion history? This cannot be undone.')) {
+                return;
+            }
+            var $btn    = $('#mbr-webp-clear-history');
+            var $status = $('#mbr-webp-status');
+
+            $btn.prop('disabled', true).text('Clearing…');
+            $('#mbr-webp-start-conversion, #mbr-webp-apply-bulk').prop('disabled', true);
+            $status.text('Clearing history…');
+
+            $.post(mbrWpPerformance.ajaxUrl, {
+                action: 'mbr_wp_performance_webp_clear_history',
+                nonce: mbrWpPerformance.nonce
+            })
+            .done(function(response) {
+                if (response && response.success) {
+                    $status.text(response.data || 'History cleared.');
+                    $('#mbr-webp-history-list').html('<tr><td colspan="5">No images converted yet.</td></tr>');
+                } else {
+                    $status.text('Failed to clear history.');
+                }
+            })
+            .fail(function() {
+                $status.text('AJAX failed while clearing history.');
+            })
+            .always(function() {
+                $btn.prop('disabled', false).text('Clear All History');
+                $('#mbr-webp-start-conversion, #mbr-webp-apply-bulk').prop('disabled', false);
+            });
+        },
+
+        /**
+         * Apply bulk action on selected WebP history items
+         */
+        webpApplyBulk: function(e) {
+            e.preventDefault();
+            var action = $('#mbr-webp-bulk-action').val();
+            if (action !== 'delete') {
+                return;
+            }
+
+            var items = [];
+            $('.mbr-webp-item-checkbox:checked').each(function() {
+                items.push($(this).val());
+            });
+
+            if (items.length === 0) {
+                alert('No items selected.');
+                return;
+            }
+
+            var $status = $('#mbr-webp-status');
+
+            $.post(mbrWpPerformance.ajaxUrl, {
+                action: 'mbr_wp_performance_webp_bulk_delete',
+                nonce: mbrWpPerformance.nonce,
+                items: items
+            })
+            .done(function(response) {
+                if (response && response.success) {
+                    $status.text(response.data);
+                    // Remove the rows from the table.
+                    $('.mbr-webp-item-checkbox:checked').closest('tr').remove();
+                    if ($('#mbr-webp-history-list tr').length === 0) {
+                        $('#mbr-webp-history-list').html('<tr><td colspan="5">No images converted yet.</td></tr>');
+                    }
+                } else {
+                    $status.text(response.data || 'Bulk action failed.');
+                }
+            })
+            .fail(function() {
+                $status.text('AJAX failed during bulk action.');
+            });
+        },
+
+        /**
+         * Revert all WebP files — delete every plugin-created WebP and clear history
+         */
+        webpRevertAll: function(e) {
+            e.preventDefault();
+            if (!confirm('This will DELETE every WebP file created by this plugin and clear all conversion history.\n\nOriginal images (JPG/PNG) are never touched.\nFiles that were uploaded as WebP are left intact.\n\nThis cannot be undone. Continue?')) {
+                return;
+            }
+
+            var $btn    = $('#mbr-webp-revert-all');
+            var $status = $('#mbr-webp-status');
+
+            $btn.prop('disabled', true).text('Reverting…');
+            $('#mbr-webp-start-conversion, #mbr-webp-clear-history, #mbr-webp-apply-bulk').prop('disabled', true);
+            $status.text('Deleting WebP files and clearing history…');
+
+            $.post(mbrWpPerformance.ajaxUrl, {
+                action: 'mbr_wp_performance_webp_revert_all',
+                nonce: mbrWpPerformance.nonce
+            })
+            .done(function(response) {
+                if (response && response.success) {
+                    $status.text(response.data || 'Revert complete.');
+                    $('#mbr-webp-history-list').html('<tr><td colspan="5">No images converted yet.</td></tr>');
+                } else {
+                    var msg = (response && response.data && response.data.message) ? response.data.message : 'Revert failed.';
+                    $status.text(msg);
+                }
+            })
+            .fail(function() {
+                $status.text('AJAX failed during revert.');
+            })
+            .always(function() {
+                $btn.prop('disabled', false).text('Revert All WebP Files');
+                $('#mbr-webp-start-conversion, #mbr-webp-clear-history, #mbr-webp-apply-bulk').prop('disabled', false);
             });
         }
     };

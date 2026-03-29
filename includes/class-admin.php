@@ -75,6 +75,13 @@ class MBR_WP_Performance_Admin {
         add_action( 'wp_ajax_mbr_wp_performance_download_manual_fonts', array( $this, 'ajax_download_manual_fonts' ) );
         add_action( 'wp_ajax_mbr_wp_performance_clear_font_cache', array( $this, 'ajax_clear_font_cache' ) );
         
+        // WebP Converter AJAX handlers
+        add_action( 'wp_ajax_mbr_wp_performance_webp_get_images', array( $this, 'ajax_webp_get_images' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_webp_process_image', array( $this, 'ajax_webp_process_image' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_webp_clear_history', array( $this, 'ajax_webp_clear_history' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_webp_bulk_delete', array( $this, 'ajax_webp_bulk_delete' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_webp_revert_all', array( $this, 'ajax_webp_revert_all' ) );
+        
         // Multisite: import site settings into network defaults
         add_action( 'wp_ajax_mbr_wp_performance_import_site_settings', array( $this, 'ajax_import_site_settings' ) );
     }
@@ -101,6 +108,7 @@ class MBR_WP_Performance_Admin {
             'preloading' => __( 'Preloading', 'mbr-wp-performance' ),
             'lazy-loading' => __( 'Lazy Loading', 'mbr-wp-performance' ),
             'database' => __( 'Database', 'mbr-wp-performance' ),
+            'webp' => __( 'WebP', 'mbr-wp-performance' ),
         );
         
         foreach ( $tabs as $tab => $label ) {
@@ -187,6 +195,11 @@ class MBR_WP_Performance_Admin {
         // Sanitize and merge database options
         if ( isset( $options['database'] ) && is_array( $options['database'] ) ) {
             $sanitized['database'] = $this->sanitize_database_options( $options['database'] );
+        }
+        
+        // Sanitize and merge WebP options
+        if ( isset( $options['webp'] ) && is_array( $options['webp'] ) ) {
+            $sanitized['webp'] = $this->sanitize_webp_options( $options['webp'] );
         }
         
         return $sanitized;
@@ -577,6 +590,41 @@ class MBR_WP_Performance_Admin {
     }
 
     /**
+     * Sanitize WebP options
+     *
+     * @param array $options
+     * @return array
+     */
+    private function sanitize_webp_options( $options ) {
+        $sanitized = array();
+
+        // Boolean options.
+        $boolean_fields = array(
+            'auto_convert',
+            'picture_tags',
+            'htaccess_rules',
+        );
+
+        foreach ( $boolean_fields as $field ) {
+            $sanitized[ $field ] = isset( $options[ $field ] ) ? (bool) $options[ $field ] : false;
+        }
+
+        // Compression level (1–100).
+        $sanitized['compression_level'] = isset( $options['compression_level'] )
+            ? max( 1, min( 100, absint( $options['compression_level'] ) ) )
+            : 75;
+
+        // Write or remove .htaccess rules based on the setting.
+        if ( $sanitized['htaccess_rules'] ) {
+            MBR_WP_Performance_WebP_Converter::add_htaccess_rules();
+        } else {
+            MBR_WP_Performance_WebP_Converter::remove_htaccess_rules();
+        }
+
+        return $sanitized;
+    }
+
+    /**
      * Enqueue admin assets
      *
      * @param string $hook
@@ -597,6 +645,12 @@ class MBR_WP_Performance_Admin {
             MBR_WP_PERFORMANCE_VERSION
         );
         
+        // Inject dark background inline — bypasses any specificity issues
+        wp_add_inline_style(
+            'mbr-wp-performance-admin',
+            'html, body.wp-admin, #wpwrap, #wpcontent, #wpbody, #wpbody-content, .wrap { background-color: #1a1d23 !important; } #wpfooter { background-color: #1a1d23 !important; color: #6c7080; } #wpfooter a { color: #6c7080; }'
+        );
+        
         // Enqueue scripts - Using clean rebuilt version
         wp_enqueue_script(
             'mbr-wp-performance-admin',
@@ -613,6 +667,7 @@ class MBR_WP_Performance_Admin {
             array(
                 'ajaxUrl' => admin_url( 'admin-ajax.php' ),
                 'nonce' => wp_create_nonce( 'mbr_wp_performance_nonce' ),
+                'uploadUrl' => wp_upload_dir()['baseurl'],
                 'i18n' => array(
                     'saveSuccess' => __( 'Settings saved successfully.', 'mbr-wp-performance' ),
                     'saveError' => __( 'Error saving settings. Please try again.', 'mbr-wp-performance' ),
@@ -681,6 +736,9 @@ class MBR_WP_Performance_Admin {
                     case 'database':
                         $this->render_database_tab( $options );
                         break;
+                    case 'webp':
+                        $this->render_webp_tab( $options );
+                        break;
                 }
                 ?>
                 
@@ -720,6 +778,7 @@ class MBR_WP_Performance_Admin {
             'preloading' => __( 'Preloading', 'mbr-wp-performance' ),
             'lazy-loading' => __( 'Lazy Loading', 'mbr-wp-performance' ),
             'database' => __( 'Database', 'mbr-wp-performance' ),
+            'webp' => __( 'WebP', 'mbr-wp-performance' ),
         );
         
         echo '<h2 class="nav-tab-wrapper">';
@@ -796,6 +855,15 @@ class MBR_WP_Performance_Admin {
      */
     private function render_database_tab( $options ) {
         require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/admin/tabs/database.php';
+    }
+
+    /**
+     * Render WebP tab
+     *
+     * @param array $options
+     */
+    private function render_webp_tab( $options ) {
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/admin/tabs/webp.php';
     }
 
     /**
@@ -2022,6 +2090,232 @@ class MBR_WP_Performance_Admin {
         file_put_contents( $css_filepath, $local_css );
         
         return true;
+    }
+
+    /* ======================================================================
+     * WebP Converter AJAX Handlers
+     * ==================================================================== */
+
+    /**
+     * AJAX: Get all unconverted images.
+     */
+    public function ajax_webp_get_images() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
+        }
+
+        $upload_dir  = wp_upload_dir();
+        $image_paths = array();
+        $iterator    = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $upload_dir['basedir'] ) );
+
+        foreach ( $iterator as $file ) {
+            if ( $file->isDir() ) {
+                continue;
+            }
+            $extension = strtolower( $file->getExtension() );
+            if ( in_array( $extension, array( 'jpg', 'jpeg', 'png' ), true ) ) {
+                $webp_path = preg_replace( '/\.(jpe?g|png)$/i', '.webp', $file->getPathname() );
+                if ( ! file_exists( $webp_path ) ) {
+                    $image_paths[] = str_replace( $upload_dir['basedir'] . '/', '', $file->getPathname() );
+                }
+            }
+        }
+
+        wp_send_json_success( $image_paths );
+    }
+
+    /**
+     * AJAX: Process (convert) a single image.
+     */
+    public function ajax_webp_process_image() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
+        }
+
+        if ( ! isset( $_POST['image_path'] ) ) {
+            wp_send_json_error( __( 'Missing image path.', 'mbr-wp-performance' ) );
+        }
+
+        $image_path_relative = sanitize_text_field( wp_unslash( $_POST['image_path'] ) );
+        $upload_dir          = wp_upload_dir();
+        $full_path           = $upload_dir['basedir'] . '/' . $image_path_relative;
+
+        $converter = MBR_WP_Performance_WebP_Converter::instance();
+        $result    = $converter->convert_single_image( $full_path );
+
+        if ( ! $result ) {
+            wp_send_json_error( __( 'Server failed to convert the file.', 'mbr-wp-performance' ) );
+        }
+
+        if ( 'skipped' === $result['status'] ) {
+            wp_send_json_success( array(
+                'original_path' => $image_path_relative,
+                'original_size' => size_format( $result['original_size'], 2 ),
+                'webp_size'     => size_format( $result['webp_size'], 2 ),
+                'compression'   => __( 'Skipped (larger)', 'mbr-wp-performance' ),
+            ) );
+            return;
+        }
+
+        if ( 'success' === $result['status'] ) {
+            $converted_images   = get_option( 'mbr_webp_converted_images', array() );
+            $converted_images[] = array(
+                'original_path' => $image_path_relative,
+                'webp_path'     => str_replace( $upload_dir['basedir'] . '/', '', $result['webp_path'] ),
+                'original_size' => $result['original_size'],
+                'webp_size'     => $result['webp_size'],
+            );
+            update_option( 'mbr_webp_converted_images', $converted_images );
+
+            $compression = ( ( $result['original_size'] - $result['webp_size'] ) / $result['original_size'] ) * 100;
+
+            wp_send_json_success( array(
+                'original_path' => $image_path_relative,
+                'original_size' => size_format( $result['original_size'], 2 ),
+                'webp_size'     => size_format( $result['webp_size'], 2 ),
+                'compression'   => number_format( $compression, 2 ) . '%',
+            ) );
+        }
+    }
+
+    /**
+     * AJAX: Clear all conversion history.
+     */
+    public function ajax_webp_clear_history() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'mbr-wp-performance' ) ) );
+        }
+
+        if ( false === get_option( 'mbr_webp_converted_images' ) ) {
+            wp_send_json_success( __( 'History was already empty.', 'mbr-wp-performance' ) );
+            return;
+        }
+
+        if ( delete_option( 'mbr_webp_converted_images' ) ) {
+            wp_send_json_success( __( 'Conversion history cleared successfully.', 'mbr-wp-performance' ) );
+        } else {
+            wp_send_json_error( __( 'Could not clear the history due to a database error.', 'mbr-wp-performance' ) );
+        }
+    }
+
+    /**
+     * AJAX: Bulk-delete items from conversion history.
+     */
+    public function ajax_webp_bulk_delete() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
+        }
+
+        if ( ! isset( $_POST['items'] ) || ! is_array( $_POST['items'] ) || empty( $_POST['items'] ) ) {
+            wp_send_json_error( __( 'No items were selected.', 'mbr-wp-performance' ) );
+        }
+
+        $items_to_delete   = array_map( 'sanitize_text_field', wp_unslash( $_POST['items'] ) );
+        $converted_images  = get_option( 'mbr_webp_converted_images', array() );
+
+        if ( empty( $converted_images ) ) {
+            wp_send_json_success( __( 'History was already empty.', 'mbr-wp-performance' ) );
+            return;
+        }
+
+        $new_list      = array();
+        $deleted_count = 0;
+        $delete_lookup = array_flip( $items_to_delete );
+
+        foreach ( $converted_images as $image ) {
+            if ( ! isset( $delete_lookup[ $image['original_path'] ] ) ) {
+                $new_list[] = $image;
+            } else {
+                $deleted_count++;
+            }
+        }
+
+        update_option( 'mbr_webp_converted_images', $new_list );
+
+        wp_send_json_success(
+            /* translators: %d: number of items removed from history */
+            sprintf( __( 'Successfully removed %d item(s) from history.', 'mbr-wp-performance' ), $deleted_count )
+        );
+    }
+
+    /**
+     * AJAX: Revert all WebP files — delete every plugin-created WebP and clear history.
+     *
+     * Only files tracked in the registry are removed.
+     * Files that were uploaded as WebP (not created by this plugin) are left alone.
+     */
+    public function ajax_webp_revert_all() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'mbr-wp-performance' ) ) );
+        }
+
+        $upload_dir    = wp_upload_dir();
+        $registry      = get_option( 'mbr_webp_registry', array() );
+        $deleted_count = 0;
+        $failed_count  = 0;
+
+        if ( ! empty( $registry ) && is_array( $registry ) ) {
+            foreach ( $registry as $webp_relative_path ) {
+                $full_path = $upload_dir['basedir'] . '/' . $webp_relative_path;
+                if ( file_exists( $full_path ) ) {
+                    if ( wp_delete_file( $full_path ) || ! file_exists( $full_path ) ) {
+                        $deleted_count++;
+                    } else {
+                        $failed_count++;
+                    }
+                } else {
+                    // Already gone — count as success.
+                    $deleted_count++;
+                }
+            }
+        }
+
+        // Clear registry and history.
+        delete_option( 'mbr_webp_registry' );
+        delete_option( 'mbr_webp_converted_images' );
+        delete_option( 'mbr_webp_registry_migrated' );
+
+        // Also clear old standalone plugin data if present.
+        delete_option( 'itwc_converted_images' );
+        delete_option( 'itwc_webp_registry' );
+        delete_option( 'itwc_registry_migrated' );
+
+        // Remove .htaccess rules.
+        MBR_WP_Performance_WebP_Converter::remove_htaccess_rules();
+
+        // Clear Elementor cache if active.
+        if ( class_exists( '\Elementor\Plugin' ) ) {
+            \Elementor\Plugin::instance()->files_manager->clear_cache();
+        }
+
+        if ( $failed_count > 0 ) {
+            wp_send_json_success(
+                sprintf(
+                    /* translators: 1: deleted count, 2: failed count */
+                    __( 'Deleted %1$d WebP file(s). %2$d file(s) could not be removed — check folder permissions.', 'mbr-wp-performance' ),
+                    $deleted_count,
+                    $failed_count
+                )
+            );
+        } else {
+            wp_send_json_success(
+                sprintf(
+                    /* translators: %d: number of files deleted */
+                    __( 'Successfully reverted %d WebP file(s). All originals remain untouched.', 'mbr-wp-performance' ),
+                    $deleted_count
+                )
+            );
+        }
     }
 
     /**

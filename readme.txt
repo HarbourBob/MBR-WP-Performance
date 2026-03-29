@@ -1,14 +1,15 @@
 === MBR WP Performance ===
-Contributors: Made by Robert
-Tags: performance, optimization, speed, cache, database
+Contributors: Robert Palmer
+Website: https://littlewebshack.com/mbr-wp-performance/
+Tags: performance, optimization, speed, cache, database, webp, image
 Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.5.0
+Stable tag: 1.6.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, and database optimization.
+Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, and WebP image conversion.
 
 == Description ==
 
@@ -88,6 +89,18 @@ MBR WP Performance is a powerful, all-in-one performance optimization plugin tha
 * Table repair functionality
 * Scheduled automatic cleanups
 
+**WebP Image Conversion**
+* Convert JPG, JPEG, and PNG images to WebP format
+* Automatic conversion on upload
+* Bulk converter for existing Media Library images
+* Configurable compression level (1–100)
+* HTML <picture> tag delivery with automatic fallback
+* Apache/LiteSpeed .htaccess rewrite rules
+* Gutenberg and Elementor integration
+* Server diagnostics panel
+* Conversion history with bulk management
+* Smart skip when WebP would be larger than original
+
 **Multisite Network Support**
 * Network-wide activation and deactivation
 * Network default settings managed from the Network Admin
@@ -135,6 +148,18 @@ Lazy Loading delays loading of images/videos until they're needed (saving bandwi
 
 == Changelog ==
 
+= 1.6.0 =
+* Feature: New "WebP" tab in the settings panel
+* Feature: Automatic WebP conversion on image upload
+* Feature: Bulk converter for existing Media Library images
+* Feature: Configurable compression level (1–100)
+* Feature: HTML <picture> tag delivery with automatic browser fallback
+* Feature: Apache/LiteSpeed .htaccess rewrite rules for transparent WebP serving
+* Feature: Server diagnostics panel (GD library, WebP support, folder permissions)
+* Feature: Conversion history with bulk management actions
+* Feature: Gutenberg block and Elementor widget integration for <picture> tags
+* Improvement: Smart skip when WebP output would be larger than the original
+
 = 1.5.0 =
 * Feature: Full WordPress Multisite network support
 * Feature: Network Admin settings page (Settings > WP Performance)
@@ -171,6 +196,9 @@ Lazy Loading delays loading of images/videos until they're needed (saving bandwi
 * Database optimization
 
 == Upgrade Notice ==
+
+= 1.6.0 =
+WebP image conversion is now built in. If you were using the standalone MBR WebP Converter plugin, you can deactivate it after upgrading — your conversion history will be migrated automatically. Backup before upgrading.
 
 = 1.5.0 =
 Adds full WordPress Multisite support — manage performance settings across your entire network from one place. Backup before upgrading.

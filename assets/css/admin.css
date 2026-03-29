@@ -43,6 +43,30 @@
 /* --------------------------------------------------------------------------
    Page Wrapper & Base
    -------------------------------------------------------------------------- */
+
+/* Dark background for the entire admin page
+   (this CSS only loads on the WP Performance settings page) */
+html,
+body.wp-admin,
+#wpwrap,
+#wpcontent,
+#wpbody,
+#wpbody-content,
+.wrap {
+    background: #1a1d23 !important;
+    background-color: #1a1d23 !important;
+}
+
+#wpfooter {
+    background: #1a1d23 !important;
+}
+
+#wpfooter,
+#wpfooter p,
+#wpfooter a {
+    color: #6c7080;
+}
+
 .mbr-wp-performance-wrap {
     max-width: 960px;
     color: var(--mbr-text-primary);
@@ -79,47 +103,50 @@
 }
 
 /* --------------------------------------------------------------------------
-   Tabs
+   Tabs — Pill-style inside a dark bar
    -------------------------------------------------------------------------- */
 .mbr-wp-performance-wrap .nav-tab-wrapper {
-    border-bottom: 1px solid var(--mbr-border);
+    border-bottom: none;
     margin-bottom: 24px;
-    padding: 0;
+    padding: 6px;
     display: flex;
     flex-wrap: wrap;
-    gap: 2px;
-    background: transparent;
+    gap: 4px;
+    background: var(--mbr-bg-card);
+    border: 1px solid var(--mbr-border);
+    border-radius: var(--mbr-radius-lg);
+    box-shadow: var(--mbr-shadow);
 }
 
 .mbr-wp-performance-wrap .nav-tab {
     background: transparent;
     border: none;
-    border-bottom: 2px solid transparent;
-    color: var(--mbr-text-secondary);
-    padding: 10px 16px;
+    color: var(--mbr-text-muted);
+    padding: 9px 18px;
     font-size: 13px;
     font-weight: 500;
     text-decoration: none;
-    transition: color var(--mbr-transition), border-color var(--mbr-transition), background var(--mbr-transition);
-    border-radius: var(--mbr-radius-sm) var(--mbr-radius-sm) 0 0;
+    transition: color var(--mbr-transition), background var(--mbr-transition), box-shadow var(--mbr-transition);
+    border-radius: var(--mbr-radius);
     margin: 0;
     float: none;
+    line-height: 1.4;
 }
 
 .mbr-wp-performance-wrap .nav-tab:hover,
 .mbr-wp-performance-wrap .nav-tab:focus {
-    background: var(--mbr-accent-dim);
+    background: var(--mbr-bg-input);
     color: var(--mbr-text-primary);
-    border-bottom-color: var(--mbr-border-light);
+    outline: none;
 }
 
 .mbr-wp-performance-wrap .nav-tab-active,
 .mbr-wp-performance-wrap .nav-tab-active:focus,
 .mbr-wp-performance-wrap .nav-tab-active:hover {
-    background: var(--mbr-accent-dim);
-    color: var(--mbr-accent);
-    border-bottom: 2px solid var(--mbr-accent);
+    background: var(--mbr-accent);
+    color: #111318;
     font-weight: 600;
+    box-shadow: 0 2px 8px var(--mbr-accent-glow);
 }
 
 /* --------------------------------------------------------------------------
@@ -896,7 +923,6 @@
         padding: 8px 12px;
         font-size: 12px;
     }
-
     .mbr-tooltip:hover::after {
         left: auto;
         right: 0;
@@ -925,13 +951,91 @@
 
 @media screen and (max-width: 480px) {
     .mbr-wp-performance-wrap .nav-tab-wrapper {
-        gap: 0;
+        gap: 3px;
+        padding: 4px;
     }
 
     .mbr-wp-performance-wrap .nav-tab {
         flex: 1 0 auto;
         text-align: center;
-        padding: 8px 8px;
+        padding: 7px 8px;
         font-size: 11px;
     }
+}
+
+/* --------------------------------------------------------------------------
+   WebP Tab — Dark mode overrides for history table
+   -------------------------------------------------------------------------- */
+
+/* Revert checkboxes inside tables to standard style
+   (overrides the toggle-switch appearance used for settings checkboxes) */
+.mbr-wp-performance-wrap .widefat input[type="checkbox"] {
+    -webkit-appearance: checkbox;
+    -moz-appearance: checkbox;
+    appearance: checkbox;
+    width: auto;
+    height: auto;
+    background: none;
+    border: revert;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: none;
+    box-shadow: none;
+}
+
+.mbr-wp-performance-wrap .widefat input[type="checkbox"]::before {
+    content: none;
+}
+
+.mbr-wp-performance-wrap .widefat input[type="checkbox"]:checked {
+    background: revert;
+    border-color: revert;
+    box-shadow: none;
+}
+
+.mbr-wp-performance-wrap .widefat input[type="checkbox"]:focus {
+    box-shadow: none;
+    outline: revert;
+}
+
+/* Dark header row — ensure td (checkbox column) matches th */
+.mbr-wp-performance-wrap .widefat thead td {
+    background: var(--mbr-bg-primary);
+    border-bottom: 1px solid var(--mbr-border);
+    padding: 10px 14px;
+}
+
+/* Dark body th (checkbox column) */
+.mbr-wp-performance-wrap .widefat tbody th {
+    background: transparent;
+    border-bottom: 1px solid var(--mbr-border);
+    padding: 10px 14px;
+}
+
+/* Brighter body text — file sizes, compression values */
+.mbr-wp-performance-wrap .widefat tbody td,
+.mbr-wp-performance-wrap .widefat tbody th {
+    color: #e4e6eb;
+    font-size: 13px;
+}
+
+/* Brighter links for filenames */
+.mbr-wp-performance-wrap .widefat tbody a {
+    color: var(--mbr-info);
+}
+
+.mbr-wp-performance-wrap .widefat tbody a:hover {
+    color: #8fc4f8;
+}
+
+/* WebP bulk action select */
+.mbr-wp-performance-wrap #mbr-webp-bulk-action {
+    min-width: 160px;
+}
+
+/* Revert button hover */
+.mbr-wp-performance-wrap #mbr-webp-revert-all:hover {
+    background: var(--mbr-danger-bg) !important;
+    border-color: var(--mbr-danger) !important;
+    color: var(--mbr-danger) !important;
 }
