@@ -81,6 +81,10 @@ class MBR_WP_Performance_Admin {
         add_action( 'wp_ajax_mbr_wp_performance_webp_clear_history', array( $this, 'ajax_webp_clear_history' ) );
         add_action( 'wp_ajax_mbr_wp_performance_webp_bulk_delete', array( $this, 'ajax_webp_bulk_delete' ) );
         add_action( 'wp_ajax_mbr_wp_performance_webp_revert_all', array( $this, 'ajax_webp_revert_all' ) );
+
+        // Image Dimensions — bulk resize AJAX handlers
+        add_action( 'wp_ajax_mbr_wp_performance_image_dimensions_scan', array( $this, 'ajax_image_dimensions_scan' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_image_dimensions_resize', array( $this, 'ajax_image_dimensions_resize' ) );
         
         // Multisite: import site settings into network defaults
         add_action( 'wp_ajax_mbr_wp_performance_import_site_settings', array( $this, 'ajax_import_site_settings' ) );
@@ -201,7 +205,12 @@ class MBR_WP_Performance_Admin {
         if ( isset( $options['webp'] ) && is_array( $options['webp'] ) ) {
             $sanitized['webp'] = $this->sanitize_webp_options( $options['webp'] );
         }
-        
+
+        // Sanitize and merge image dimensions options
+        if ( isset( $options['image_dimensions'] ) && is_array( $options['image_dimensions'] ) ) {
+            $sanitized['image_dimensions'] = $this->sanitize_image_dimensions_options( $options['image_dimensions'] );
+        }
+
         return $sanitized;
     }
 
@@ -622,6 +631,60 @@ class MBR_WP_Performance_Admin {
         }
 
         return $sanitized;
+    }
+
+    /**
+     * Sanitize image dimensions options
+     *
+     * @param array $options
+     * @return array
+     */
+    private function sanitize_image_dimensions_options( $options ) {
+        $sanitized = array();
+
+        // Boolean options.
+        $boolean_fields = array(
+            'resize_on_upload',
+            'add_missing_dimensions',
+        );
+
+        foreach ( $boolean_fields as $field ) {
+            $sanitized[ $field ] = isset( $options[ $field ] ) ? (bool) $options[ $field ] : false;
+        }
+
+        // Max dimension (clamped to the class constants).
+        $max_default = class_exists( 'MBR_WP_Performance_Image_Dimensions' ) ? MBR_WP_Performance_Image_Dimensions::DEFAULT_MAX_DIMENSION : 2560;
+        $min_allowed = class_exists( 'MBR_WP_Performance_Image_Dimensions' ) ? MBR_WP_Performance_Image_Dimensions::MIN_MAX_DIMENSION : 100;
+        $max_allowed = class_exists( 'MBR_WP_Performance_Image_Dimensions' ) ? MBR_WP_Performance_Image_Dimensions::MAX_MAX_DIMENSION : 10000;
+
+        $raw_max = isset( $options['max_dimension'] ) ? absint( $options['max_dimension'] ) : $max_default;
+        if ( $raw_max < 1 ) {
+            $raw_max = $max_default;
+        }
+        $sanitized['max_dimension'] = max( $min_allowed, min( $max_allowed, $raw_max ) );
+
+        // Flush cached dimensions when the user re-saves settings — handy if
+        // they've replaced files and need the filter to re-measure.
+        if ( ! empty( $sanitized['add_missing_dimensions'] ) ) {
+            $this->flush_image_dimension_transients();
+        }
+
+        return $sanitized;
+    }
+
+    /**
+     * Flush any cached image-dimension transients created by the
+     * Image Dimensions module. Safe to call — no-op if none exist.
+     */
+    private function flush_image_dimension_transients() {
+        global $wpdb;
+
+        // Best-effort cleanup of mbr_imgdim_* transients.
+        $wpdb->query(
+            "DELETE FROM {$wpdb->options}
+             WHERE option_name LIKE '_transient_mbr_imgdim_%'
+                OR option_name LIKE '_transient_timeout_mbr_imgdim_%'"
+        );
     }
 
     /**
@@ -2365,5 +2428,94 @@ class MBR_WP_Performance_Admin {
                 $site->domain . $site->path
             ),
         ) );
+    }
+
+    /* ======================================================================
+     * Image Dimensions — Bulk Resize AJAX Handlers
+     * ==================================================================== */
+
+    /**
+     * AJAX: Scan the media library for images exceeding the configured
+     * maximum dimension. Returns the list of attachment IDs.
+     */
+    public function ajax_image_dimensions_scan() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
+        }
+
+        if ( ! class_exists( 'MBR_WP_Performance_Image_Dimensions' ) ) {
+            wp_send_json_error( __( 'Image Dimensions module unavailable.', 'mbr-wp-performance' ) );
+        }
+
+        $options = mbr_wp_performance()->get_options();
+        $dim     = ( is_array( $options ) && isset( $options['image_dimensions'] ) && is_array( $options['image_dimensions'] ) )
+            ? $options['image_dimensions']
+            : array();
+
+        $max_dim = isset( $dim['max_dimension'] )
+            ? absint( $dim['max_dimension'] )
+            : MBR_WP_Performance_Image_Dimensions::DEFAULT_MAX_DIMENSION;
+
+        $ids = MBR_WP_Performance_Image_Dimensions::get_resize_candidates( $max_dim );
+
+        wp_send_json_success( array(
+            'ids'     => array_values( array_map( 'intval', $ids ) ),
+            'count'   => count( $ids ),
+            'max_dim' => $max_dim,
+        ) );
+    }
+
+    /**
+     * AJAX: Resize a single attachment in place.
+     */
+    public function ajax_image_dimensions_resize() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
+        }
+
+        if ( ! class_exists( 'MBR_WP_Performance_Image_Dimensions' ) ) {
+            wp_send_json_error( __( 'Image Dimensions module unavailable.', 'mbr-wp-performance' ) );
+        }
+
+        $attachment_id = isset( $_POST['attachment_id'] ) ? absint( $_POST['attachment_id'] ) : 0;
+        if ( ! $attachment_id ) {
+            wp_send_json_error( __( 'Missing attachment ID.', 'mbr-wp-performance' ) );
+        }
+
+        $options = mbr_wp_performance()->get_options();
+        $dim     = ( is_array( $options ) && isset( $options['image_dimensions'] ) && is_array( $options['image_dimensions'] ) )
+            ? $options['image_dimensions']
+            : array();
+
+        $max_dim = isset( $dim['max_dimension'] )
+            ? absint( $dim['max_dimension'] )
+            : MBR_WP_Performance_Image_Dimensions::DEFAULT_MAX_DIMENSION;
+
+        $result = MBR_WP_Performance_Image_Dimensions::bulk_resize_attachment( $attachment_id, $max_dim );
+
+        if ( is_wp_error( $result ) ) {
+            wp_send_json_error( array(
+                'id'      => $attachment_id,
+                'message' => $result->get_error_message(),
+                'code'    => $result->get_error_code(),
+            ) );
+        }
+
+        // Add formatted size strings for display.
+        if ( isset( $result['original_size'] ) ) {
+            $result['original_size_h'] = size_format( $result['original_size'], 2 );
+        }
+        if ( isset( $result['new_size'] ) ) {
+            $result['new_size_h'] = size_format( $result['new_size'], 2 );
+        }
+        if ( isset( $result['saved_bytes'] ) ) {
+            $result['saved_h'] = size_format( $result['saved_bytes'], 2 );
+        }
+
+        wp_send_json_success( $result );
     }
 }

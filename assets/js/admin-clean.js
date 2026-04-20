@@ -76,6 +76,10 @@ console.log('==========================================');
             $('#mbr-webp-select-all').on('change', function() {
                 $('.mbr-webp-item-checkbox').prop('checked', $(this).prop('checked'));
             });
+
+            // Image Dimensions bulk resize
+            $('#mbr-imgdim-scan').on('click', function(e) { self.imgDimScan.call(this, e); });
+            $('#mbr-imgdim-start').on('click', function(e) { self.imgDimStart.call(this, e); });
         },
 
         /**
@@ -927,6 +931,173 @@ console.log('==========================================');
                 $btn.prop('disabled', false).text('Revert All WebP Files');
                 $('#mbr-webp-start-conversion, #mbr-webp-clear-history, #mbr-webp-apply-bulk').prop('disabled', false);
             });
+        },
+
+        /* ================================================================
+         * Image Dimensions — Bulk Resize
+         * ================================================================ */
+
+        /**
+         * Scan the Media Library for oversized images.
+         */
+        imgDimScan: function(e) {
+            e.preventDefault();
+            var $scanBtn  = $('#mbr-imgdim-scan');
+            var $startBtn = $('#mbr-imgdim-start');
+            var $status   = $('#mbr-imgdim-status');
+
+            $scanBtn.prop('disabled', true).text('Scanning…');
+            $startBtn.prop('disabled', true);
+            $status.text('Scanning Media Library — this may take a moment on large libraries…');
+
+            $.post(mbrWpPerformance.ajaxUrl, {
+                action: 'mbr_wp_performance_image_dimensions_scan',
+                nonce: mbrWpPerformance.nonce
+            })
+            .done(function(response) {
+                if (!response || !response.success || !response.data) {
+                    var msg = (response && response.data) ? response.data : 'Scan failed.';
+                    $status.text('Scan failed: ' + msg);
+                    $startBtn.prop('disabled', true).removeData('imgdim-ids');
+                    return;
+                }
+
+                var data = response.data;
+                var ids = Array.isArray(data.ids) ? data.ids : [];
+                $startBtn.data('imgdim-ids', ids);
+                $startBtn.data('imgdim-max', data.max_dim || '');
+
+                if (ids.length === 0) {
+                    $status.text('No oversized images found — everything is within the configured maximum of ' + (data.max_dim || '?') + 'px.');
+                    $startBtn.prop('disabled', true);
+                } else {
+                    $status.text('Found ' + ids.length + ' image(s) exceeding ' + (data.max_dim || '?') + 'px. Click "Start Resize" to process them.');
+                    $startBtn.prop('disabled', false);
+                }
+            })
+            .fail(function() {
+                $status.text('AJAX failed during scan.');
+                $startBtn.prop('disabled', true);
+            })
+            .always(function() {
+                $scanBtn.prop('disabled', false).text('Scan Media Library');
+            });
+        },
+
+        /**
+         * Kick off bulk resize, one attachment at a time.
+         */
+        imgDimStart: function(e) {
+            e.preventDefault();
+
+            var $scanBtn     = $('#mbr-imgdim-scan');
+            var $startBtn    = $('#mbr-imgdim-start');
+            var $progress    = $('#mbr-imgdim-progress-container');
+            var $bar         = $('#mbr-imgdim-progress-bar');
+            var $status      = $('#mbr-imgdim-status');
+            var $logWrapper  = $('#mbr-imgdim-log-wrapper');
+            var $log         = $('#mbr-imgdim-log');
+
+            var ids = $startBtn.data('imgdim-ids') || [];
+            if (!ids.length) {
+                $status.text('No images queued — click "Scan Media Library" first.');
+                return;
+            }
+
+            if (!confirm('This will permanently overwrite ' + ids.length + ' image file(s) on disk to fit within the configured maximum dimension.\n\nThere is no automatic undo. Continue?')) {
+                return;
+            }
+
+            $scanBtn.prop('disabled', true);
+            $startBtn.prop('disabled', true).text('Resizing…');
+            $progress.show();
+            $logWrapper.show();
+            $bar.css('width', '0%').text('0%');
+            $log.empty();
+
+            var total     = ids.length;
+            var idx       = 0;
+            var succeeded = 0;
+            var skipped   = 0;
+            var errored   = 0;
+            var savedBytes = 0;
+
+            function updateProgress() {
+                var pct = Math.round((idx / total) * 100);
+                $bar.css('width', pct + '%').text(pct + '%');
+                $status.text('Resizing ' + Math.min(idx + 1, total) + ' of ' + total + ' — ' + succeeded + ' done, ' + skipped + ' skipped, ' + errored + ' error(s).');
+            }
+
+            function processNext() {
+                if (idx >= total) {
+                    $bar.css('width', '100%').text('100%');
+                    var savedH = (savedBytes > 1048576) ? (savedBytes / 1048576).toFixed(2) + ' MB'
+                               : (savedBytes > 1024) ? (savedBytes / 1024).toFixed(2) + ' KB'
+                               : savedBytes + ' B';
+                    $status.text('Done — resized ' + succeeded + ', skipped ' + skipped + ', errored ' + errored + '. Total saved: ' + savedH + '.');
+                    $scanBtn.prop('disabled', false);
+                    $startBtn.prop('disabled', true).text('Start Resize').removeData('imgdim-ids');
+                    return;
+                }
+
+                var id = ids[idx];
+                $.post(mbrWpPerformance.ajaxUrl, {
+                    action: 'mbr_wp_performance_image_dimensions_resize',
+                    nonce: mbrWpPerformance.nonce,
+                    attachment_id: id
+                })
+                .done(function(resp) {
+                    if (resp && resp.success && resp.data) {
+                        var d = resp.data;
+                        if (d.status === 'success') {
+                            succeeded++;
+                            savedBytes += (d.saved_bytes || 0);
+                            $log.prepend(
+                                '<tr>' +
+                                '<td>' + (d.filename || ('#' + id)) + '</td>' +
+                                '<td>' + (d.original_width || '?') + '×' + (d.original_height || '?') + ' (' + (d.original_size_h || '') + ')</td>' +
+                                '<td>' + (d.new_width || '?') + '×' + (d.new_height || '?') + ' (' + (d.new_size_h || '') + ')</td>' +
+                                '<td style="color: var(--mbr-success);">' + (d.saved_h || '0 B') + '</td>' +
+                                '</tr>'
+                            );
+                        } else if (d.status === 'skipped') {
+                            skipped++;
+                            $log.prepend(
+                                '<tr>' +
+                                '<td>' + (d.filename || ('#' + id)) + '</td>' +
+                                '<td colspan="3" style="color: var(--mbr-text-secondary);">Skipped — ' + (d.reason || 'already within limits') + '</td>' +
+                                '</tr>'
+                            );
+                        }
+                    } else {
+                        errored++;
+                        var msg = (resp && resp.data && resp.data.message) ? resp.data.message : 'Unknown error';
+                        $log.prepend(
+                            '<tr>' +
+                            '<td>#' + id + '</td>' +
+                            '<td colspan="3" style="color: var(--mbr-danger);">Error — ' + msg + '</td>' +
+                            '</tr>'
+                        );
+                    }
+                })
+                .fail(function() {
+                    errored++;
+                    $log.prepend(
+                        '<tr>' +
+                        '<td>#' + id + '</td>' +
+                        '<td colspan="3" style="color: var(--mbr-danger);">AJAX error</td>' +
+                        '</tr>'
+                    );
+                })
+                .always(function() {
+                    idx++;
+                    updateProgress();
+                    processNext();
+                });
+            }
+
+            updateProgress();
+            processNext();
         }
     };
 

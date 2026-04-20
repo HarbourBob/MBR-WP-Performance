@@ -12,8 +12,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 $options      = get_option( 'mbr_wp_performance_options', array() );
 $webp_options = isset( $options['webp'] ) ? $options['webp'] : array();
+$dim_options  = isset( $options['image_dimensions'] ) ? $options['image_dimensions'] : array();
 $diagnostics  = MBR_WP_Performance_WebP_Converter::get_diagnostics();
 $upload_base  = wp_upload_dir()['baseurl'];
+
+$dim_defaults = array(
+    'max_dimension' => class_exists( 'MBR_WP_Performance_Image_Dimensions' ) ? MBR_WP_Performance_Image_Dimensions::DEFAULT_MAX_DIMENSION : 2560,
+    'min'           => class_exists( 'MBR_WP_Performance_Image_Dimensions' ) ? MBR_WP_Performance_Image_Dimensions::MIN_MAX_DIMENSION : 100,
+    'max'           => class_exists( 'MBR_WP_Performance_Image_Dimensions' ) ? MBR_WP_Performance_Image_Dimensions::MAX_MAX_DIMENSION : 10000,
+);
 ?>
 
 <!-- Settings Section -->
@@ -89,6 +96,131 @@ $upload_base  = wp_upload_dir()['baseurl'];
             </tr>
         </tbody>
     </table>
+</div>
+
+<!-- Image Sizing & Dimensions Section -->
+<div class="mbr-wp-performance-section">
+    <h2><?php esc_html_e( 'Image Sizing &amp; Dimensions', 'mbr-wp-performance' ); ?></h2>
+    <p class="description" style="margin-bottom: 16px;">
+        <?php esc_html_e( 'Help eliminate common PageSpeed Insights warnings by resizing oversized uploads and ensuring every image has explicit width and height attributes. Reduces layout shift (CLS) and prevents browsers from downloading images far larger than needed.', 'mbr-wp-performance' ); ?>
+    </p>
+
+    <table class="form-table">
+        <tbody>
+            <!-- Resize on upload -->
+            <tr>
+                <th scope="row">
+                    <label for="image_dimensions_resize_on_upload">
+                        <?php esc_html_e( 'Resize Large Uploads', 'mbr-wp-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Downscale newly-uploaded images so their longer edge never exceeds the maximum dimension below. Helps fix the "Properly size images" warning in Google PageSpeed Insights. Only affects new uploads — existing images are not touched.', 'mbr-wp-performance' ); ?>">?</span>
+                    </label>
+                </th>
+                <td>
+                    <input type="checkbox" name="mbr_wp_performance_options[image_dimensions][resize_on_upload]" id="image_dimensions_resize_on_upload" value="1" <?php checked( ! empty( $dim_options['resize_on_upload'] ) ); ?>>
+                    <p class="description"><?php esc_html_e( 'Automatically downscale new uploads that exceed the maximum dimension, preserving aspect ratio. Uses the WordPress core scaling pipeline.', 'mbr-wp-performance' ); ?></p>
+                </td>
+            </tr>
+
+            <!-- Max dimension -->
+            <tr>
+                <th scope="row">
+                    <label for="image_dimensions_max_dimension">
+                        <?php esc_html_e( 'Maximum Dimension (px)', 'mbr-wp-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'The longer edge of any newly-uploaded image will be scaled down to this value. Applies to both width and height — whichever is larger. Default: 2560.', 'mbr-wp-performance' ); ?>">?</span>
+                    </label>
+                </th>
+                <td>
+                    <input type="number"
+                           name="mbr_wp_performance_options[image_dimensions][max_dimension]"
+                           id="image_dimensions_max_dimension"
+                           value="<?php echo esc_attr( isset( $dim_options['max_dimension'] ) ? $dim_options['max_dimension'] : $dim_defaults['max_dimension'] ); ?>"
+                           min="<?php echo esc_attr( $dim_defaults['min'] ); ?>"
+                           max="<?php echo esc_attr( $dim_defaults['max'] ); ?>"
+                           step="1"
+                           class="small-text">
+                    <p class="description">
+                        <?php
+                        printf(
+                            /* translators: 1: minimum dimension in px, 2: maximum dimension in px, 3: default value. */
+                            esc_html__( 'Allowed range: %1$d–%2$d pixels. Default: %3$d.', 'mbr-wp-performance' ),
+                            (int) $dim_defaults['min'],
+                            (int) $dim_defaults['max'],
+                            (int) $dim_defaults['max_dimension']
+                        );
+                        ?>
+                    </p>
+                </td>
+            </tr>
+
+            <!-- Add missing width/height -->
+            <tr>
+                <th scope="row">
+                    <label for="image_dimensions_add_missing">
+                        <?php esc_html_e( 'Add Missing Width &amp; Height', 'mbr-wp-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Scan front-end content and automatically inject the correct width and height attributes on any image missing them. Helps fix the "Ensure images have explicit width and height" warning and reduces Cumulative Layout Shift (CLS).', 'mbr-wp-performance' ); ?>">?</span>
+                    </label>
+                </th>
+                <td>
+                    <input type="checkbox" name="mbr_wp_performance_options[image_dimensions][add_missing_dimensions]" id="image_dimensions_add_missing" value="1" <?php checked( ! empty( $dim_options['add_missing_dimensions'] ) ); ?>>
+                    <p class="description"><?php esc_html_e( 'Works on post content, Gutenberg blocks, Elementor widgets, attachment images and post thumbnails. Only local images are measured — external URLs, SVGs and data URIs are skipped. Results are cached for a week.', 'mbr-wp-performance' ); ?></p>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Bulk Resize Existing Images -->
+    <h3 style="color: var(--mbr-text-primary); font-size: 14px; font-weight: 600; margin-top: 24px; margin-bottom: 8px;">
+        <?php esc_html_e( 'Bulk Resize Existing Images', 'mbr-wp-performance' ); ?>
+    </h3>
+    <p class="description" style="margin-bottom: 12px;">
+        <?php
+        printf(
+            /* translators: %d: current maximum dimension in pixels. */
+            esc_html__( 'Scan the Media Library for JPEG and PNG images larger than %dpx on their longer edge and downscale them in place. Sub-sizes are regenerated automatically afterwards.', 'mbr-wp-performance' ),
+            (int) ( isset( $dim_options['max_dimension'] ) ? $dim_options['max_dimension'] : $dim_defaults['max_dimension'] )
+        );
+        ?>
+    </p>
+    <p class="description" style="color: var(--mbr-warning); font-weight: 600; margin-bottom: 16px;">
+        <?php esc_html_e( '⚠ This permanently overwrites the original files on disk. Take a full backup before proceeding — there is no automatic undo.', 'mbr-wp-performance' ); ?>
+    </p>
+
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;">
+        <button type="button" id="mbr-imgdim-scan" class="button button-secondary" <?php disabled( empty( $diagnostics['gd_installed'] ) ); ?>>
+            <?php esc_html_e( 'Scan Media Library', 'mbr-wp-performance' ); ?>
+        </button>
+        <button type="button" id="mbr-imgdim-start" class="button button-primary" disabled>
+            <?php esc_html_e( 'Start Resize', 'mbr-wp-performance' ); ?>
+        </button>
+    </div>
+
+    <!-- Progress Bar -->
+    <div id="mbr-imgdim-progress-container" style="display: none; margin-bottom: 12px;">
+        <div style="background: var(--mbr-bg-input); border: 1px solid var(--mbr-border); border-radius: var(--mbr-radius-sm); overflow: hidden; height: 28px;">
+            <div id="mbr-imgdim-progress-bar" style="height: 100%; width: 0%; background: var(--mbr-accent); color: #fff; text-align: center; line-height: 28px; font-size: 12px; font-weight: 600; transition: width 0.3s ease;">0%</div>
+        </div>
+    </div>
+
+    <!-- Status -->
+    <div id="mbr-imgdim-status" style="margin-bottom: 12px; font-size: 13px; color: var(--mbr-text-secondary);"></div>
+
+    <!-- Live Log -->
+    <div id="mbr-imgdim-log-wrapper" style="display: none;">
+        <h4 style="color: var(--mbr-text-primary); font-size: 13px; font-weight: 600; margin-bottom: 8px;">
+            <?php esc_html_e( 'Resize Log', 'mbr-wp-performance' ); ?>
+        </h4>
+        <table class="wp-list-table widefat fixed striped">
+            <thead>
+                <tr>
+                    <th><?php esc_html_e( 'File', 'mbr-wp-performance' ); ?></th>
+                    <th style="width: 130px;"><?php esc_html_e( 'Before', 'mbr-wp-performance' ); ?></th>
+                    <th style="width: 130px;"><?php esc_html_e( 'After', 'mbr-wp-performance' ); ?></th>
+                    <th style="width: 110px;"><?php esc_html_e( 'Saved', 'mbr-wp-performance' ); ?></th>
+                </tr>
+            </thead>
+            <tbody id="mbr-imgdim-log"></tbody>
+        </table>
+    </div>
 </div>
 
 <!-- Server Diagnostics Section -->

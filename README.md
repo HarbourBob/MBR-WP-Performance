@@ -3,11 +3,11 @@
 [![WordPress](https://img.shields.io/badge/WordPress-5.8%2B-blue.svg)](https://wordpress.org)
 [![PHP Version](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
 [![License](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
-[![Version](https://img.shields.io/badge/Version-1.6.0-orange.svg)](https://github.com/harbourbob/mbr-wp-performance/releases)
+[![Version](https://img.shields.io/badge/Version-1.8.0-orange.svg)](https://github.com/harbourbob/mbr-wp-performance/releases)
 [![Made by Robert](https://img.shields.io/badge/Made%20by-Robert-brightgreen.svg)](https://madebyrobert.co.uk)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-%E2%98%95-yellow.svg)](https://buymeacoffee.com/robertpalmer/)
 
-A comprehensive WordPress performance optimisation plugin with granular controls across eight dedicated tabs — covering core features, JavaScript, CSS, fonts, lazy loading, preloading, database cleanup, and WebP image conversion. Completely free, no upsells, no premium tiers.
+A comprehensive WordPress performance optimisation plugin with granular controls across eight dedicated tabs — covering core features, JavaScript, CSS, fonts, lazy loading, preloading, database cleanup, WebP image conversion, and automatic image sizing. Completely free, no upsells, no premium tiers.
 
 [**Download Latest Release**](https://github.com/harbourbob/mbr-wp-performance/releases) · [**Report a Bug**](https://github.com/harbourbob/mbr-wp-performance/issues) · [**Request a Feature**](https://github.com/harbourbob/mbr-wp-performance/issues)
 
@@ -47,6 +47,9 @@ Clean up post revisions with configurable retention limits. Auto-delete old draf
 ### WebP Image Conversion
 Convert JPG, JPEG, and PNG images to WebP format with configurable compression (1–100). Automatic conversion on upload, plus a bulk converter for your existing Media Library. Images are served via HTML `<picture>` tags with automatic browser fallback, with Gutenberg block and Elementor widget integration built in. Optional Apache/LiteSpeed `.htaccess` rewrite rules for transparent server-level delivery. Server diagnostics panel checks GD library, WebP support, and folder permissions before you start. Smart skip when WebP output would be larger than the original. Full conversion history with bulk management, and a "Revert All" button that deletes every plugin-created WebP file while leaving originals untouched.
 
+### Image Sizing & Dimensions
+Directly targets two of the most common Google PageSpeed Insights warnings: "Properly size images" and "Ensure images have explicit width and height." Resize large uploads automatically to a configurable maximum dimension (default 2560px) using the WordPress core scaling pipeline, preserving aspect ratio. Inject missing `width` and `height` attributes into front-end images on the fly, giving browsers the aspect ratio up front to eliminate Cumulative Layout Shift (CLS). Works across post content, Gutenberg blocks, Elementor widgets, attachment images, and post thumbnails, with per-URL dimension caching to keep the filter cheap. External images, SVGs, and data URIs are skipped automatically — only local files are measured. A bulk resize tool scans your existing Media Library for oversized images and downscales them in place, regenerating all sub-sizes and cleaning up any stale WebP copies in the same pass. Scan first to see what would change, then start the resize with a live progress bar and log.
+
 ### Multisite Network Support
 Full WordPress Multisite compatibility from v1.5.0 onwards. Network-activate the plugin and manage default settings from the Network Admin. Push defaults to all sites (or selected sites) in one click, import settings from any existing site, and control whether individual site admins can override the network configuration. New sites automatically inherit network defaults on creation.
 
@@ -57,7 +60,7 @@ Full WordPress Multisite compatibility from v1.5.0 onwards. Network-activate the
 - WordPress 5.8 or higher
 - PHP 7.4 or higher
 - MySQL 5.6 or higher
-- GD library with WebP support (for image conversion)
+- GD library with WebP support (for image conversion and resizing)
 
 ---
 
@@ -95,7 +98,8 @@ After activation, click **WP Performance** in the WordPress admin toolbar. The s
 1. **Database tab** — Run a cleanup to remove accumulated bloat (revisions, spam, orphaned data)
 2. **Lazy Loading tab** — Enable native lazy loading for images and iFrames
 3. **Core Features tab** — Disable emojis, embeds, and dashicons if you don't need them
-4. **WebP tab** — Check the server diagnostics panel, then run the bulk converter
+4. **WebP tab** — Check the server diagnostics panel, then run the bulk WebP converter
+5. **WebP tab → Image Sizing & Dimensions** — Enable "Resize Large Uploads" and "Add Missing Width & Height" for an easy PageSpeed Insights win. If you have historic uploads from back when phone cameras produced huge files, back up and run the Bulk Resize tool.
 
 Enable features one at a time and test your site after each change. The plugin automatically disables all optimisations inside page builder editors (Elementor, Beaver Builder, Divi, Oxygen, Bricks, WPBakery) to prevent conflicts.
 
@@ -118,7 +122,7 @@ No configuration needed — detection is automatic.
 
 ## Upgrading from MBR WebP Converter
 
-If you were using the standalone **MBR WebP Converter** plugin, you can deactivate it after upgrading to v1.6.0. Your conversion history and WebP file registry will be migrated automatically the first time the new version loads. All existing WebP files remain in place and continue to be served.
+If you were using the standalone **MBR WebP Converter** plugin, you can deactivate it after upgrading to v1.6.0 or later. Your conversion history and WebP file registry will be migrated automatically the first time the new version loads. All existing WebP files remain in place and continue to be served.
 
 ---
 
@@ -134,14 +138,38 @@ Yes. This plugin provides complementary optimisations that work alongside any ca
 Yes. Dedicated WooCommerce options let you disable cart/checkout scripts and styles on non-shop pages.
 
 **What happens to my images if I deactivate?**
-Original images are never modified. The "Revert All" button in the WebP tab deletes all plugin-created WebP files. On deactivation, WebP files tracked in the registry are cleaned up automatically.
+Original images are never modified by the WebP conversion. The "Revert All" button in the WebP tab deletes all plugin-created WebP files. On deactivation, WebP files tracked in the registry are cleaned up automatically. Note that the Bulk Resize tool is destructive — resized files are not restored on deactivation, so always back up before running it.
 
 **Does WebP conversion affect my originals?**
 No. WebP files are created alongside the originals (same folder, same name, `.webp` extension). The originals are never touched.
 
+**Does Resize Large Uploads affect my existing images?**
+No. The "Resize Large Uploads" setting only applies to newly-uploaded images via the `big_image_size_threshold` WordPress filter. To downscale existing images, use the Bulk Resize tool in the same section. That tool is destructive and permanently overwrites files on disk — take a full backup before running it.
+
+**What's the difference between WebP conversion and Image Sizing?**
+WebP conversion creates a second copy of each image in the more efficient WebP format and serves it to supporting browsers, saving bandwidth without changing dimensions. Image Sizing changes the actual pixel dimensions of images so browsers don't download files that are larger than they need to display. They're complementary — use both for the biggest PageSpeed wins.
+
 ---
 
 ## Changelog
+
+### 1.8.0
+- Bulk resize tool for existing Media Library images — scan for JPEGs and PNGs exceeding the configured maximum dimension, then downscale them in place
+- Two-phase workflow (Scan → Start Resize) with progress bar, live log, and running savings total
+- Automatic sub-size regeneration after each resize using the WordPress core pipeline
+- Elementor CSS cache is cleared automatically after a bulk resize so widgets re-render with the new dimensions
+- Stale WebP files are deleted automatically before sub-sizes are regenerated, and their entries stripped from the WebP registry
+- Skips images already within the configured maximum, writing a clear "skipped" reason to the log
+- Paginated scan (batches of 200) to keep memory use reasonable on large libraries
+
+### 1.7.0
+- New "Image Sizing & Dimensions" section in the WebP tab
+- Automatic resize-on-upload with configurable maximum dimension (default 2560px, uses the WordPress `big_image_size_threshold` filter)
+- Automatic injection of missing `width` and `height` attributes on front-end images to reduce Cumulative Layout Shift (CLS)
+- Works on post content, Gutenberg blocks (image, gallery, media-text, cover), Elementor widgets, attachment images, and post thumbnails
+- Per-URL dimension cache (in-memory + weekly transient) to keep the filter cheap on image-heavy pages
+- Skips external images, SVGs, and data URIs automatically — only local files are measured
+- Transient cache is cleared when settings are re-saved, so replaced files are re-measured
 
 ### 1.6.0
 - Integrated WebP image conversion (previously the standalone MBR WebP Converter plugin)
