@@ -1,14 +1,14 @@
 === MBR WP Performance ===
-Contributors: Robert Palmer
+Contributors: Made by Robert
 Tags: performance, optimization, speed, cache, database, webp, image
 Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.8.0
+Stable tag: 1.9.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, and automatic image sizing.
+Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, and WooCommerce optimisations.
 
 == Description ==
 
@@ -111,6 +111,17 @@ MBR WP Performance is a powerful, all-in-one performance optimization plugin tha
 * Bulk resize tool for existing Media Library images — scan first, then downscale in place with progress bar and live log
 * Automatic sub-size regeneration and stale WebP cleanup after each bulk resize
 
+**WooCommerce Optimisations**
+* Dedicated tab that only activates when WooCommerce is installed
+* Cart fragments control — disable the admin-ajax request that fires on every page load site-wide or only on non-shop pages
+* Expanded conditional asset loading for WooCommerce scripts, styles, block assets, selectWoo and blockUI
+* Disable the zxcvbn password strength meter on the frontend
+* Disable marketplace suggestions and WooCommerce dashboard widgets
+* Prevent heavy wc-admin React bundles from loading on non-WooCommerce admin pages
+* Configurable Action Scheduler retention period to stop `actionscheduler_actions` ballooning on busy stores
+* One-click cleanup for expired WooCommerce sessions and product/order/expired transients
+* Full backward compatibility with the previous WooCommerce script and style toggles
+
 **Multisite Network Support**
 * Network-wide activation and deactivation
 * Network default settings managed from the Network Admin
@@ -157,6 +168,27 @@ Click 'WP Performance' in the WordPress admin toolbar at the top of the screen. 
 Lazy Loading delays loading of images/videos until they're needed (saving bandwidth), while Preloading loads critical resources early (improving perceived speed). They work together for optimal performance.
 
 == Changelog ==
+
+= 1.9.1 =
+* Feature: Weekly automated cleanup toggle in the WooCommerce tab — runs expired sessions, transients and Action Scheduler cleanup on the existing weekly cron hook
+* Feature: Geolocation and page cache advisory notice — warns when WooCommerce's default customer location is set to "Geolocate" (breaks full-page caching entirely) or "Geolocate (with page cache support)" (appends `?v=<timestamp>` query string that some cache plugins mishandle)
+* Feature: Last-run log display showing when the scheduled cleanup last ran and what it removed
+* Feature: Direct link from the advisory notice to the WooCommerce General settings page for quick resolution
+* Fix: The `mbr_wp_performance_database_cleanup` weekly cron event now has an actual listener — previously the event was scheduled on activation but fired into the void with nothing attached
+* Improvement: Defensive re-scheduling of the weekly cron when the user enables automated cleanup, in case the event was cleared by another plugin or missed during activation
+
+= 1.9.0 =
+* Feature: New dedicated WooCommerce tab consolidating all store-specific optimisations
+* Feature: Cart fragments control — disable the admin-ajax `get_refreshed_fragments` request site-wide or only on non-shop pages (major TTFB win on cached sites)
+* Feature: Expanded conditional asset loading — dequeues WC scripts, styles, block assets, selectWoo, blockUI and related libraries on non-shop pages
+* Feature: Disable the zxcvbn password strength meter on the frontend
+* Feature: Disable WooCommerce marketplace suggestions and dashboard status widgets
+* Feature: Prevent the heavy wc-admin React bundles from loading on non-WooCommerce admin screens
+* Feature: Configurable Action Scheduler retention period (default 30 days, options for 14/7/3) — stops `actionscheduler_actions` ballooning on busy stores
+* Feature: One-click cleanup buttons for expired WooCommerce sessions and product/order/expired transients
+* Feature: One-time admin notice on upgrade informing users that their existing WooCommerce settings have moved to the new tab (dismissible)
+* Improvement: Legacy `core.disable_woocommerce_scripts` and `css.disable_woocommerce_css` options remain fully backward-compatible — existing sites keep their behaviour without re-saving
+* Improvement: Tab gracefully shows an inactive state when WooCommerce is not installed, so the capability remains discoverable
 
 = 1.8.0 =
 * Feature: Bulk resize tool for existing Media Library images — scan for JPEGs and PNGs exceeding the configured maximum dimension, then downscale them in place
@@ -227,6 +259,12 @@ Lazy Loading delays loading of images/videos until they're needed (saving bandwi
 * Database optimization
 
 == Upgrade Notice ==
+
+= 1.9.1 =
+Adds a weekly automated cleanup toggle (now actually wired to the existing weekly cron), and a page-cache advisory notice when WooCommerce geolocation is configured in a way that interacts badly with full-page caching. Also adds a last-run log for the scheduled cleanup.
+
+= 1.9.0 =
+Adds a dedicated WooCommerce tab with cart fragments control, Action Scheduler retention, session and transient cleanup, and expanded conditional asset loading. Your existing WooCommerce settings continue to work unchanged. Test on a staging copy before enabling cart fragments site-wide if your theme relies on a live-updating mini-cart.
 
 = 1.8.0 =
 Adds a bulk resize tool for existing Media Library images — downscale oversized originals in place with a two-phase scan-then-resize workflow. The operation permanently overwrites files on disk, so take a full backup before running it.

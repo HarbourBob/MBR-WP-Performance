@@ -253,6 +253,10 @@ body.wp-admin,
     left: 2px;
     width: 16px;
     height: 16px;
+    margin: 0;
+    padding: 0;
+    float: none;
+    display: block;
     background: var(--mbr-text-secondary);
     border-radius: 50%;
     transition: transform var(--mbr-transition), background var(--mbr-transition), box-shadow var(--mbr-transition);

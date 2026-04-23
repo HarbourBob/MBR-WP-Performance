@@ -2,8 +2,8 @@
 /**
  * Plugin Name: MBR WP Performance
  * Plugin URI: https://littlewebshack.com/mbr-wp-performance
- * Description: Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, and automatic image sizing.
- * Version: 1.8.0
+ * Description: Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, and WooCommerce optimisations.
+ * Version: 1.9.1
  * Author: Made by Robert
  * Author URI: https://madebyrobert.co.uk
  * Text Domain: mbr-wp-performance
@@ -39,7 +39,7 @@ add_filter( 'plugin_row_meta', function ( $links, $file, $data ) {
 }, 10, 3 );
 
 // Define plugin constants
-define( 'MBR_WP_PERFORMANCE_VERSION', '1.8.0' );
+define( 'MBR_WP_PERFORMANCE_VERSION', '1.9.1' );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -108,6 +108,9 @@ class MBR_WP_Performance {
         // WebP Converter
         require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/class-webp-converter.php';
 
+        // WooCommerce Optimizations
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/class-woocommerce-optimizations.php';
+
         // Image Dimensions & Sizing
         require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/class-image-dimensions.php';
         
@@ -167,6 +170,7 @@ class MBR_WP_Performance {
         MBR_WP_Performance_Font_Optimizations::instance();
         MBR_WP_Performance_Database_Optimizations::instance();
         MBR_WP_Performance_WebP_Converter::instance();
+        MBR_WP_Performance_WooCommerce_Optimizations::instance();
         MBR_WP_Performance_Image_Dimensions::instance();
     }
     
@@ -264,6 +268,7 @@ class MBR_WP_Performance {
                 'fonts' => array(),
                 'database' => array(),
                 'webp' => array(),
+                'woocommerce' => array(),
                 'image_dimensions' => array(),
             );
             

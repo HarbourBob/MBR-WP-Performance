@@ -88,6 +88,16 @@ class MBR_WP_Performance_Admin {
         
         // Multisite: import site settings into network defaults
         add_action( 'wp_ajax_mbr_wp_performance_import_site_settings', array( $this, 'ajax_import_site_settings' ) );
+
+        // WooCommerce cleanup AJAX handlers
+        add_action( 'wp_ajax_mbr_wp_performance_wc_clear_sessions', array( $this, 'ajax_wc_clear_sessions' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_wc_clear_transients', array( $this, 'ajax_wc_clear_transients' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_wc_cleanup_as', array( $this, 'ajax_wc_cleanup_action_scheduler' ) );
+
+        // WooCommerce migration notice (shown once after upgrade if legacy WC options are in use)
+        add_action( 'admin_init', array( $this, 'maybe_flag_wc_migration_notice' ) );
+        add_action( 'admin_notices', array( $this, 'maybe_render_wc_migration_notice' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_dismiss_wc_migration_notice', array( $this, 'ajax_dismiss_wc_migration_notice' ) );
     }
 
     /**
@@ -113,6 +123,7 @@ class MBR_WP_Performance_Admin {
             'lazy-loading' => __( 'Lazy Loading', 'mbr-wp-performance' ),
             'database' => __( 'Database', 'mbr-wp-performance' ),
             'webp' => __( 'WebP', 'mbr-wp-performance' ),
+            'woocommerce' => __( 'WooCommerce', 'mbr-wp-performance' ),
         );
         
         foreach ( $tabs as $tab => $label ) {
@@ -204,6 +215,11 @@ class MBR_WP_Performance_Admin {
         // Sanitize and merge WebP options
         if ( isset( $options['webp'] ) && is_array( $options['webp'] ) ) {
             $sanitized['webp'] = $this->sanitize_webp_options( $options['webp'] );
+        }
+
+        // Sanitize and merge WooCommerce options
+        if ( isset( $options['woocommerce'] ) && is_array( $options['woocommerce'] ) ) {
+            $sanitized['woocommerce'] = $this->sanitize_woocommerce_options( $options['woocommerce'] );
         }
 
         // Sanitize and merge image dimensions options
@@ -802,6 +818,9 @@ class MBR_WP_Performance_Admin {
                     case 'webp':
                         $this->render_webp_tab( $options );
                         break;
+                    case 'woocommerce':
+                        $this->render_woocommerce_tab( $options );
+                        break;
                 }
                 ?>
                 
@@ -842,6 +861,7 @@ class MBR_WP_Performance_Admin {
             'lazy-loading' => __( 'Lazy Loading', 'mbr-wp-performance' ),
             'database' => __( 'Database', 'mbr-wp-performance' ),
             'webp' => __( 'WebP', 'mbr-wp-performance' ),
+            'woocommerce' => __( 'WooCommerce', 'mbr-wp-performance' ),
         );
         
         echo '<h2 class="nav-tab-wrapper">';
@@ -927,6 +947,223 @@ class MBR_WP_Performance_Admin {
      */
     private function render_webp_tab( $options ) {
         require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/admin/tabs/webp.php';
+    }
+
+    /**
+     * Render WooCommerce tab
+     *
+     * @param array $options
+     */
+    private function render_woocommerce_tab( $options ) {
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/admin/tabs/woocommerce.php';
+    }
+
+    /**
+     * Sanitize WooCommerce options
+     *
+     * @param array $options
+     * @return array
+     */
+    private function sanitize_woocommerce_options( $options ) {
+        $sanitized = array();
+
+        $boolean_fields = array(
+            'disable_scripts_non_shop',
+            'disable_styles_non_shop',
+            'disable_block_assets_non_shop',
+            'disable_password_strength',
+            'disable_marketplace_suggestions',
+            'disable_dashboard_widgets',
+            'disable_admin_scripts_non_wc',
+            'enable_scheduled_cleanup',
+        );
+
+        foreach ( $boolean_fields as $field ) {
+            $sanitized[ $field ] = isset( $options[ $field ] ) ? (bool) $options[ $field ] : false;
+        }
+
+        // Cart fragments mode
+        $valid_modes = array( 'default', 'non_shop', 'always' );
+        $mode = isset( $options['cart_fragments_mode'] ) ? sanitize_text_field( $options['cart_fragments_mode'] ) : 'default';
+        $sanitized['cart_fragments_mode'] = in_array( $mode, $valid_modes, true ) ? $mode : 'default';
+
+        // Action Scheduler retention (days)
+        $sanitized['action_scheduler_retention'] = isset( $options['action_scheduler_retention'] ) ? absint( $options['action_scheduler_retention'] ) : 0;
+
+        // Defensive: if the user has just enabled scheduled cleanup and the weekly
+        // cron is not registered (e.g. site missed the activation hook, or the
+        // event was cleared by another plugin), re-schedule it now.
+        if ( $sanitized['enable_scheduled_cleanup'] && ! wp_next_scheduled( 'mbr_wp_performance_database_cleanup' ) ) {
+            wp_schedule_event( time() + HOUR_IN_SECONDS, 'weekly', 'mbr_wp_performance_database_cleanup' );
+        }
+
+        return $sanitized;
+    }
+
+    /**
+     * AJAX: clear expired WooCommerce sessions
+     */
+    public function ajax_wc_clear_sessions() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'mbr-wp-performance' ) ) );
+        }
+
+        if ( ! class_exists( 'MBR_WP_Performance_WooCommerce_Optimizations' ) ) {
+            wp_send_json_error( array( 'message' => __( 'WooCommerce module not loaded.', 'mbr-wp-performance' ) ) );
+        }
+
+        $deleted = MBR_WP_Performance_WooCommerce_Optimizations::clear_expired_sessions();
+
+        wp_send_json_success( array(
+            /* translators: %d: number of sessions cleared */
+            'message' => sprintf( __( 'Cleared %d expired sessions.', 'mbr-wp-performance' ), $deleted ),
+        ) );
+    }
+
+    /**
+     * AJAX: clear WooCommerce transients
+     */
+    public function ajax_wc_clear_transients() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'mbr-wp-performance' ) ) );
+        }
+
+        if ( ! class_exists( 'MBR_WP_Performance_WooCommerce_Optimizations' ) ) {
+            wp_send_json_error( array( 'message' => __( 'WooCommerce module not loaded.', 'mbr-wp-performance' ) ) );
+        }
+
+        $ran = MBR_WP_Performance_WooCommerce_Optimizations::clear_transients();
+
+        if ( ! $ran ) {
+            wp_send_json_error( array( 'message' => __( 'WooCommerce functions not available.', 'mbr-wp-performance' ) ) );
+        }
+
+        wp_send_json_success( array( 'message' => __( 'WooCommerce transients cleared.', 'mbr-wp-performance' ) ) );
+    }
+
+    /**
+     * AJAX: trigger Action Scheduler cleanup
+     */
+    public function ajax_wc_cleanup_action_scheduler() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'mbr-wp-performance' ) ) );
+        }
+
+        if ( ! class_exists( 'MBR_WP_Performance_WooCommerce_Optimizations' ) ) {
+            wp_send_json_error( array( 'message' => __( 'WooCommerce module not loaded.', 'mbr-wp-performance' ) ) );
+        }
+
+        $deleted = MBR_WP_Performance_WooCommerce_Optimizations::run_action_scheduler_cleanup();
+
+        wp_send_json_success( array(
+            /* translators: %d: number of actions deleted */
+            'message' => sprintf( __( 'Action Scheduler cleanup triggered. Removed %d historical actions.', 'mbr-wp-performance' ), $deleted ),
+        ) );
+    }
+
+    /**
+     * Detect plugin upgrades and, if the user had the legacy WooCommerce
+     * options enabled, set a one-time admin notice pointing them at the
+     * new WooCommerce tab. Runs on admin_init.
+     */
+    public function maybe_flag_wc_migration_notice() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            return;
+        }
+
+        // Don't re-flag if already flagged or permanently dismissed.
+        if ( get_option( 'mbr_wp_performance_wc_migration_notice_shown' ) ) {
+            return;
+        }
+
+        $installed = get_option( 'mbr_wp_performance_version' );
+        if ( ! $installed ) {
+            // Fresh install — no upgrade to notify about.
+            return;
+        }
+
+        // Only trigger when upgrading from a version older than 1.9.0.
+        if ( version_compare( $installed, '1.9.0', '>=' ) ) {
+            return;
+        }
+
+        // Only show the notice if WooCommerce is active and the user had
+        // at least one of the legacy WC options enabled.
+        $opts = get_option( 'mbr_wp_performance_options', array() );
+        $had_legacy_wc = ! empty( $opts['core']['disable_woocommerce_scripts'] )
+            || ! empty( $opts['css']['disable_woocommerce_css'] );
+
+        if ( $had_legacy_wc && class_exists( 'WooCommerce' ) ) {
+            update_option( 'mbr_wp_performance_wc_migration_notice_shown', 1 );
+        }
+
+        // Always bump the stored version so we don't re-check every admin load.
+        update_option( 'mbr_wp_performance_version', MBR_WP_PERFORMANCE_VERSION );
+    }
+
+    /**
+     * Render the WooCommerce settings migration notice.
+     */
+    public function maybe_render_wc_migration_notice() {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            return;
+        }
+
+        // 1 = show, 2 = dismissed. Anything else: nothing to render.
+        if ( (int) get_option( 'mbr_wp_performance_wc_migration_notice_shown' ) !== 1 ) {
+            return;
+        }
+
+        $settings_url = admin_url( 'admin.php?page=mbr-wp-performance&tab=woocommerce' );
+        $nonce        = wp_create_nonce( 'mbr_wp_performance_nonce' );
+        ?>
+        <div class="notice notice-info is-dismissible" id="mbr-wp-performance-wc-migration-notice" data-nonce="<?php echo esc_attr( $nonce ); ?>">
+            <p>
+                <strong><?php esc_html_e( 'MBR WP Performance:', 'mbr-wp-performance' ); ?></strong>
+                <?php
+                printf(
+                    /* translators: %s: link to the new WooCommerce tab */
+                    esc_html__( 'WooCommerce settings have moved — check the new %s for cart fragments, Action Scheduler retention, session cleanup and more.', 'mbr-wp-performance' ),
+                    '<a href="' . esc_url( $settings_url ) . '">' . esc_html__( 'WooCommerce tab', 'mbr-wp-performance' ) . '</a>'
+                );
+                ?>
+                <?php esc_html_e( 'Your existing settings are still active.', 'mbr-wp-performance' ); ?>
+            </p>
+        </div>
+        <script>
+        (function() {
+            var notice = document.getElementById('mbr-wp-performance-wc-migration-notice');
+            if (!notice) return;
+            notice.addEventListener('click', function(e) {
+                if (!e.target.classList.contains('notice-dismiss')) return;
+                var data = new FormData();
+                data.append('action', 'mbr_wp_performance_dismiss_wc_migration_notice');
+                data.append('nonce', notice.getAttribute('data-nonce'));
+                fetch(ajaxurl, { method: 'POST', body: data, credentials: 'same-origin' });
+            });
+        })();
+        </script>
+        <?php
+    }
+
+    /**
+     * AJAX: dismiss the WooCommerce migration notice permanently.
+     */
+    public function ajax_dismiss_wc_migration_notice() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'mbr-wp-performance' ) ) );
+        }
+
+        update_option( 'mbr_wp_performance_wc_migration_notice_shown', 2 );
+        wp_send_json_success();
     }
 
     /**

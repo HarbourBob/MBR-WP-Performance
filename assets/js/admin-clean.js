@@ -80,6 +80,11 @@ console.log('==========================================');
             // Image Dimensions bulk resize
             $('#mbr-imgdim-scan').on('click', function(e) { self.imgDimScan.call(this, e); });
             $('#mbr-imgdim-start').on('click', function(e) { self.imgDimStart.call(this, e); });
+
+            // WooCommerce operations
+            $('#wc-clear-expired-sessions').on('click', function(e) { self.wcClearSessions.call(this, e); });
+            $('#wc-clear-transients').on('click', function(e) { self.wcClearTransients.call(this, e); });
+            $('#wc-run-action-scheduler-cleanup').on('click', function(e) { self.wcCleanupActionScheduler.call(this, e); });
         },
 
         /**
@@ -1098,6 +1103,79 @@ console.log('==========================================');
 
             updateProgress();
             processNext();
+        },
+
+        /**
+         * WooCommerce: clear expired sessions
+         */
+        wcClearSessions: function(e) {
+            e.preventDefault();
+            var $button = $(this);
+            var $status = $('#wc-session-stats');
+
+            MBR_WP_Performance_Admin.showLoading($button);
+
+            $.post(mbrWpPerformance.ajaxUrl, {
+                action: 'mbr_wp_performance_wc_clear_sessions',
+                nonce: mbrWpPerformance.nonce
+            }, function(response) {
+                MBR_WP_Performance_Admin.hideLoading($button);
+                if (response.success) {
+                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                } else {
+                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                }
+            });
+        },
+
+        /**
+         * WooCommerce: clear transients
+         */
+        wcClearTransients: function(e) {
+            e.preventDefault();
+            var $button = $(this);
+            var $status = $('#wc-transient-stats');
+
+            MBR_WP_Performance_Admin.showLoading($button);
+
+            $.post(mbrWpPerformance.ajaxUrl, {
+                action: 'mbr_wp_performance_wc_clear_transients',
+                nonce: mbrWpPerformance.nonce
+            }, function(response) {
+                MBR_WP_Performance_Admin.hideLoading($button);
+                if (response.success) {
+                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                } else {
+                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                }
+            });
+        },
+
+        /**
+         * WooCommerce: run Action Scheduler cleanup
+         */
+        wcCleanupActionScheduler: function(e) {
+            e.preventDefault();
+            var $button = $(this);
+            var $status = $('#wc-action-scheduler-stats');
+
+            if (!confirm('Run Action Scheduler cleanup now? This removes completed and failed historical actions beyond the retention period.')) {
+                return;
+            }
+
+            MBR_WP_Performance_Admin.showLoading($button);
+
+            $.post(mbrWpPerformance.ajaxUrl, {
+                action: 'mbr_wp_performance_wc_cleanup_as',
+                nonce: mbrWpPerformance.nonce
+            }, function(response) {
+                MBR_WP_Performance_Admin.hideLoading($button);
+                if (response.success) {
+                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                } else {
+                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                }
+            });
         }
     };
 
