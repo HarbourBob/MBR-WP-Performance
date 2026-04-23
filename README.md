@@ -3,11 +3,11 @@
 [![WordPress](https://img.shields.io/badge/WordPress-5.8%2B-blue.svg)](https://wordpress.org)
 [![PHP Version](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
 [![License](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
-[![Version](https://img.shields.io/badge/Version-1.8.0-orange.svg)](https://github.com/harbourbob/mbr-wp-performance/releases)
+[![Version](https://img.shields.io/badge/Version-1.9.1-orange.svg)](https://github.com/harbourbob/mbr-wp-performance/releases)
 [![Made by Robert](https://img.shields.io/badge/Made%20by-Robert-brightgreen.svg)](https://madebyrobert.co.uk)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-%E2%98%95-yellow.svg)](https://buymeacoffee.com/robertpalmer/)
 
-A comprehensive WordPress performance optimisation plugin with granular controls across eight dedicated tabs — covering core features, JavaScript, CSS, fonts, lazy loading, preloading, database cleanup, WebP image conversion, and automatic image sizing. Completely free, no upsells, no premium tiers.
+A comprehensive WordPress performance optimisation plugin with granular controls across nine dedicated tabs — covering core features, JavaScript, CSS, fonts, lazy loading, preloading, database cleanup, WebP image conversion, automatic image sizing, and WooCommerce optimisations. Completely free, no upsells, no premium tiers.
 
 [**Download Latest Release**](https://github.com/harbourbob/mbr-wp-performance/releases) · [**Report a Bug**](https://github.com/harbourbob/mbr-wp-performance/issues) · [**Request a Feature**](https://github.com/harbourbob/mbr-wp-performance/issues)
 
@@ -17,14 +17,14 @@ A comprehensive WordPress performance optimisation plugin with granular controls
 
 MBR WP Performance gives you fine-grained control over every aspect of your site's speed. Rather than hiding everything behind presets, each optimisation is individually toggled with clear explanations of what it does and why you'd want it.
 
-The dark-mode admin UI is accessed from the WordPress toolbar — no sidebar clutter. Settings are organised across eight tabs, each focused on a specific performance area.
+The dark-mode admin UI is accessed from the WordPress toolbar — no sidebar clutter. Settings are organised across nine tabs, each focused on a specific performance area.
 
 ---
 
 ## Features
 
 ### Core Features
-Disable unnecessary WordPress defaults that slow your site down: emojis, embeds, dashicons, jQuery Migrate, XML-RPC, RSS feeds, self-pingbacks, REST API links, oEmbeds, and more. Control the Heartbeat API frequency, limit post revisions, adjust autosave intervals, and remove query strings for better caching. Includes WooCommerce script optimisation for shops that don't need cart/checkout assets on every page.
+Disable unnecessary WordPress defaults that slow your site down: emojis, embeds, dashicons, jQuery Migrate, XML-RPC, RSS feeds, self-pingbacks, REST API links, oEmbeds, and more. Control the Heartbeat API frequency, limit post revisions, adjust autosave intervals, and remove query strings for better caching. Legacy WooCommerce script toggles remain here for backward compatibility; the full set of WooCommerce optimisations now lives in its own dedicated tab.
 
 ### JavaScript Optimisation
 Defer or async JavaScript loading, move scripts to the footer, and optionally remove jQuery entirely. Minify and combine JS files, delay execution of third-party scripts (analytics, chat widgets) until user interaction, and strip version query strings. Exclusion lists let you protect scripts that need to load normally.
@@ -49,6 +49,11 @@ Convert JPG, JPEG, and PNG images to WebP format with configurable compression (
 
 ### Image Sizing & Dimensions
 Directly targets two of the most common Google PageSpeed Insights warnings: "Properly size images" and "Ensure images have explicit width and height." Resize large uploads automatically to a configurable maximum dimension (default 2560px) using the WordPress core scaling pipeline, preserving aspect ratio. Inject missing `width` and `height` attributes into front-end images on the fly, giving browsers the aspect ratio up front to eliminate Cumulative Layout Shift (CLS). Works across post content, Gutenberg blocks, Elementor widgets, attachment images, and post thumbnails, with per-URL dimension caching to keep the filter cheap. External images, SVGs, and data URIs are skipped automatically — only local files are measured. A bulk resize tool scans your existing Media Library for oversized images and downscales them in place, regenerating all sub-sizes and cleaning up any stale WebP copies in the same pass. Scan first to see what would change, then start the resize with a live progress bar and log.
+
+### WooCommerce Optimisations
+A dedicated tab that only becomes active when WooCommerce is installed, consolidating the optimisations that matter most on WooCommerce stores. Cart fragments control lets you disable the admin-ajax request that fires on every page load to keep the mini-cart in sync — typically the single biggest performance win on cached stores, with options to disable site-wide or only on non-shop pages. Expanded conditional asset loading dequeues WooCommerce scripts, styles, block assets, selectWoo, and blockUI on pages that aren't shop, product, cart, checkout, or account. Remove the zxcvbn password strength meter from the frontend, disable marketplace suggestions, and hide the WooCommerce dashboard widgets. The "disable admin scripts on non-WC pages" toggle stops the heavy wc-admin React bundles and enhanced-select scripts from loading on unrelated admin screens, making the rest of wp-admin noticeably faster.
+
+On the database side, a configurable Action Scheduler retention period keeps the `actionscheduler_actions` table from ballooning on busy stores (default 30 days, options for 14, 7, or 3). One-click cleanup buttons clear expired WooCommerce sessions and product, order, and expired transients using WooCommerce's own helpers. Enable weekly automated cleanup to run all three routines on the plugin's built-in cron — with a last-run log showing what was cleared and when. A geolocation advisory notice automatically detects when WooCommerce's default customer location is configured in a way that interacts badly with full-page caching, with a direct link to the relevant WooCommerce settings page to fix it. Legacy WooCommerce script and style toggles from earlier versions continue to work unchanged, so upgrading is safe.
 
 ### Multisite Network Support
 Full WordPress Multisite compatibility from v1.5.0 onwards. Network-activate the plugin and manage default settings from the Network Admin. Push defaults to all sites (or selected sites) in one click, import settings from any existing site, and control whether individual site admins can override the network configuration. New sites automatically inherit network defaults on creation.
@@ -100,6 +105,7 @@ After activation, click **WP Performance** in the WordPress admin toolbar. The s
 3. **Core Features tab** — Disable emojis, embeds, and dashicons if you don't need them
 4. **WebP tab** — Check the server diagnostics panel, then run the bulk WebP converter
 5. **WebP tab → Image Sizing & Dimensions** — Enable "Resize Large Uploads" and "Add Missing Width & Height" for an easy PageSpeed Insights win. If you have historic uploads from back when phone cameras produced huge files, back up and run the Bulk Resize tool.
+6. **WooCommerce tab** (if applicable) — Disable cart fragments (or restrict to non-shop pages), enable "Disable WC scripts on non-shop pages", and consider reducing Action Scheduler retention to 7 or 14 days on busy stores.
 
 Enable features one at a time and test your site after each change. The plugin automatically disables all optimisations inside page builder editors (Elementor, Beaver Builder, Divi, Oxygen, Bricks, WPBakery) to prevent conflicts.
 
@@ -135,7 +141,7 @@ The plugin is designed to be safe, but always take a backup first, test on stagi
 Yes. This plugin provides complementary optimisations that work alongside any caching solution.
 
 **Does it work with WooCommerce?**
-Yes. Dedicated WooCommerce options let you disable cart/checkout scripts and styles on non-shop pages.
+Yes, and WooCommerce has its own dedicated tab from v1.9.0 onwards. Disable cart fragments site-wide or on non-shop pages for a major TTFB win on cached stores, strip WooCommerce scripts and styles from non-shop pages, prevent wc-admin React bundles loading across the whole admin area, configure Action Scheduler retention, and enable weekly automated cleanup of expired sessions and transients. The tab also includes an advisory notice for WooCommerce geolocation settings that interact badly with full-page caching.
 
 **What happens to my images if I deactivate?**
 Original images are never modified by the WebP conversion. The "Revert All" button in the WebP tab deletes all plugin-created WebP files. On deactivation, WebP files tracked in the registry are cleaned up automatically. Note that the Bulk Resize tool is destructive — resized files are not restored on deactivation, so always back up before running it.
@@ -152,6 +158,27 @@ WebP conversion creates a second copy of each image in the more efficient WebP f
 ---
 
 ## Changelog
+
+### 1.9.1
+- Weekly automated cleanup toggle in the WooCommerce tab — runs expired sessions, WooCommerce transients, and Action Scheduler cleanup on the plugin's existing weekly cron hook
+- Geolocation and page cache advisory notice — warns when WooCommerce's default customer location is set to "Geolocate" (breaks full-page caching entirely) or "Geolocate (with page cache support)" (appends a `?v=<timestamp>` query string that some cache plugins mishandle)
+- Last-run log display showing when the scheduled cleanup last ran and what it cleared
+- Direct link from the advisory notice to the WooCommerce General settings page for quick resolution
+- Fixed: the `mbr_wp_performance_database_cleanup` weekly cron event now has an actual listener — previously the event was scheduled on activation but had nothing attached
+- Defensive re-scheduling of the weekly cron when the user enables automated cleanup, in case the event was cleared by another plugin or missed during activation
+
+### 1.9.0
+- New dedicated WooCommerce tab consolidating all store-specific optimisations
+- Cart fragments control — disable the admin-ajax `get_refreshed_fragments` request site-wide or only on non-shop pages
+- Expanded conditional asset loading — dequeues WooCommerce scripts, styles, block assets, selectWoo, blockUI, and related libraries on non-shop pages
+- Disable the zxcvbn password strength meter on the frontend
+- Disable WooCommerce marketplace suggestions and dashboard status widgets
+- Prevent the heavy wc-admin React bundles from loading on non-WooCommerce admin screens
+- Configurable Action Scheduler retention period (default 30 days, options for 14, 7, or 3) — stops `actionscheduler_actions` ballooning on busy stores
+- One-click cleanup buttons for expired WooCommerce sessions and product, order, and expired transients
+- One-time admin notice on upgrade informing users that their existing WooCommerce settings have moved to the new tab (dismissible)
+- Legacy `core.disable_woocommerce_scripts` and `css.disable_woocommerce_css` options remain fully backward-compatible — existing sites keep their behaviour without re-saving
+- Tab gracefully shows an inactive state when WooCommerce is not installed, so the capability remains discoverable
 
 ### 1.8.0
 - Bulk resize tool for existing Media Library images — scan for JPEGs and PNGs exceeding the configured maximum dimension, then downscale them in place
