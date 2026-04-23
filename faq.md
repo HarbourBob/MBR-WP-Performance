@@ -130,7 +130,7 @@ The plugin:
 **Core Optimization:**
 - Disable unnecessary WordPress features (emojis, embeds, etc.)
 - Control REST API, Heartbeat, revisions
-- WooCommerce script optimization
+- Legacy WooCommerce script toggle (full WooCommerce tab available — see below)
 
 **JavaScript:**
 - Defer/async loading
@@ -181,6 +181,29 @@ The plugin:
 - Gutenberg and Elementor integration
 - Revert all with one click
 
+**Image Sizing & Dimensions (v1.7.0+):**
+- Automatic resize of large uploads to a configurable maximum dimension (default 2560px)
+- Adds missing `width` and `height` attributes to front-end images to reduce Cumulative Layout Shift
+- Per-URL dimension cache to keep the filter cheap on image-heavy pages
+- Works with post content, Gutenberg blocks, Elementor widgets, attachments, and post thumbnails
+
+**Bulk Resize Tool (v1.8.0+):**
+- Scan the existing Media Library for oversized images
+- Downscale in place with a two-phase workflow (Scan → Start Resize)
+- Live progress bar, log, and running savings total
+- Automatic sub-size regeneration and stale WebP cleanup after each resize
+
+**WooCommerce Optimisations (v1.9.0+):**
+- Dedicated tab that only activates when WooCommerce is installed
+- Cart fragments control (site-wide disable or non-shop pages only)
+- Conditional asset loading for WC scripts, styles, and block assets
+- Disable password strength meter, marketplace suggestions, dashboard widgets
+- Prevent wc-admin React bundles from loading on non-WC admin pages
+- Action Scheduler retention period (default 30 days, options for 14/7/3)
+- One-click cleanup for expired sessions and WC transients
+- Weekly automated cleanup with last-run log (v1.9.1+)
+- Geolocation and page cache advisory notice (v1.9.1+)
+
 **Multisite Network Support:**
 - Network-wide default settings
 - Push settings to all sites (or selected sites)
@@ -212,9 +235,9 @@ Maximum performance
 
 ### Does it optimize images?
 
-**Yes — it converts images to WebP format.** From v1.6.0, the plugin includes a full WebP converter that creates smaller WebP copies of your JPG, JPEG, and PNG images.
+**Yes — WebP conversion plus automatic image sizing.** From v1.6.0 the plugin includes a full WebP converter, and from v1.7.0 onwards it also targets the two most common PageSpeed Insights warnings about image dimensions.
 
-**What it does:**
+**WebP conversion:**
 - ✅ Converts images to WebP (typically 60–95% smaller)
 - ✅ Automatic conversion on upload
 - ✅ Bulk converter for existing Media Library images
@@ -223,8 +246,21 @@ Maximum performance
 - ✅ Server diagnostics panel
 - ✅ Full revert capability (originals never touched)
 
+**Image sizing & dimensions (v1.7.0+):**
+- ✅ Automatically resizes large uploads to a configurable maximum dimension (default 2560px)
+- ✅ Adds missing `width` and `height` attributes to front-end images to reduce Cumulative Layout Shift (CLS)
+- ✅ Per-URL dimension cache keeps the filter cheap on image-heavy pages
+- ✅ Skips external images, SVGs, and data URIs automatically
+
+**Bulk resize tool (v1.8.0+):**
+- ✅ Scans the existing Media Library for oversized images
+- ✅ Two-phase workflow: Scan first, then Start Resize
+- ✅ Downscales in place with live progress bar and log
+- ✅ Regenerates sub-sizes and cleans up stale WebP files after each resize
+- ⚠️ Destructive — permanently overwrites files on disk, so always back up first
+
 **What it doesn't do:**
-- ❌ Lossy compression of originals (resizing, stripping metadata)
+- ❌ Lossy compression of originals (stripping metadata, re-encoding JPEGs)
 - ❌ CDN-based image transformation
 
 **For lossy compression of originals**, pair with:
@@ -232,7 +268,7 @@ Maximum performance
 - Imagify (freemium)
 - Smush (free)
 
-**Best practice:** Use this plugin for WebP conversion, use a dedicated tool for lossy compression of the originals if needed. Disable their WebP feature to avoid duplicates.
+**Best practice:** Use this plugin for WebP conversion and image sizing, use a dedicated tool for lossy compression of the originals if needed. Disable their WebP feature to avoid duplicates.
 
 ---
 
@@ -532,11 +568,34 @@ Plugin automatically detects when you're in editor mode and **completely disable
 
 ### Does it work with WooCommerce?
 
-**Yes**, but requires configuration.
+**Yes — and v1.9.0 added a dedicated WooCommerce tab.**
 
-**Recommended settings:**
+**The fast path (v1.9.0+):**
 
-**JavaScript Tab:**
+Go to **WP Performance → WooCommerce** tab and enable the options that apply to your store:
+
+```
+Frontend Assets:
+☑ Cart fragments: "Disable on non-shop pages" or "Disable site-wide"
+☑ Disable WC Scripts on Non-Shop Pages
+☑ Disable WC Styles on Non-Shop Pages
+☑ Disable WC Block Assets on Non-Shop Pages
+☑ Disable Password Strength Meter
+
+Admin:
+☑ Disable Marketplace Suggestions
+☑ Disable Dashboard Widgets
+☑ Disable WC Admin Scripts on Non-WC Pages
+
+Database Cleanup:
+☑ Enable Weekly Automated Cleanup (v1.9.1+)
+☑ Action Scheduler Retention: 14 days (or 7 on busy stores)
+```
+
+**Biggest single win:** Cart fragments. Set to "Disable site-wide" unless your theme relies on a live-updating mini-cart widget.
+
+**JavaScript Tab (still applies):**
+For deferred script handling, you may still want to exclude critical WC scripts:
 ```
 Exclude from defer:
 woocommerce
@@ -546,19 +605,19 @@ wc-checkout
 select2
 ```
 
-**Lazy Loading Tab:**
+**Lazy Loading Tab (still applies):**
 ```
 Exclude from lazy loading:
 .woocommerce-product-gallery__image
 .product-image
 ```
 
-**Why?**
+**Why exclusions matter:**
 - WooCommerce has complex JavaScript
 - Cart/checkout need immediate execution
-- Product images often in sliders
+- Product images often sit in sliders that break with lazy loading
 
-**Test thoroughly:** Especially cart, checkout, and product pages.
+**Test thoroughly:** Especially cart, checkout, product pages, and any live-updating components. Flip one toggle at a time.
 
 ---
 
@@ -669,6 +728,8 @@ WordPress.com doesn't allow plugin installation on free/personal plans. You need
 ☑ WebP → Check server diagnostics
 ☑ WebP → Enable auto-convert + run bulk converter
 ☑ WebP → Enable <picture> tags
+☑ WebP → Enable Resize Large Uploads (v1.7.0+)
+☑ WebP → Enable Add Missing Width & Height (v1.7.0+)
 ```
 
 **Week 2 - CSS:**
@@ -682,6 +743,15 @@ WordPress.com doesn't allow plugin installation on free/personal plans. You need
 ```
 ☑ JavaScript → Defer loading (test carefully!)
 ☑ JavaScript → Exclude problematic scripts
+```
+
+**Week 4 - WooCommerce (if applicable, v1.9.0+):**
+```
+☑ WooCommerce → Cart fragments: Disable site-wide (or non-shop pages only)
+☑ WooCommerce → Disable WC Scripts on Non-Shop Pages
+☑ WooCommerce → Disable WC Admin Scripts on Non-WC Pages
+☑ WooCommerce → Action Scheduler Retention: 14 days
+☑ WooCommerce → Enable Weekly Automated Cleanup (v1.9.1+)
 ```
 
 **Test after each step!**
@@ -803,6 +873,57 @@ If you prefer to clean up manually first, use the **"Revert All WebP Files"** bu
 
 ---
 
+### What's the difference between WebP conversion and Image Sizing? (v1.7.0+)
+
+Two complementary features targeting different problems:
+
+**WebP conversion:**
+- Creates a second copy of each image in the more efficient WebP format
+- Original dimensions are preserved
+- Saves bandwidth via better compression
+- Solves: "Serve images in next-gen formats"
+
+**Image Sizing:**
+- Changes the actual pixel dimensions of images
+- Downscales oversized uploads to a maximum (default 2560px)
+- Adds missing width/height attributes to `<img>` tags
+- Solves: "Properly size images" and "Ensure images have explicit width and height"
+
+**Use both together** for the biggest PageSpeed Insights wins.
+
+---
+
+### Does "Resize Large Uploads" affect my existing images? (v1.7.0+)
+
+**No.** The "Resize Large Uploads" toggle only applies to images uploaded after you enable it. It hooks into the WordPress `big_image_size_threshold` filter on upload.
+
+**To downscale existing images**, use the **Bulk Resize tool** in the WebP tab → Image Sizing & Dimensions section. That tool scans your Media Library for oversized images and downscales them in place.
+
+⚠️ **Important:** The Bulk Resize tool is destructive — it permanently overwrites files on disk. Always take a full backup (files + database) before running it.
+
+---
+
+### How does the Bulk Resize tool work? (v1.8.0+)
+
+**Two-phase workflow:**
+
+**Phase 1 — Scan:**
+Click "Scan" to iterate through your Media Library and identify images that exceed the configured maximum dimension. The scan is paginated (batches of 200) to keep memory use reasonable on large libraries. Results show which images would be affected and their current dimensions.
+
+**Phase 2 — Start Resize:**
+After reviewing the scan results, click "Start Resize" to begin. A live progress bar, log, and running savings total show what's happening. For each image, the plugin:
+
+1. Downscales the file in place using the WordPress core scaling pipeline
+2. Regenerates all registered sub-sizes
+3. Deletes any stale plugin-created WebP files so they'll be regenerated from the new dimensions
+4. Clears Elementor's CSS cache (if Elementor is active)
+
+**Skipped images:** Any image already within the configured maximum is skipped with a clear reason logged.
+
+**Back up first.** The operation is permanent and cannot be undone.
+
+---
+
 ### I was using the standalone MBR WebP Converter — what do I do?
 
 1. Upgrade to MBR WP Performance v1.6.0
@@ -811,6 +932,140 @@ If you prefer to clean up manually first, use the **"Revert All WebP Files"** bu
 4. Optionally delete the standalone plugin
 
 Your conversion history and WebP file registry are migrated automatically. All existing WebP files remain in place.
+
+---
+
+### What does the WooCommerce tab do? (v1.9.0+)
+
+The WooCommerce tab consolidates all store-specific optimisations in one place. It only activates when WooCommerce is installed — otherwise you'll see an "inactive" placeholder.
+
+**Three main sections:**
+
+**Frontend Assets:**
+- Cart fragments control (the single biggest win on cached stores)
+- Disable WC scripts, styles, and block assets on non-shop pages
+- Disable the zxcvbn password strength meter
+
+**Admin:**
+- Disable WooCommerce marketplace suggestions
+- Remove WC dashboard widgets
+- Prevent heavy wc-admin React bundles from loading on non-WC admin screens
+
+**Database Cleanup:**
+- Configurable Action Scheduler retention period
+- One-click cleanup for expired sessions and transients
+- Weekly automated cleanup toggle (v1.9.1+)
+
+**Legacy compatibility:** If you had the old "Disable WooCommerce Scripts on Non-Shop Pages" or "Disable WooCommerce CSS on Non-Shop Pages" options enabled in the Core or CSS tabs, they continue to work unchanged. The new tab offers more granular control but you don't have to migrate immediately.
+
+---
+
+### What are "cart fragments" and should I disable them? (v1.9.0+)
+
+**What they are:**
+WooCommerce fires an `admin-ajax.php?action=get_refreshed_fragments` request on every single page load to keep the mini-cart in sync. This request is uncached, so it hits your server every time — even for visitors who have never added anything to the cart.
+
+**Why it matters:**
+On cached sites, cart fragments are typically the single biggest source of Time to First Byte (TTFB) latency. Disabling them is usually the fastest way to make a WooCommerce store feel snappier.
+
+**Three options:**
+
+```
+Default (WooCommerce behaviour)
+  → Fragments run on every page
+  → Mini-cart updates live
+
+Disable on non-shop pages
+  → Fragments only run on shop/product/cart/checkout/account pages
+  → Mini-cart may be stale on blog posts until page reload
+
+Disable site-wide
+  → Fragments never run
+  → Mini-cart only updates on page reload
+  → Biggest performance win
+```
+
+**Should you disable?**
+
+- ✅ Yes for most stores — the trade-off is that if your theme has a persistent header cart count, it won't update live after "Add to Cart" without a refresh
+- ⚠️ Test if your theme has a live-updating mini-cart widget your customers depend on
+
+---
+
+### What is "Action Scheduler Retention" and why does it matter? (v1.9.0+)
+
+**What it is:**
+Action Scheduler is WooCommerce's background job queue. It records every scheduled action in the `wp_actionscheduler_actions` table. By default, WooCommerce keeps completed and failed actions for 30 days before cleaning them up.
+
+**Why it matters:**
+On busy stores — especially those running WooCommerce Subscriptions, bookings, or any plugin that queues lots of scheduled jobs — this table can balloon to hundreds of thousands of rows. Admin queries that touch the table slow down noticeably as it grows.
+
+**Options:**
+
+| Retention | Best for |
+|-----------|----------|
+| Default (30 days) | Low-volume stores, or when you need historical debugging |
+| 14 days | Most stores |
+| 7 days | Busy stores with frequent scheduled tasks |
+| 3 days | Very busy stores / WC Subscriptions with daily renewals |
+
+**Important:** The retention setting only affects future cleanup runs. To drain an existing backlog, click the **"Run Cleanup Now"** button next to the retention setting.
+
+---
+
+### What is the "Geolocation & page cache" notice? (v1.9.1+)
+
+**What it means:**
+When you visit the WooCommerce tab, the plugin checks your `woocommerce_default_customer_address` setting. If it's configured in a way that interacts badly with full-page caching, you'll see an advisory notice at the top of the tab.
+
+**Two problematic settings:**
+
+```
+Geolocate
+  → WooCommerce performs a server-side IP lookup on every request
+  → Every response varies per visitor
+  → Full-page caches are effectively disabled
+  → Severity: WARNING (red)
+
+Geolocate (with page cache support)
+  → WooCommerce appends ?v=<timestamp> to URLs
+  → Some cache plugins treat this as cache-busting
+  → Either bypasses cache entirely or creates many cache variants
+  → Severity: NOTICE (blue)
+```
+
+**How to fix:**
+Click the **"Open WooCommerce → Settings → General"** button in the notice. Change **"Default customer location"** to **"Shop base address"**. Save. The notice disappears on next page load.
+
+**When to keep geolocation enabled:**
+If your store genuinely needs per-visitor geolocation for tax/shipping calculations and you can't use "Shop base address", confirm your cache plugin is configured to ignore the `v` query argument on "Geolocate (with page cache support)". If you use the plain "Geolocate" mode, accept that full-page caching won't work and plan accordingly.
+
+---
+
+### What is the "Weekly Automated Cleanup"? (v1.9.1+)
+
+**What it does:**
+When enabled, the plugin's existing weekly cron hook runs three maintenance jobs automatically:
+
+1. Delete expired WooCommerce sessions
+2. Clear WooCommerce transients (product, shop order, expired)
+3. Trigger Action Scheduler cleanup (respecting the retention period above)
+
+All three are idempotent and safe to run repeatedly.
+
+**How to enable:**
+In the WooCommerce tab → Database Cleanup section, tick **"Enable Weekly Automated Cleanup"** and save. The tab displays:
+
+- **Next scheduled run:** when the cron will next fire
+- **Last run:** when it last ran and what it cleared (sessions deleted, Action Scheduler actions deleted, transients cleared)
+
+**Historical note:** The `mbr_wp_performance_database_cleanup` cron hook was scheduled on activation in earlier versions but had no listener attached. It fired weekly into the void. v1.9.1 wires up the listener, so the weekly cron now actually does work when you enable this toggle.
+
+**WP-CLI trigger:**
+You can also trigger the cleanup manually:
+```bash
+wp cron event run mbr_wp_performance_database_cleanup
+```
 
 ---
 
@@ -947,6 +1202,88 @@ See [Performance Troubleshooting](troubleshooting.md#performance-not-improving).
 
 ---
 
+### WooCommerce tab isn't showing / is empty (v1.9.0+)
+
+**Tab missing entirely:**
+- Confirm you're on v1.9.0 or later (check Plugins screen)
+- Clear browser cache and reload — sometimes the admin bar doesn't refresh
+
+**Tab shows "WooCommerce is not active":**
+- WooCommerce isn't installed or isn't activated
+- The tab deliberately shows an inactive state rather than hiding, so the capability remains discoverable
+- Once you activate WooCommerce, the full options appear
+
+---
+
+### "WooCommerce settings have moved" notice won't go away (v1.9.0+)
+
+The one-time migration notice appears after upgrading from a pre-1.9.0 version if you had the legacy WooCommerce options enabled. It's dismissible — click the X icon on the right side of the notice and it won't appear again.
+
+If the notice reappears after dismissing:
+- Check that `update_option('mbr_wp_performance_wc_migration_notice_shown', 2)` was saved — the AJAX dismiss handler sets this to `2` (permanently dismissed)
+- Rare browser issues can prevent the fetch() call from completing; try dismissing while logged in as a different admin user
+
+---
+
+### Geolocation advisory notice keeps appearing (v1.9.1+)
+
+The notice only appears when WooCommerce's default customer location is set to `geolocation` or `geolocation_ajax`. To make it go away:
+
+1. Go to **WooCommerce → Settings → General**
+2. Change **"Default customer location"** to **"Shop base address"**
+3. Save changes
+4. Reload the WP Performance → WooCommerce tab
+
+The notice disappears automatically once the setting changes to a cache-friendly value.
+
+If you genuinely need geolocation (for tax or shipping):
+- Stay on `geolocation_ajax` ("with page cache support")
+- Configure your cache plugin to ignore the `v` query argument
+- The blue "notice" (not red "warning") is advisory only — it's fine to accept and move on
+
+---
+
+### Weekly automated cleanup doesn't appear to be running (v1.9.1+)
+
+**Check "Next scheduled run" in the WooCommerce tab:**
+- If the time is in the past, your server-side cron is unhealthy
+- WordPress cron fires when someone visits the site, so low-traffic sites often miss scheduled events
+
+**Fixes:**
+
+**Option 1 — Set up real cron:**
+Add this to your server's crontab to trigger WP-Cron every 5 minutes:
+```bash
+*/5 * * * * curl -s https://yoursite.com/wp-cron.php?doing_wp_cron > /dev/null 2>&1
+```
+Or use WP-CLI:
+```bash
+*/5 * * * * cd /path/to/wp && wp cron event run --due-now > /dev/null 2>&1
+```
+
+**Option 2 — Trigger manually once:**
+```bash
+wp cron event run mbr_wp_performance_database_cleanup
+```
+
+After running, check the **"Last run"** line in the WooCommerce tab for confirmation.
+
+**Option 3 — Re-schedule:**
+Toggle the "Enable Weekly Automated Cleanup" option off and back on. The sanitiser has defensive code that re-schedules the cron event if it's been cleared.
+
+---
+
+### Action Scheduler table still huge after changing retention (v1.9.0+)
+
+The retention setting uses WooCommerce's `action_scheduler_retention_period` filter, which only affects **future** cleanup runs — not existing data.
+
+**To drain an existing backlog:**
+Click the **"Run Cleanup Now"** button next to the Action Scheduler Retention dropdown. Depending on how much history you've accumulated, this can take a few seconds to a couple of minutes. The "Current: X total actions" line updates after the cleanup completes.
+
+For very large backlogs (500,000+ rows), consider running cleanup directly via the database or WP-CLI to avoid browser timeouts.
+
+---
+
 ### Where can I get help?
 
 **Resources:**
@@ -985,6 +1322,8 @@ See [Performance Troubleshooting](troubleshooting.md#performance-not-improving).
 | **Lazy Loading** | ✅ | ✅ |
 | **Critical CSS** | ✅ | ✅ |
 | **WebP Conversion** | ✅ | ❌ |
+| **Image Sizing &amp; Dimensions** | ✅ | ❌ |
+| **WooCommerce-specific tab** | ✅ | Limited |
 | **Multisite Network** | ✅ | ✅ |
 | **CDN Integration** | ❌ | ✅ |
 | **Control Level** | Granular | Medium |
@@ -1010,6 +1349,8 @@ See [Performance Troubleshooting](troubleshooting.md#performance-not-improving).
 | **Critical CSS** | ✅ | ✅ (Pro) |
 | **Preloading** | ✅ | ❌ |
 | **WebP Conversion** | ✅ | ❌ |
+| **Image Sizing &amp; Dimensions** | ✅ | ❌ |
+| **WooCommerce-specific tab** | ✅ | ❌ |
 | **Multisite Network** | ✅ | Basic |
 | **Control Level** | More granular | Simpler |
 | **Age** | Newer (2026) | Established (2010+) |
@@ -1141,6 +1482,6 @@ See [Contributing Guide](CONTRIBUTING.md).
 
 ---
 
-**This FAQ is updated regularly. Last updated: March 2026**
+**This FAQ is updated regularly. Last updated: April 2026 (v1.9.1)**
 
 **Found this helpful?** Star the repository: https://github.com/harbourbob/mbr-wp-performance ⭐
