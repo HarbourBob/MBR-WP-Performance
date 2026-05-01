@@ -160,18 +160,6 @@ $css_options = isset( $options['css'] ) ? $options['css'] : array();
         <table class="form-table">
             <tr>
                 <th scope="row">
-                    <label for="remove_global_styles">
-                        <?php esc_html_e( 'Remove Global Styles', 'mbr-wp-performance' ); ?>
-                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Removes inline CSS added by FSE/block themes', 'mbr-wp-performance' ); ?>">?</span>
-                    </label>
-                </th>
-                <td>
-                    <input type="checkbox" name="mbr_wp_performance_options[css][remove_global_styles]" id="remove_global_styles" value="1" <?php checked( isset( $css_options['remove_global_styles'] ) && $css_options['remove_global_styles'] ); ?>>
-                </td>
-            </tr>
-            
-            <tr>
-                <th scope="row">
                     <label for="load_block_styles_conditionally">
                         <?php esc_html_e( 'Load Block Styles Conditionally', 'mbr-wp-performance' ); ?>
                         <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Only loads block CSS when specific blocks are present', 'mbr-wp-performance' ); ?>">?</span>

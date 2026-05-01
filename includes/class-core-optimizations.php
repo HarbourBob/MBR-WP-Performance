@@ -284,8 +284,31 @@ class MBR_WP_Performance_Core_Optimizations {
 
     /**
      * Remove global styles
+     *
+     * Strips the <style id="global-styles-inline-css"> output added by
+     * wp_enqueue_global_styles, plus the SVG duotone filter render hook.
+     *
+     * IMPORTANT: This is incompatible with Full Site Editing (block) themes.
+     * FSE themes rely on this inline CSS to render their merged theme.json
+     * (colour palette, typography, layout, spacing) on the front end. With it
+     * stripped, the editor renders correctly but the public front end loses
+     * all design tokens.
+     *
+     * To prevent footguns, we hard-guard against block themes here even when
+     * the user has the toggle enabled. The Core tab tooltip warns about this
+     * but the runtime guard is the safety net.
+     *
+     * Classic themes don't use wp_enqueue_global_styles meaningfully, so the
+     * removal is safe and saves a small amount of front-end CSS.
      */
     private function remove_global_styles() {
+        // Skip silently on block / FSE themes — removing global styles would
+        // break the front end. function_exists() check is for very old WP
+        // versions that predate wp_is_block_theme() (added in WP 6.1).
+        if ( function_exists( 'wp_is_block_theme' ) && wp_is_block_theme() ) {
+            return;
+        }
+
         remove_action( 'wp_enqueue_scripts', 'wp_enqueue_global_styles' );
         remove_action( 'wp_body_open', 'wp_global_styles_render_svg_filters' );
     }

@@ -3,7 +3,7 @@
  * Plugin Name: MBR WP Performance
  * Plugin URI: https://littlewebshack.com/mbr-wp-performance
  * Description: Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, and WooCommerce optimisations.
- * Version: 1.9.1
+ * Version: 1.9.2
  * Author: Made by Robert
  * Author URI: https://madebyrobert.co.uk
  * Text Domain: mbr-wp-performance
@@ -39,7 +39,7 @@ add_filter( 'plugin_row_meta', function ( $links, $file, $data ) {
 }, 10, 3 );
 
 // Define plugin constants
-define( 'MBR_WP_PERFORMANCE_VERSION', '1.9.1' );
+define( 'MBR_WP_PERFORMANCE_VERSION', '1.9.2' );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -127,7 +127,12 @@ class MBR_WP_Performance {
     private function init_hooks() {
         // Load plugin text domain
         add_action( 'plugins_loaded', array( $this, 'load_textdomain' ) );
-        
+
+        // Run the upgrade routine on plugins_loaded so it fires reliably on
+        // plugin updates, not just on manual activation. The routine itself
+        // is a fast no-op when nothing needs migrating.
+        add_action( 'plugins_loaded', array( $this, 'maybe_upgrade' ) );
+
         // Initialize optimization modules on init hook
         // Priority 999 to run after most plugins, including page builders
         add_action( 'init', array( $this, 'init_optimizations' ), 999 );
@@ -148,6 +153,53 @@ class MBR_WP_Performance {
         // Activation/deactivation hooks
         register_activation_hook( __FILE__, array( $this, 'activate' ) );
         register_deactivation_hook( __FILE__, array( $this, 'deactivate' ) );
+    }
+
+    /**
+     * Run version-keyed upgrade migrations.
+     *
+     * Compares the stored plugin version to MBR_WP_PERFORMANCE_VERSION and
+     * runs any one-time migration steps for versions the user has just
+     * crossed. Each step is idempotent so re-running is safe.
+     */
+    public function maybe_upgrade() {
+        $stored = get_option( 'mbr_wp_performance_version', '0.0.0' );
+
+        // Same version → nothing to do. Cheapest fast path.
+        if ( version_compare( $stored, MBR_WP_PERFORMANCE_VERSION, '>=' ) ) {
+            return;
+        }
+
+        // --- Migrations from < 1.9.2 ---
+        // The CSS tab previously had a non-functional "Remove Global Styles"
+        // checkbox that wrote to [css][remove_global_styles]. The working
+        // toggle on the Core tab writes to [core][remove_global_styles].
+        // To avoid silently losing the user's intent on update, copy any
+        // truthy value from the orphaned CSS-tab key over to the Core tab,
+        // then strip the orphan.
+        if ( version_compare( $stored, '1.9.2', '<' ) ) {
+            $opts = get_option( 'mbr_wp_performance_options', array() );
+            if ( is_array( $opts ) && ! empty( $opts['css']['remove_global_styles'] ) ) {
+                if ( ! isset( $opts['core'] ) || ! is_array( $opts['core'] ) ) {
+                    $opts['core'] = array();
+                }
+                // Only overwrite if the Core-tab value isn't already set, so
+                // a deliberate Core-tab false doesn't get clobbered by an
+                // orphan CSS-tab true.
+                if ( empty( $opts['core']['remove_global_styles'] ) ) {
+                    $opts['core']['remove_global_styles'] = true;
+                }
+                unset( $opts['css']['remove_global_styles'] );
+                update_option( 'mbr_wp_performance_options', $opts );
+            } elseif ( is_array( $opts ) && isset( $opts['css']['remove_global_styles'] ) ) {
+                // The key existed but was falsy — just clean it up.
+                unset( $opts['css']['remove_global_styles'] );
+                update_option( 'mbr_wp_performance_options', $opts );
+            }
+        }
+
+        // Stamp the version once all migrations have completed.
+        update_option( 'mbr_wp_performance_version', MBR_WP_PERFORMANCE_VERSION );
     }
 
     /**

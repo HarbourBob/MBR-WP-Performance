@@ -72,7 +72,7 @@ $core_options = isset( $options['core'] ) ? $options['core'] : array();
                 <th scope="row">
                     <label for="remove_global_styles">
                         <?php esc_html_e( 'Remove Global Styles', 'mbr-wp-performance' ); ?>
-                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Removes inline CSS added by block themes and full site editing.', 'mbr-wp-performance' ); ?>">?</span>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'WARNING: Will break Full Site Editing (block) themes. Only enable on classic themes. Block themes such as Twenty Twenty-Two onwards rely on this inline CSS to render their colours, fonts and layout on the front end. This setting is auto-skipped when a block theme is active for safety.', 'mbr-wp-performance' ); ?>">?</span>
                     </label>
                 </th>
                 <td>

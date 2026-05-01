@@ -4,7 +4,7 @@ Tags: performance, optimization, speed, cache, database, webp, image
 Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.9.1
+Stable tag: 1.9.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -168,6 +168,12 @@ Click 'WP Performance' in the WordPress admin toolbar at the top of the screen. 
 Lazy Loading delays loading of images/videos until they're needed (saving bandwidth), while Preloading loads critical resources early (improving perceived speed). They work together for optimal performance.
 
 == Changelog ==
+
+= 1.9.2 =
+* Fix: "Remove Global Styles" no longer breaks the front end of Full Site Editing (block) themes — the optimisation is now auto-skipped when a block theme is active. FSE themes such as Twenty Twenty-Two through Twenty Twenty-Five rely on the inline `<style id="global-styles-inline-css">` output to render their colours, fonts, layout and spacing on the public front end. Stripping it left the Site Editor working but the front end with no design tokens.
+* Fix: Removed the duplicate (and previously non-functional) "Remove Global Styles" checkbox from the CSS tab. The working toggle on the Core tab is now the canonical home. Two checkboxes wrote to two different option keys but only one had a backend handler — now there's just one.
+* Migration: any existing `[css][remove_global_styles]` truthy value is automatically copied to `[core][remove_global_styles]` on update, so users who toggled the previously-orphaned CSS-tab checkbox don't lose their setting. The migration runs on `plugins_loaded` so it fires reliably on plugin update, not just manual activation.
+* Improvement: Updated the Core tab tooltip for "Remove Global Styles" to clearly warn that it's incompatible with FSE themes, so the option remains available to classic-theme users without footgunning anyone running a block theme.
 
 = 1.9.1 =
 * Feature: Weekly automated cleanup toggle in the WooCommerce tab — runs expired sessions, transients and Action Scheduler cleanup on the existing weekly cron hook
