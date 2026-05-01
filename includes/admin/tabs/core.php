@@ -196,6 +196,27 @@ $core_options = isset( $options['core'] ) ? $options['core'] : array();
                     <label><input type="radio" name="mbr_wp_performance_options[core][rest_api_mode]" value="disable_logged_out" <?php checked( isset( $core_options['rest_api_mode'] ) ? $core_options['rest_api_mode'] : '', 'disable_logged_out' ); ?>> <?php esc_html_e( 'Disable When Logged Out', 'mbr-wp-performance' ); ?></label>
                 </td>
             </tr>
+
+            <tr>
+                <th scope="row">
+                    <label for="rest_api_allowed_namespaces">
+                        <?php esc_html_e( 'Allowed REST Namespaces', 'mbr-wp-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Namespaces listed here remain accessible even when REST API access is restricted above. One per line. Use this for plugins that legitimately expose public REST endpoints (chat widgets, contact forms, store APIs).', 'mbr-wp-performance' ); ?>">?</span>
+                    </label>
+                </th>
+                <td>
+                    <textarea
+                        name="mbr_wp_performance_options[core][rest_api_allowed_namespaces]"
+                        id="rest_api_allowed_namespaces"
+                        rows="4"
+                        cols="40"
+                        class="large-text code"
+                        placeholder="mbr-isa/v1&#10;contact-form-7/v1&#10;wc/store/v1"><?php echo esc_textarea( isset( $core_options['rest_api_allowed_namespaces'] ) ? $core_options['rest_api_allowed_namespaces'] : '' ); ?></textarea>
+                    <p class="description">
+                        <?php esc_html_e( 'One namespace per line, e.g. mbr-isa/v1. Only applies when "Disable REST API" above is set to a non-default mode. Common public namespaces: mbr-isa/v1 (chat assistant), contact-form-7/v1, wc/store/v1 (WooCommerce).', 'mbr-wp-performance' ); ?>
+                    </p>
+                </td>
+            </tr>
             
             <tr>
                 <th scope="row">

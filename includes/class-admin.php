@@ -297,7 +297,11 @@ class MBR_WP_Performance_Admin {
         if ( isset( $options['preload_resources'] ) ) {
             $sanitized['preload_resources'] = sanitize_textarea_field( $options['preload_resources'] );
         }
-        
+
+        if ( isset( $options['rest_api_allowed_namespaces'] ) ) {
+            $sanitized['rest_api_allowed_namespaces'] = sanitize_textarea_field( $options['rest_api_allowed_namespaces'] );
+        }
+
         return $sanitized;
     }
 

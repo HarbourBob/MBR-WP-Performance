@@ -395,6 +395,9 @@ class MBR_WP_Performance_Core_Optimizations {
                 if ( ! empty( $result ) ) {
                     return $result;
                 }
+                if ( $this->current_rest_route_is_allowed() ) {
+                    return $result;
+                }
                 if ( ! is_user_logged_in() || ! current_user_can( 'manage_options' ) ) {
                     return new WP_Error(
                         'rest_disabled',
@@ -409,6 +412,9 @@ class MBR_WP_Performance_Core_Optimizations {
                 if ( ! empty( $result ) ) {
                     return $result;
                 }
+                if ( $this->current_rest_route_is_allowed() ) {
+                    return $result;
+                }
                 if ( ! is_user_logged_in() ) {
                     return new WP_Error(
                         'rest_disabled',
@@ -419,6 +425,100 @@ class MBR_WP_Performance_Core_Optimizations {
                 return $result;
             } );
         }
+    }
+
+    /**
+     * Check whether the current REST request targets an allowlisted namespace.
+     *
+     * Admins can permit specific public namespaces (e.g. front-end chat
+     * widgets, contact forms, store APIs) to keep working while the
+     * blanket REST hardening is enabled.
+     *
+     * @return bool True if the route matches any allowed namespace.
+     */
+    private function current_rest_route_is_allowed() {
+        $route = $this->get_current_rest_route();
+        if ( '' === $route ) {
+            return false;
+        }
+
+        $allowed = $this->get_allowed_rest_namespaces();
+        if ( empty( $allowed ) ) {
+            return false;
+        }
+
+        foreach ( $allowed as $namespace ) {
+            if ( '' === $namespace ) {
+                continue;
+            }
+            // Match either an exact namespace or anything below it
+            // (e.g. "mbr-isa/v1" allows "mbr-isa/v1/ask").
+            if ( $route === $namespace || 0 === strpos( $route, $namespace . '/' ) ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Resolve the REST route being requested, normalised without
+     * leading/trailing slashes (e.g. "mbr-isa/v1/ask").
+     *
+     * Handles both pretty permalinks (/wp-json/...) and the plain
+     * permalink fallback (?rest_route=/...).
+     *
+     * @return string Empty string if not a REST request or unparseable.
+     */
+    private function get_current_rest_route() {
+        // Plain-permalink REST requests use ?rest_route=/foo/bar.
+        if ( isset( $_GET['rest_route'] ) ) {
+            $route = (string) wp_unslash( $_GET['rest_route'] );
+            return trim( $route, '/' );
+        }
+
+        if ( empty( $_SERVER['REQUEST_URI'] ) ) {
+            return '';
+        }
+
+        $request_path = (string) wp_parse_url( wp_unslash( $_SERVER['REQUEST_URI'] ), PHP_URL_PATH );
+        if ( '' === $request_path ) {
+            return '';
+        }
+
+        // Find the rest_url() prefix in the request path, then strip it.
+        $prefix = '/' . trim( rest_get_url_prefix(), '/' ) . '/';
+        $pos    = strpos( $request_path, $prefix );
+        if ( false === $pos ) {
+            return '';
+        }
+
+        $route = substr( $request_path, $pos + strlen( $prefix ) );
+        return trim( (string) $route, '/' );
+    }
+
+    /**
+     * Return the user-configured allowlist of REST namespaces, normalised.
+     *
+     * @return string[] List of namespace prefixes (e.g. ["mbr-isa/v1", "wc/store/v1"]).
+     */
+    private function get_allowed_rest_namespaces() {
+        $raw = $this->get_option( 'rest_api_allowed_namespaces', '' );
+        if ( ! is_string( $raw ) || '' === trim( $raw ) ) {
+            return array();
+        }
+
+        $lines = preg_split( '/\r\n|\r|\n/', $raw );
+        $out   = array();
+        foreach ( $lines as $line ) {
+            $line = strtolower( trim( (string) $line ) );
+            // Allow only safe namespace characters: a-z 0-9 underscore dash dot slash.
+            $line = preg_replace( '#[^a-z0-9_./\-]#', '', $line );
+            $line = trim( (string) $line, '/' );
+            if ( '' !== $line ) {
+                $out[] = $line;
+            }
+        }
+        return array_values( array_unique( $out ) );
     }
 
     /**

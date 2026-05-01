@@ -4,7 +4,7 @@ Tags: performance, optimization, speed, cache, database, webp, image
 Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.9.2
+Stable tag: 1.9.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -168,6 +168,11 @@ Click 'WP Performance' in the WordPress admin toolbar at the top of the screen. 
 Lazy Loading delays loading of images/videos until they're needed (saving bandwidth), while Preloading loads critical resources early (improving perceived speed). They work together for optimal performance.
 
 == Changelog ==
+
+= 1.9.3 =
+* Feature: Allowlist of REST API namespaces on the Core tab. When "Disable REST API" is set to a non-default mode (Disable for Non-Admins or Disable When Logged Out), admins can now whitelist specific namespaces that should remain accessible — useful for plugins exposing public REST endpoints such as front-end chat widgets, contact forms, or store APIs.
+* Fix: Public REST endpoints registered with `permission_callback => '__return_true'` are no longer indiscriminately blocked by the REST hardening modes when their namespace is in the allowlist. Previously the only options were "all REST open" or "all REST blocked", which broke any third-party plugin (or sister plugin like MBR Intelligent Site Assistant) that legitimately needed public REST access for non-admin or logged-out visitors.
+* Improvement: Helper text on the Core tab now explicitly lists common public namespaces (mbr-isa/v1, contact-form-7/v1, wc/store/v1) to make the configuration discoverable.
 
 = 1.9.2 =
 * Fix: "Remove Global Styles" no longer breaks the front end of Full Site Editing (block) themes — the optimisation is now auto-skipped when a block theme is active. FSE themes such as Twenty Twenty-Two through Twenty Twenty-Five rely on the inline `<style id="global-styles-inline-css">` output to render their colours, fonts, layout and spacing on the public front end. Stripping it left the Site Editor working but the front end with no design tokens.
