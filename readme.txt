@@ -4,11 +4,11 @@ Tags: performance, optimization, speed, cache, database, webp, image
 Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.9.3
+Stable tag: 1.10.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, and WooCommerce optimisations.
+Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, orphaned image cleanup, and WooCommerce optimisations.
 
 == Description ==
 
@@ -111,6 +111,17 @@ MBR WP Performance is a powerful, all-in-one performance optimization plugin tha
 * Bulk resize tool for existing Media Library images — scan first, then downscale in place with progress bar and live log
 * Automatic sub-size regeneration and stale WebP cleanup after each bulk resize
 
+**Orphaned Image Cleanup**
+* Scans the Media Library for image attachments no longer referenced anywhere on the site
+* Detection covers post parents, featured images, post content (matching by attachment ID, shortcode reference and filename stem so sized variants are caught), and a string-search across postmeta values
+* Two-tier confidence classifier — high-confidence orphans are eligible for bulk-delete, review-tier candidates require manual inspection
+* Configurable restore window (7, 14, 30 or 60 days, or "keep forever") with a daily cron purge of expired records
+* Staging table records the full attachment post row, postmeta and file manifest before deletion — database records can be restored within the configured window
+* Per-attachment exclusions list to permanently keep specific IDs off the orphan list
+* Deletes the original file, all WordPress sub-size variants, the "scaled" full-size variant and matching `.webp` siblings — no orphan files left on disk
+* Pre-deletion re-verification blocks the action if an attachment has become referenced since the last scan
+* Live progress bar during scans, batched in 50-attachment chunks to avoid timeouts on large libraries
+
 **WooCommerce Optimisations**
 * Dedicated tab that only activates when WooCommerce is installed
 * Cart fragments control — disable the admin-ajax request that fires on every page load site-wide or only on non-shop pages
@@ -168,6 +179,20 @@ Click 'WP Performance' in the WordPress admin toolbar at the top of the screen. 
 Lazy Loading delays loading of images/videos until they're needed (saving bandwidth), while Preloading loads critical resources early (improving perceived speed). They work together for optimal performance.
 
 == Changelog ==
+
+= 1.10.0 =
+* Feature: New "Orphaned Images" tab — scans the Media Library for image attachments that are no longer referenced anywhere, with a safe two-stage deletion workflow and a configurable restore window
+* Feature: Detection covers post_parent, featured images (_thumbnail_id), post_content (matching by attachment ID, attachment_ shortcode reference, and filename stem so sized variants are caught too), and a string-search across postmeta values
+* Feature: Two-tier confidence classifier — "High" candidates (zero references found) are eligible for bulk-delete; "Review" candidates (matched only in postmeta) must be deleted individually after manual inspection
+* Feature: Staging table (`{prefix}mbr_orphan_log`) records the full attachment post row, postmeta, and file manifest before deletion — allows the database record to be restored within the configured window (7/14/30/60 days, or "keep forever")
+* Feature: Per-attachment exclusions list to prevent specific IDs from ever being flagged as orphan
+* Feature: Daily WP-Cron job (`mbr_wp_performance_orphan_purge`) cleans up staging records past their restore window
+* Feature: File deletion handles the original file, all WordPress sub-size variants, the "scaled" full-size variant, and matching `.webp` siblings produced by the WebP converter — no orphan files left on disk
+* Feature: Pre-deletion re-verification — orphan status is re-checked at delete time, blocking the action if the attachment has become referenced since the scan
+* Feature: Live progress bar during scans, batched at 50 attachments per AJAX request to avoid timeouts on large libraries
+* Feature: Stat cards show high-confidence count, review-required count, and total reclaimable bytes
+* Note: Restore reinstates the database record only — image file bytes are physically deleted at the time of staging and must be re-uploaded if needed
+* Note: This release does not yet detect references stored in page builder data (Elementor `_elementor_data`, Bricks, Beaver Builder, etc.) beyond the postmeta string-search; review tier exists partly to cover this gap
 
 = 1.9.3 =
 * Feature: Allowlist of REST API namespaces on the Core tab. When "Disable REST API" is set to a non-default mode (Disable for Non-Admins or Disable When Logged Out), admins can now whitelist specific namespaces that should remain accessible — useful for plugins exposing public REST endpoints such as front-end chat widgets, contact forms, or store APIs.
@@ -270,6 +295,9 @@ Lazy Loading delays loading of images/videos until they're needed (saving bandwi
 * Database optimization
 
 == Upgrade Notice ==
+
+= 1.10.0 =
+Adds an Orphaned Images tab that scans the Media Library for unused images and removes them with a configurable restore window. Detection covers post parents, featured images, post content and postmeta — page builder data stores (Elementor, Bricks etc.) are not yet covered, so review the candidate list carefully before bulk-deleting. Test on a staging copy first; deletion physically removes files from disk.
 
 = 1.9.1 =
 Adds a weekly automated cleanup toggle (now actually wired to the existing weekly cron), and a page-cache advisory notice when WooCommerce geolocation is configured in a way that interacts badly with full-page caching. Also adds a last-run log for the scheduled cleanup.

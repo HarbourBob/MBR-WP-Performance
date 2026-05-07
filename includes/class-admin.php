@@ -85,6 +85,15 @@ class MBR_WP_Performance_Admin {
         // Image Dimensions — bulk resize AJAX handlers
         add_action( 'wp_ajax_mbr_wp_performance_image_dimensions_scan', array( $this, 'ajax_image_dimensions_scan' ) );
         add_action( 'wp_ajax_mbr_wp_performance_image_dimensions_resize', array( $this, 'ajax_image_dimensions_resize' ) );
+
+        // Orphaned Images AJAX handlers
+        add_action( 'wp_ajax_mbr_wp_performance_orphan_scan_init', array( $this, 'ajax_orphan_scan_init' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_orphan_scan_batch', array( $this, 'ajax_orphan_scan_batch' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_orphan_get_candidates', array( $this, 'ajax_orphan_get_candidates' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_orphan_delete', array( $this, 'ajax_orphan_delete' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_orphan_get_staged', array( $this, 'ajax_orphan_get_staged' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_orphan_restore', array( $this, 'ajax_orphan_restore' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_orphan_exclude', array( $this, 'ajax_orphan_exclude' ) );
         
         // Multisite: import site settings into network defaults
         add_action( 'wp_ajax_mbr_wp_performance_import_site_settings', array( $this, 'ajax_import_site_settings' ) );
@@ -123,6 +132,7 @@ class MBR_WP_Performance_Admin {
             'lazy-loading' => __( 'Lazy Loading', 'mbr-wp-performance' ),
             'database' => __( 'Database', 'mbr-wp-performance' ),
             'webp' => __( 'WebP', 'mbr-wp-performance' ),
+            'orphaned-images' => __( 'Orphaned Images', 'mbr-wp-performance' ),
             'woocommerce' => __( 'WooCommerce', 'mbr-wp-performance' ),
         );
         
@@ -225,6 +235,11 @@ class MBR_WP_Performance_Admin {
         // Sanitize and merge image dimensions options
         if ( isset( $options['image_dimensions'] ) && is_array( $options['image_dimensions'] ) ) {
             $sanitized['image_dimensions'] = $this->sanitize_image_dimensions_options( $options['image_dimensions'] );
+        }
+
+        // Sanitize and merge orphaned images options
+        if ( isset( $options['orphaned_images'] ) && is_array( $options['orphaned_images'] ) ) {
+            $sanitized['orphaned_images'] = $this->sanitize_orphaned_images_options( $options['orphaned_images'] );
         }
 
         return $sanitized;
@@ -758,6 +773,38 @@ class MBR_WP_Performance_Admin {
                 ),
             )
         );
+
+        // Orphaned Images tab — load its dedicated JS only on that tab.
+        $current_tab = isset( $_GET['tab'] ) ? sanitize_text_field( wp_unslash( $_GET['tab'] ) ) : 'core';
+        if ( 'orphaned-images' === $current_tab ) {
+            wp_enqueue_script(
+                'mbr-wp-performance-orphaned-images',
+                MBR_WP_PERFORMANCE_PLUGIN_URL . 'assets/js/orphaned-images.js',
+                array( 'jquery', 'mbr-wp-performance-admin' ),
+                MBR_WP_PERFORMANCE_VERSION,
+                true
+            );
+            wp_localize_script(
+                'mbr-wp-performance-orphaned-images',
+                'mbrOrphanedImages',
+                array(
+                    'i18n' => array(
+                        'scanning'         => __( 'Scanning…', 'mbr-wp-performance' ),
+                        'scanComplete'     => __( 'Scan complete.', 'mbr-wp-performance' ),
+                        'scanFailed'       => __( 'Scan failed.', 'mbr-wp-performance' ),
+                        'noResults'        => __( 'No orphaned images found.', 'mbr-wp-performance' ),
+                        'confirmDelete'    => __( 'Delete this attachment? It will be moved to staging and can be restored within the configured window.', 'mbr-wp-performance' ),
+                        'confirmBulkDel'   => __( 'Delete the selected attachments? Files will be removed and only the database records can be restored.', 'mbr-wp-performance' ),
+                        'confirmRestore'   => __( 'Restore this attachment record? The image file itself was deleted and will need to be re-uploaded.', 'mbr-wp-performance' ),
+                        'deletingItem'     => __( 'Deleting…', 'mbr-wp-performance' ),
+                        'restoringItem'    => __( 'Restoring…', 'mbr-wp-performance' ),
+                        'genericError'     => __( 'An unexpected error occurred.', 'mbr-wp-performance' ),
+                        'noSelection'      => __( 'Select at least one attachment first.', 'mbr-wp-performance' ),
+                        'reviewBlocked'    => __( 'Bulk-delete is restricted to high-confidence orphans. Delete review items individually.', 'mbr-wp-performance' ),
+                    ),
+                )
+            );
+        }
     }
 
     /**
@@ -822,6 +869,9 @@ class MBR_WP_Performance_Admin {
                     case 'webp':
                         $this->render_webp_tab( $options );
                         break;
+                    case 'orphaned-images':
+                        $this->render_orphaned_images_tab( $options );
+                        break;
                     case 'woocommerce':
                         $this->render_woocommerce_tab( $options );
                         break;
@@ -865,6 +915,7 @@ class MBR_WP_Performance_Admin {
             'lazy-loading' => __( 'Lazy Loading', 'mbr-wp-performance' ),
             'database' => __( 'Database', 'mbr-wp-performance' ),
             'webp' => __( 'WebP', 'mbr-wp-performance' ),
+            'orphaned-images' => __( 'Orphaned Images', 'mbr-wp-performance' ),
             'woocommerce' => __( 'WooCommerce', 'mbr-wp-performance' ),
         );
         
@@ -951,6 +1002,15 @@ class MBR_WP_Performance_Admin {
      */
     private function render_webp_tab( $options ) {
         require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/admin/tabs/webp.php';
+    }
+
+    /**
+     * Render Orphaned Images tab
+     *
+     * @param array $options
+     */
+    private function render_orphaned_images_tab( $options ) {
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/admin/tabs/orphaned-images.php';
     }
 
     /**
@@ -2758,5 +2818,258 @@ class MBR_WP_Performance_Admin {
         }
 
         wp_send_json_success( $result );
+    }
+
+    /* ===================================================================
+     * Orphaned Images: sanitize + AJAX handlers
+     * =================================================================== */
+
+    /**
+     * Sanitize orphaned images options.
+     *
+     * @param array $options
+     * @return array
+     */
+    private function sanitize_orphaned_images_options( $options ) {
+        $sanitized = array();
+
+        // restore_days: whitelist allowed values.
+        $restore_days = isset( $options['restore_days'] ) ? (int) $options['restore_days'] : 30;
+        $allowed_days = array( 0, 7, 14, 30, 60 );
+        $sanitized['restore_days'] = in_array( $restore_days, $allowed_days, true ) ? $restore_days : 30;
+
+        // excluded_ids: comma-separated string from textarea, or array.
+        $raw_excluded = isset( $options['excluded_ids'] ) ? $options['excluded_ids'] : array();
+        if ( is_string( $raw_excluded ) ) {
+            $raw_excluded = preg_split( '/[\s,]+/', $raw_excluded );
+        }
+        $excluded = array();
+        foreach ( (array) $raw_excluded as $id ) {
+            $id = (int) $id;
+            if ( $id > 0 ) {
+                $excluded[] = $id;
+            }
+        }
+        $sanitized['excluded_ids'] = array_values( array_unique( $excluded ) );
+
+        return $sanitized;
+    }
+
+    /**
+     * AJAX: Initialize a new scan. Resets candidate state and returns
+     * the full list of attachment IDs to process.
+     */
+    public function ajax_orphan_scan_init() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
+        }
+
+        if ( ! class_exists( 'MBR_WP_Performance_Orphaned_Images' ) ) {
+            wp_send_json_error( __( 'Orphaned Images module unavailable.', 'mbr-wp-performance' ) );
+        }
+
+        MBR_WP_Performance_Orphaned_Images::reset_scan();
+
+        $ids = MBR_WP_Performance_Orphaned_Images::get_all_image_attachment_ids();
+
+        MBR_WP_Performance_Orphaned_Images::update_scan_state( array(
+            'total'       => count( $ids ),
+            'processed'   => 0,
+            'started_at'  => time(),
+            'finished_at' => 0,
+        ) );
+
+        wp_send_json_success( array(
+            'ids'        => array_values( array_map( 'intval', $ids ) ),
+            'total'      => count( $ids ),
+            'batch_size' => MBR_WP_Performance_Orphaned_Images::SCAN_BATCH_SIZE,
+        ) );
+    }
+
+    /**
+     * AJAX: Process a single batch of attachment IDs.
+     */
+    public function ajax_orphan_scan_batch() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
+        }
+
+        if ( ! class_exists( 'MBR_WP_Performance_Orphaned_Images' ) ) {
+            wp_send_json_error( __( 'Orphaned Images module unavailable.', 'mbr-wp-performance' ) );
+        }
+
+        $raw_ids = isset( $_POST['ids'] ) ? wp_unslash( $_POST['ids'] ) : array();
+        if ( ! is_array( $raw_ids ) ) {
+            $raw_ids = array();
+        }
+        $ids = array_filter( array_map( 'intval', $raw_ids ) );
+
+        $found = MBR_WP_Performance_Orphaned_Images::process_batch( $ids );
+
+        $state = MBR_WP_Performance_Orphaned_Images::get_scan_state();
+        $state['processed'] = (int) $state['processed'] + count( $ids );
+        if ( $state['processed'] >= $state['total'] ) {
+            $state['finished_at'] = time();
+        }
+        MBR_WP_Performance_Orphaned_Images::update_scan_state( $state );
+
+        wp_send_json_success( array(
+            'processed_in_batch' => count( $ids ),
+            'orphans_in_batch'   => $found,
+            'total_processed'    => $state['processed'],
+            'total'              => $state['total'],
+            'finished'           => ! empty( $state['finished_at'] ),
+        ) );
+    }
+
+    /**
+     * AJAX: Get current candidate list with filter & pagination.
+     */
+    public function ajax_orphan_get_candidates() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
+        }
+
+        $args = array(
+            'confidence' => isset( $_POST['confidence'] ) ? sanitize_key( wp_unslash( $_POST['confidence'] ) ) : '',
+            'per_page'   => isset( $_POST['per_page'] ) ? (int) $_POST['per_page'] : 25,
+            'page'       => isset( $_POST['page'] ) ? (int) $_POST['page'] : 1,
+            'orderby'    => isset( $_POST['orderby'] ) ? sanitize_key( wp_unslash( $_POST['orderby'] ) ) : 'file_size',
+            'order'      => isset( $_POST['order'] ) ? sanitize_key( wp_unslash( $_POST['order'] ) ) : 'DESC',
+        );
+
+        $result = MBR_WP_Performance_Orphaned_Images::get_candidates( $args );
+        $stats  = MBR_WP_Performance_Orphaned_Images::get_candidate_stats();
+
+        // Decorate items with display-friendly fields and a thumb URL.
+        foreach ( $result['items'] as &$row ) {
+            $row['attachment_id'] = (int) $row['attachment_id'];
+            $row['file_size']     = (int) $row['file_size'];
+            $row['file_size_h']   = size_format( (int) $row['file_size'], 2 );
+            $row['edit_link']     = admin_url( 'post.php?post=' . $row['attachment_id'] . '&action=edit' );
+            $row['thumb_url']     = wp_get_attachment_image_url( (int) $row['attachment_id'], 'thumbnail' );
+            $matches              = $row['match_summary'] ? json_decode( $row['match_summary'], true ) : array();
+            $row['matches']       = is_array( $matches ) ? $matches : array();
+        }
+        unset( $row );
+
+        wp_send_json_success( array(
+            'items' => $result['items'],
+            'total' => $result['total'],
+            'stats' => $stats,
+        ) );
+    }
+
+    /**
+     * AJAX: Delete a single attachment (move to staging).
+     */
+    public function ajax_orphan_delete() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
+        }
+
+        $id = isset( $_POST['attachment_id'] ) ? (int) $_POST['attachment_id'] : 0;
+        if ( $id <= 0 ) {
+            wp_send_json_error( __( 'Missing attachment ID.', 'mbr-wp-performance' ) );
+        }
+
+        $result = MBR_WP_Performance_Orphaned_Images::stage_delete( $id );
+
+        if ( is_wp_error( $result ) ) {
+            wp_send_json_error( array(
+                'id'      => $id,
+                'message' => $result->get_error_message(),
+                'code'    => $result->get_error_code(),
+            ) );
+        }
+
+        $result['bytes_freed_h'] = isset( $result['bytes_freed'] ) ? size_format( (int) $result['bytes_freed'], 2 ) : '';
+        wp_send_json_success( $result );
+    }
+
+    /**
+     * AJAX: Get staged-for-deletion list (for the restore UI).
+     */
+    public function ajax_orphan_get_staged() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
+        }
+
+        $per_page = isset( $_POST['per_page'] ) ? (int) $_POST['per_page'] : 25;
+        $page     = isset( $_POST['page'] ) ? (int) $_POST['page'] : 1;
+
+        $result = MBR_WP_Performance_Orphaned_Images::get_staged( $per_page, $page );
+        $stats  = MBR_WP_Performance_Orphaned_Images::get_staged_stats();
+
+        foreach ( $result['items'] as &$row ) {
+            $row['id']            = (int) $row['id'];
+            $row['attachment_id'] = (int) $row['attachment_id'];
+            $row['file_size']     = (int) $row['file_size'];
+            $row['file_size_h']   = size_format( (int) $row['file_size'], 2 );
+        }
+        unset( $row );
+
+        wp_send_json_success( array(
+            'items' => $result['items'],
+            'total' => $result['total'],
+            'stats' => $stats,
+        ) );
+    }
+
+    /**
+     * AJAX: Restore a staged-for-deletion attachment record.
+     */
+    public function ajax_orphan_restore() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
+        }
+
+        $row_id = isset( $_POST['row_id'] ) ? (int) $_POST['row_id'] : 0;
+        if ( $row_id <= 0 ) {
+            wp_send_json_error( __( 'Missing staging row ID.', 'mbr-wp-performance' ) );
+        }
+
+        $result = MBR_WP_Performance_Orphaned_Images::restore( $row_id );
+
+        if ( is_wp_error( $result ) ) {
+            wp_send_json_error( array(
+                'message' => $result->get_error_message(),
+                'code'    => $result->get_error_code(),
+            ) );
+        }
+
+        wp_send_json_success( $result );
+    }
+
+    /**
+     * AJAX: Add an attachment to the exclusion list.
+     */
+    public function ajax_orphan_exclude() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
+        }
+
+        $id = isset( $_POST['attachment_id'] ) ? (int) $_POST['attachment_id'] : 0;
+        if ( $id <= 0 ) {
+            wp_send_json_error( __( 'Missing attachment ID.', 'mbr-wp-performance' ) );
+        }
+
+        MBR_WP_Performance_Orphaned_Images::exclude_attachment( $id );
+
+        wp_send_json_success( array( 'attachment_id' => $id ) );
     }
 }

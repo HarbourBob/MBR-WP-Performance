@@ -2,8 +2,8 @@
 /**
  * Plugin Name: MBR WP Performance
  * Plugin URI: https://littlewebshack.com/mbr-wp-performance
- * Description: Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, and WooCommerce optimisations.
- * Version: 1.9.3
+ * Description: Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, orphaned image cleanup, and WooCommerce optimisations.
+ * Version: 1.10.0
  * Author: Made by Robert
  * Author URI: https://madebyrobert.co.uk
  * Text Domain: mbr-wp-performance
@@ -39,7 +39,7 @@ add_filter( 'plugin_row_meta', function ( $links, $file, $data ) {
 }, 10, 3 );
 
 // Define plugin constants
-define( 'MBR_WP_PERFORMANCE_VERSION', '1.9.3' );
+define( 'MBR_WP_PERFORMANCE_VERSION', '1.10.0' );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -113,6 +113,9 @@ class MBR_WP_Performance {
 
         // Image Dimensions & Sizing
         require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/class-image-dimensions.php';
+
+        // Orphaned Images cleanup
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/class-orphaned-images.php';
         
         // Helper functions
         require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/functions.php';
@@ -198,6 +201,30 @@ class MBR_WP_Performance {
             }
         }
 
+        // --- Migrations from < 1.10.0 ---
+        // The Orphaned Images feature ships in 1.10.0. Create its staging
+        // table on first encounter with this version, and ensure the daily
+        // purge cron is scheduled. Both operations are idempotent.
+        if ( version_compare( $stored, '1.10.0', '<' ) ) {
+            if ( class_exists( 'MBR_WP_Performance_Orphaned_Images' ) ) {
+                MBR_WP_Performance_Orphaned_Images::create_table();
+            }
+            if ( ! wp_next_scheduled( 'mbr_wp_performance_orphan_purge' ) ) {
+                wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'mbr_wp_performance_orphan_purge' );
+            }
+
+            // Seed the orphaned_images options section if missing so the tab
+            // doesn't blow up reading an undefined index.
+            $opts = get_option( 'mbr_wp_performance_options', array() );
+            if ( is_array( $opts ) && ! isset( $opts['orphaned_images'] ) ) {
+                $opts['orphaned_images'] = array(
+                    'restore_days' => MBR_WP_Performance_Orphaned_Images::DEFAULT_RESTORE_DAYS,
+                    'excluded_ids' => array(),
+                );
+                update_option( 'mbr_wp_performance_options', $opts );
+            }
+        }
+
         // Stamp the version once all migrations have completed.
         update_option( 'mbr_wp_performance_version', MBR_WP_PERFORMANCE_VERSION );
     }
@@ -224,6 +251,7 @@ class MBR_WP_Performance {
         MBR_WP_Performance_WebP_Converter::instance();
         MBR_WP_Performance_WooCommerce_Optimizations::instance();
         MBR_WP_Performance_Image_Dimensions::instance();
+        MBR_WP_Performance_Orphaned_Images::instance();
     }
     
     /**
@@ -322,10 +350,17 @@ class MBR_WP_Performance {
                 'webp' => array(),
                 'woocommerce' => array(),
                 'image_dimensions' => array(),
+                'orphaned_images' => array(
+                    'restore_days' => MBR_WP_Performance_Orphaned_Images::DEFAULT_RESTORE_DAYS,
+                    'excluded_ids' => array(),
+                ),
             );
             
             add_option( 'mbr_wp_performance_options', $default_options );
             update_option( 'mbr_wp_performance_version', MBR_WP_PERFORMANCE_VERSION );
+
+            // Create the orphaned-images staging table on fresh install.
+            MBR_WP_Performance_Orphaned_Images::create_table();
         } else {
             // Update - just update version number, preserve settings
             update_option( 'mbr_wp_performance_version', MBR_WP_PERFORMANCE_VERSION );
@@ -334,6 +369,11 @@ class MBR_WP_Performance {
         // Schedule database cleanup if needed
         if ( ! wp_next_scheduled( 'mbr_wp_performance_database_cleanup' ) ) {
             wp_schedule_event( time(), 'weekly', 'mbr_wp_performance_database_cleanup' );
+        }
+
+        // Schedule daily orphan purge (cleans up expired staging rows).
+        if ( ! wp_next_scheduled( 'mbr_wp_performance_orphan_purge' ) ) {
+            wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'mbr_wp_performance_orphan_purge' );
         }
         
         // Flush rewrite rules
@@ -360,6 +400,7 @@ class MBR_WP_Performance {
 
         // Clear scheduled events
         wp_clear_scheduled_hook( 'mbr_wp_performance_database_cleanup' );
+        wp_clear_scheduled_hook( 'mbr_wp_performance_orphan_purge' );
         
         // Clean up WebP files and .htaccess rules.
         MBR_WP_Performance_WebP_Converter::cleanup_on_deactivation();
