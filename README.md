@@ -13,17 +13,17 @@
 
 ---
 
-## ✨ New in v1.10.0 — Orphaned Images
+## ✨ New in v1.11.0 — Orphaned Media
 
-Reclaim disk space by safely removing image attachments that are no longer referenced anywhere on your site. Detection covers post parents, featured images, post content, and postmeta — with a configurable restore window for everything that gets deleted.
+The v1.10.0 **Orphaned Images** tab has been expanded into **Orphaned Media** with full support for videos, audio, documents, and archives alongside images. Same safe two-stage deletion workflow, same configurable restore window, broader scope.
 
-- 🔍 **Smart scanner** — finds unused images across the whole Media Library, batched to handle thousands of attachments without timing out
-- 🎯 **Two-tier confidence** — high-confidence orphans are eligible for bulk-delete; review-tier candidates require manual inspection
-- ⏰ **Configurable restore window** — staged deletions remain restorable for 7, 14, 30, 60 days, or forever
-- 🧹 **Complete file cleanup** — removes the original, every WordPress sub-size variant, and matching `.webp` siblings — no orphan files left on disk
-- 🛡️ **Pre-deletion re-verification** — re-runs the orphan check at delete time so a stale scan can't take out an image you just used
+- 🎬 **Five media types** — Images, Videos, Audio, Documents, Archives — opt in per type via tab settings
+- 🏷️ **Type column and filter** in the candidate list, plus per-type stat breakdown showing reclaimable bytes per category
+- 💾 **In-panel Save button** — save settings without scrolling to the bottom of the page (the scanner reads from saved settings, not the live form)
+- 🎯 **Smarter classifier** — `post_parent` is no longer treated as definitive proof an attachment is in use. Videos and downloads uploaded into a post and later removed from the content (a very common pattern) now correctly surface as Review-tier candidates instead of being silently skipped
+- 🔄 **Backward-compatible** — defaults to images-only on upgrade so v1.10.0 behaviour is preserved until you opt in to other types; the legacy `?tab=orphaned-images` URL still works for one release
 
-> ⚠️ This is the most destructive tool in the plugin. Always test on a staging copy and back up `/wp-content/uploads/` before running deletions on a live site.
+> ⚠️ The same safety design applies to all media types: deletions stage to a queue, restore window is configurable, and pre-deletion re-verification blocks deletes if an attachment has become referenced since the scan. Test on a staging copy first.
 
 ---
 
@@ -52,7 +52,7 @@ Reclaim disk space by safely removing image attachments that are no longer refer
 | 🗄️ **Database** | Revisions, transients, orphaned metadata, table optimisation |
 | 🖼️ **WebP** | Conversion on upload, bulk converter, `<picture>` delivery, `.htaccess` rules |
 | 📐 **Image Sizing** | Resize large uploads, inject missing dimensions, bulk resize tool |
-| 🗑️ **Orphaned Images** | Find and safely remove unreferenced images *(new in v1.10.0)* |
+| 🗑️ **Orphaned Media** | Find and safely remove unreferenced images, videos, audio, documents, archives *(expanded in v1.11.0)* |
 | 🛒 **WooCommerce** | Cart fragments, conditional asset loading, Action Scheduler retention |
 
 ---
@@ -86,8 +86,8 @@ Convert JPG, JPEG, and PNG to WebP with configurable compression (1–100). Auto
 ### 📐 Image Sizing & Dimensions
 Two PageSpeed wins in one section: auto-resize oversized uploads (default 2560px, configurable) using the WordPress core scaling pipeline, and inject missing `width`/`height` attributes into front-end `<img>` tags to eliminate Cumulative Layout Shift. The Bulk Resize tool downscales existing Media Library images in place, regenerating sub-sizes and cleaning up stale WebP copies along the way.
 
-### 🗑️ Orphaned Images *(new in v1.10.0)*
-Find image attachments no longer referenced anywhere on your site, with a safe two-stage workflow and configurable restore window. Detection covers post parents, featured images, post content (matched by attachment ID, shortcode reference, and filename stem so sized variants are caught), and postmeta. Two confidence tiers — high-confidence orphans are eligible for bulk-delete; review-tier candidates require manual inspection. Deletion handles the original, every sub-size, and matching `.webp` siblings. Pre-deletion re-verification blocks deletes if an attachment has become referenced since the last scan.
+### 🗑️ Orphaned Media *(expanded in v1.11.0)*
+Find attachments no longer referenced anywhere on your site — images, videos, audio, documents, and archives. Tick the media types you want to scan, hit Run Scan, review the candidates, delete the ones you don't need. Detection covers featured images and post content (matched by attachment ID, shortcode reference, and filename stem so sized image variants and URL-only video/audio references are caught), with a string-search across postmeta values for everything else. Post parents are treated as suggestive evidence rather than definitive — attachments uploaded for a post and later removed from the content correctly surface as Review-tier candidates instead of being silently skipped. Two confidence tiers — high-confidence orphans are eligible for bulk-delete; review-tier candidates require manual inspection. For images, deletion handles the original file, every WordPress sub-size variant, and matching `.webp` siblings; for other media types it removes the single attached file. Pre-deletion re-verification blocks deletes if an attachment has become referenced since the last scan. Defaults to images-only on upgrade — opt in to other types via the settings checkboxes.
 
 ### 🛒 WooCommerce Optimisations
 Cart fragments control — disable the admin-ajax mini-cart sync request site-wide or only on non-shop pages, often the single biggest TTFB win on cached stores. Strip WooCommerce scripts, styles, and block assets from non-shop pages. Stop the heavy `wc-admin` React bundles loading across unrelated admin screens. Configurable Action Scheduler retention (default 30 days; options for 14, 7, or 3) keeps `actionscheduler_actions` from ballooning. Weekly automated cleanup of expired sessions, transients, and Action Scheduler history. Geolocation advisory notice flags settings that interact badly with full-page caching.
@@ -139,7 +139,7 @@ After activation, open **WP Performance** from the admin toolbar. A safe first-t
 3. ⚙️ **Core Features tab** — disable emojis, embeds, and dashicons if you don't use them
 4. 🖼️ **WebP tab** — check server diagnostics, then run the bulk converter
 5. 📐 **Image Sizing & Dimensions** — enable "Resize Large Uploads" and "Add Missing Width & Height" for an easy PageSpeed Insights win
-6. 🗑️ **Orphaned Images tab** *(optional)* — back up first, then run a scan to identify reclaimable disk space
+6. 🗑️ **Orphaned Media tab** *(optional)* — back up first, then run a scan to identify reclaimable disk space across images, videos, audio, documents, and archives
 7. 🛒 **WooCommerce tab** *(if applicable)* — disable cart fragments, dequeue shop assets on non-shop pages, set Action Scheduler retention to 14 days
 
 > 💡 Enable features one at a time and test after each change. Page builder editors are automatically detected and bypassed.
@@ -176,13 +176,19 @@ It's designed to be safe, but always back up first, test on staging, and enable 
 Yes. There's deliberately no overlap with full-page caching — this plugin provides complementary optimisations alongside WP Rocket, LiteSpeed, W3 Total Cache, WP Super Cache, and others.
 
 **Does it touch my original images?**
-Never. WebP files are parallel files (same name, `.webp` extension). Resize-on-upload uses the WordPress core scaling pipeline. Only the **Bulk Resize tool** and **Orphaned Images deletion** modify or remove files on disk — both are clearly flagged as destructive and require manual confirmation.
+Never. WebP files are parallel files (same name, `.webp` extension). Resize-on-upload uses the WordPress core scaling pipeline. Only the **Bulk Resize tool** and **Orphaned Media deletion** modify or remove files on disk — both are clearly flagged as destructive and require manual confirmation.
 
-**Is it safe to bulk-delete orphaned images?**
+**Does the Orphaned Media scanner check all media types by default?**
+No — it defaults to images-only on upgrade, matching v1.10.0 behaviour. To include videos, audio, documents, or archives, tick the relevant boxes in the tab settings and click **Save Settings** before running a scan. Defaults to images-only on fresh installs as well, so the safety posture is consistent.
+
+**Is it safe to bulk-delete orphaned media?**
 Bulk deletion is restricted to **high-confidence** orphans (no references found in any check). Review-tier candidates must be deleted individually after manual inspection. Deletions stage to a restore queue for the configured window, so you can reinstate the database record if you change your mind — though file bytes are removed at deletion time and require a backup to recover.
 
+**Why do attachments with `post_parent` matches show in Review tier instead of being skipped?**
+WordPress sets `post_parent` on attachments uploaded via the post editor, but it never clears the link when you remove the attachment from the post's content. An attachment can have a "live parent" but not actually appear anywhere in that parent's content. v1.11.0 treats `post_parent` as suggestive evidence rather than definitive — those candidates surface in Review tier so you can open the parent post, confirm the attachment is genuinely unused, and delete it manually.
+
 **What about page builder content?**
-Page-builder data stores (Elementor `_elementor_data`, Bricks, etc.) aren't yet directly inspected by the Orphaned Images scanner — the postmeta string-search picks up most references but not all. Treat candidates as Review-equivalent until you've scanned a staging copy if you rely heavily on a builder.
+Page-builder data stores (Elementor `_elementor_data`, Bricks `_bricks_page_content_2`, Beaver Builder, Oxygen, WPBakery) aren't yet directly inspected by the Orphaned Media scanner — the postmeta string-search picks up most references but not all. URL-only references inside builder layouts can slip through, so treat candidates as Review-equivalent until you've scanned a staging copy if you rely heavily on a builder. Builder-aware detection is the planned headline feature for v1.12.0.
 
 **What's the difference between WebP and Image Sizing?**
 WebP creates a smaller-format copy of each image without changing dimensions. Image Sizing changes the actual pixel dimensions so browsers don't download files larger than they need. They're complementary — use both for the biggest PageSpeed wins.
@@ -190,6 +196,17 @@ WebP creates a smaller-format copy of each image without changing dimensions. Im
 ---
 
 ## 📝 Changelog
+
+### 1.11.0
+- ✨ **Orphaned Images tab renamed to Orphaned Media** — scope expanded to cover videos, audio, documents, and archives alongside images
+- Type checkbox group in tab settings — opt in per type (Images / Videos / Audio / Documents / Archives); defaults to images-only on upgrade so v1.10.0 behaviour is preserved
+- New Type column in the candidate list with category icons for quick visual scanning
+- Type filter dropdown alongside the existing Confidence and Sort filters
+- Per-type stat breakdown row showing count and reclaimable bytes per category
+- In-panel **Save Settings** button — save the tab's settings without scrolling to the bottom of the page (the scanner reads from saved settings, not live form state)
+- Behaviour change: `post_parent` is no longer treated as definitive proof an attachment is in use. WordPress sets `post_parent` on upload via the post editor and never clears it on content edits, so attachments uploaded into a post and later removed from content stayed hidden under v1.10.0. Parent-only matches now drop to Review tier so they can be inspected and deleted manually. Featured-image and post-content matches remain definitive
+- Tab slug changed from `orphaned-images` to `orphaned-media`; the legacy slug continues to work for one release for any bookmarked URLs
+- Backward-compatible: existing v1.10.0 staging-table rows and exclusions list carry over unchanged
 
 ### 1.10.0
 - ✨ **New "Orphaned Images" tab** — scan the Media Library for image attachments no longer referenced anywhere, with a safe two-stage deletion workflow and configurable restore window
