@@ -132,7 +132,7 @@ class MBR_WP_Performance_Admin {
             'lazy-loading' => __( 'Lazy Loading', 'mbr-wp-performance' ),
             'database' => __( 'Database', 'mbr-wp-performance' ),
             'webp' => __( 'WebP', 'mbr-wp-performance' ),
-            'orphaned-images' => __( 'Orphaned Images', 'mbr-wp-performance' ),
+            'orphaned-media' => __( 'Orphaned Media', 'mbr-wp-performance' ),
             'woocommerce' => __( 'WooCommerce', 'mbr-wp-performance' ),
         );
         
@@ -774,28 +774,30 @@ class MBR_WP_Performance_Admin {
             )
         );
 
-        // Orphaned Images tab — load its dedicated JS only on that tab.
+        // Orphaned Media tab — load its dedicated JS only on that tab.
+        // Both the new slug (v1.11.0+) and the legacy v1.10.0 slug are
+        // accepted so any bookmarked URLs continue to work.
         $current_tab = isset( $_GET['tab'] ) ? sanitize_text_field( wp_unslash( $_GET['tab'] ) ) : 'core';
-        if ( 'orphaned-images' === $current_tab ) {
+        if ( in_array( $current_tab, array( 'orphaned-media', 'orphaned-images' ), true ) ) {
             wp_enqueue_script(
-                'mbr-wp-performance-orphaned-images',
-                MBR_WP_PERFORMANCE_PLUGIN_URL . 'assets/js/orphaned-images.js',
+                'mbr-wp-performance-orphaned-media',
+                MBR_WP_PERFORMANCE_PLUGIN_URL . 'assets/js/orphaned-media.js',
                 array( 'jquery', 'mbr-wp-performance-admin' ),
                 MBR_WP_PERFORMANCE_VERSION,
                 true
             );
             wp_localize_script(
-                'mbr-wp-performance-orphaned-images',
+                'mbr-wp-performance-orphaned-media',
                 'mbrOrphanedImages',
                 array(
                     'i18n' => array(
                         'scanning'         => __( 'Scanning…', 'mbr-wp-performance' ),
                         'scanComplete'     => __( 'Scan complete.', 'mbr-wp-performance' ),
                         'scanFailed'       => __( 'Scan failed.', 'mbr-wp-performance' ),
-                        'noResults'        => __( 'No orphaned images found.', 'mbr-wp-performance' ),
+                        'noResults'        => __( 'No orphaned media found.', 'mbr-wp-performance' ),
                         'confirmDelete'    => __( 'Delete this attachment? It will be moved to staging and can be restored within the configured window.', 'mbr-wp-performance' ),
                         'confirmBulkDel'   => __( 'Delete the selected attachments? Files will be removed and only the database records can be restored.', 'mbr-wp-performance' ),
-                        'confirmRestore'   => __( 'Restore this attachment record? The image file itself was deleted and will need to be re-uploaded.', 'mbr-wp-performance' ),
+                        'confirmRestore'   => __( 'Restore this attachment record? The file itself was deleted and will need to be re-uploaded.', 'mbr-wp-performance' ),
                         'deletingItem'     => __( 'Deleting…', 'mbr-wp-performance' ),
                         'restoringItem'    => __( 'Restoring…', 'mbr-wp-performance' ),
                         'genericError'     => __( 'An unexpected error occurred.', 'mbr-wp-performance' ),
@@ -869,8 +871,12 @@ class MBR_WP_Performance_Admin {
                     case 'webp':
                         $this->render_webp_tab( $options );
                         break;
+                    case 'orphaned-media':
                     case 'orphaned-images':
-                        $this->render_orphaned_images_tab( $options );
+                        // Old slug aliased to the new tab for one release so
+                        // any bookmarked v1.10.0 URLs keep working. Slated for
+                        // removal in v1.12.0.
+                        $this->render_orphaned_media_tab( $options );
                         break;
                     case 'woocommerce':
                         $this->render_woocommerce_tab( $options );
@@ -915,7 +921,7 @@ class MBR_WP_Performance_Admin {
             'lazy-loading' => __( 'Lazy Loading', 'mbr-wp-performance' ),
             'database' => __( 'Database', 'mbr-wp-performance' ),
             'webp' => __( 'WebP', 'mbr-wp-performance' ),
-            'orphaned-images' => __( 'Orphaned Images', 'mbr-wp-performance' ),
+            'orphaned-media' => __( 'Orphaned Media', 'mbr-wp-performance' ),
             'woocommerce' => __( 'WooCommerce', 'mbr-wp-performance' ),
         );
         
@@ -1005,12 +1011,13 @@ class MBR_WP_Performance_Admin {
     }
 
     /**
-     * Render Orphaned Images tab
+     * Render Orphaned Media tab. Renamed from render_orphaned_images_tab()
+     * in v1.11.0 when scope expanded beyond images.
      *
      * @param array $options
      */
-    private function render_orphaned_images_tab( $options ) {
-        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/admin/tabs/orphaned-images.php';
+    private function render_orphaned_media_tab( $options ) {
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/admin/tabs/orphaned-media.php';
     }
 
     /**
@@ -2838,6 +2845,17 @@ class MBR_WP_Performance_Admin {
         $allowed_days = array( 0, 7, 14, 30, 60 );
         $sanitized['restore_days'] = in_array( $restore_days, $allowed_days, true ) ? $restore_days : 30;
 
+        // enabled_types (since 1.11.0): array of media-type keys. Defaults to
+        // images-only so v1.10.0 upgraders see no behavioural change. An empty
+        // submission (all checkboxes off) also falls back to images-only — the
+        // scanner cannot do anything useful with zero types enabled.
+        $valid_types = array_keys( MBR_WP_Performance_Orphaned_Images::media_type_map() );
+        $raw_types   = isset( $options['enabled_types'] ) && is_array( $options['enabled_types'] )
+            ? $options['enabled_types']
+            : array();
+        $clean_types = array_values( array_intersect( $raw_types, $valid_types ) );
+        $sanitized['enabled_types'] = $clean_types ?: array( 'images' );
+
         // excluded_ids: comma-separated string from textarea, or array.
         $raw_excluded = isset( $options['excluded_ids'] ) ? $options['excluded_ids'] : array();
         if ( is_string( $raw_excluded ) ) {
@@ -2872,7 +2890,7 @@ class MBR_WP_Performance_Admin {
 
         MBR_WP_Performance_Orphaned_Images::reset_scan();
 
-        $ids = MBR_WP_Performance_Orphaned_Images::get_all_image_attachment_ids();
+        $ids = MBR_WP_Performance_Orphaned_Images::get_all_attachment_ids();
 
         MBR_WP_Performance_Orphaned_Images::update_scan_state( array(
             'total'       => count( $ids ),
@@ -2938,6 +2956,7 @@ class MBR_WP_Performance_Admin {
 
         $args = array(
             'confidence' => isset( $_POST['confidence'] ) ? sanitize_key( wp_unslash( $_POST['confidence'] ) ) : '',
+            'media_type' => isset( $_POST['media_type'] ) ? sanitize_key( wp_unslash( $_POST['media_type'] ) ) : '',
             'per_page'   => isset( $_POST['per_page'] ) ? (int) $_POST['per_page'] : 25,
             'page'       => isset( $_POST['page'] ) ? (int) $_POST['page'] : 1,
             'orderby'    => isset( $_POST['orderby'] ) ? sanitize_key( wp_unslash( $_POST['orderby'] ) ) : 'file_size',
@@ -2953,7 +2972,12 @@ class MBR_WP_Performance_Admin {
             $row['file_size']     = (int) $row['file_size'];
             $row['file_size_h']   = size_format( (int) $row['file_size'], 2 );
             $row['edit_link']     = admin_url( 'post.php?post=' . $row['attachment_id'] . '&action=edit' );
-            $row['thumb_url']     = wp_get_attachment_image_url( (int) $row['attachment_id'], 'thumbnail' );
+            $row['media_type']    = MBR_WP_Performance_Orphaned_Images::categorise_mime( $row['mime_type'] );
+            // Thumbnails only meaningful for image attachments — non-images
+            // get a category icon rendered client-side instead.
+            $row['thumb_url']     = ( 'images' === $row['media_type'] )
+                ? wp_get_attachment_image_url( (int) $row['attachment_id'], 'thumbnail' )
+                : '';
             $matches              = $row['match_summary'] ? json_decode( $row['match_summary'], true ) : array();
             $row['matches']       = is_array( $matches ) ? $matches : array();
         }

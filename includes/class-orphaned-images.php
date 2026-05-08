@@ -1,19 +1,29 @@
 <?php
 /**
- * Orphaned Images
+ * Orphaned Media (originally Orphaned Images, scope expanded in v1.11.0)
  *
- * Detects image attachments that are no longer referenced anywhere on the site
+ * Detects attachments that are no longer referenced anywhere on the site
  * and provides a safe deletion workflow with a configurable restore window.
  *
- * Detection scope (MVP):
+ * Detection scope:
  *  - post_parent (any post status except auto-draft / trash counts as a parent)
- *  - _thumbnail_id postmeta (featured images)
- *  - post_content of all non-trashed posts (matches by attachment ID and filename)
+ *  - _thumbnail_id postmeta (featured images — relevant for image attachments)
+ *  - post_content of all non-trashed posts (matches by attachment ID, shortcode
+ *    references, and filename stem so sized image variants and URL-only
+ *    references to videos/audio/documents are caught)
  *  - All postmeta values (string-search for attachment ID)
+ *
+ * Supported media types are configurable via the orphaned_images.enabled_types
+ * option: images, videos, audio, documents, archives. Defaults to images only
+ * to preserve v1.10.0 behaviour for upgrading sites.
  *
  * Deletion is two-stage: rows are first marked status='deleted' in a staging
  * table with a purge_after timestamp, allowing restoration within the window.
  * A daily cron job purges files past their restore window.
+ *
+ * Class name retained as MBR_WP_Performance_Orphaned_Images for backward
+ * compatibility with v1.10.0 — renaming for purely cosmetic reasons would be
+ * a tax with no functional gain.
  *
  * @package MBR_WP_Performance
  * @since   1.10.0
@@ -71,6 +81,132 @@ class MBR_WP_Performance_Orphaned_Images {
      * Default restore window (days). Mirrors WP's trash retention.
      */
     const DEFAULT_RESTORE_DAYS = 30;
+
+    /**
+     * Media type → mime pattern mapping. Each value is a list of either
+     * mime prefixes ending in '/' (used as LIKE prefix matches) or exact
+     * mime strings. Centralising this here keeps the SQL builders and the
+     * UI checkbox group in sync.
+     *
+     * @since 1.11.0
+     */
+    public static function media_type_map() {
+        return array(
+            'images'    => array( 'image/' ),
+            'videos'    => array( 'video/' ),
+            'audio'     => array( 'audio/' ),
+            'documents' => array(
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/vnd.ms-powerpoint',
+                'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                'application/vnd.oasis.opendocument.text',
+                'application/vnd.oasis.opendocument.spreadsheet',
+                'application/vnd.oasis.opendocument.presentation',
+                'application/rtf',
+                'text/csv',
+                'text/plain',
+            ),
+            'archives'  => array(
+                'application/zip',
+                'application/x-tar',
+                'application/gzip',
+                'application/x-gzip',
+                'application/x-rar-compressed',
+                'application/vnd.rar',
+                'application/x-7z-compressed',
+            ),
+        );
+    }
+
+    /**
+     * Get the list of media type keys currently enabled in settings.
+     * Defaults to images-only for backward compatibility with v1.10.0.
+     *
+     * @since 1.11.0
+     * @return string[]
+     */
+    public static function get_enabled_types() {
+        $opts = mbr_wp_performance()->get_options( 'orphaned_images' );
+        if ( ! is_array( $opts ) || ! isset( $opts['enabled_types'] ) || ! is_array( $opts['enabled_types'] ) ) {
+            return array( 'images' );
+        }
+        $valid = array_keys( self::media_type_map() );
+        $clean = array_values( array_intersect( $opts['enabled_types'], $valid ) );
+        return $clean ?: array( 'images' );
+    }
+
+    /**
+     * Build a SQL WHERE-clause fragment matching the configured media types
+     * against post_mime_type, plus the parameters to bind. Returns a tuple
+     * [sql_fragment, params_array]. The fragment is wrapped in parentheses
+     * and starts with "AND " so it can be appended to existing WHERE clauses.
+     *
+     * @since 1.11.0
+     * @param string[]|null $types Override the enabled types (used for filtering).
+     * @return array { 0: string $sql, 1: array $params }
+     */
+    public static function build_mime_where( $types = null ) {
+        $types = is_array( $types ) ? $types : self::get_enabled_types();
+        $map   = self::media_type_map();
+
+        $clauses = array();
+        $params  = array();
+
+        foreach ( $types as $type ) {
+            if ( ! isset( $map[ $type ] ) ) {
+                continue;
+            }
+            foreach ( $map[ $type ] as $pattern ) {
+                if ( substr( $pattern, -1 ) === '/' ) {
+                    // Prefix wildcard: "image/" matches "image/jpeg" etc.
+                    $clauses[] = 'post_mime_type LIKE %s';
+                    $params[]  = $pattern . '%';
+                } else {
+                    // Exact mime match.
+                    $clauses[] = 'post_mime_type = %s';
+                    $params[]  = $pattern;
+                }
+            }
+        }
+
+        if ( empty( $clauses ) ) {
+            // No active types — return a clause that matches nothing.
+            return array( '1=0', array() );
+        }
+
+        return array( '(' . implode( ' OR ', $clauses ) . ')', $params );
+    }
+
+    /**
+     * Categorise a mime type string into one of the high-level type keys
+     * (images / videos / audio / documents / archives / other). Used for
+     * display and filtering on the candidate list.
+     *
+     * @since 1.11.0
+     * @param string $mime
+     * @return string
+     */
+    public static function categorise_mime( $mime ) {
+        if ( ! $mime ) {
+            return 'other';
+        }
+        foreach ( self::media_type_map() as $type => $patterns ) {
+            foreach ( $patterns as $pattern ) {
+                if ( substr( $pattern, -1 ) === '/' ) {
+                    if ( strpos( $mime, $pattern ) === 0 ) {
+                        return $type;
+                    }
+                } elseif ( $mime === $pattern ) {
+                    return $type;
+                }
+            }
+        }
+        return 'other';
+    }
 
     /**
      * Get instance
@@ -210,22 +346,34 @@ class MBR_WP_Performance_Orphaned_Images {
     }
 
     /**
-     * Get the full list of image attachment IDs to scan, ordered by ID.
-     * Excluded IDs (from settings) are filtered out.
+     * Get the full list of attachment IDs to scan, ordered by ID. Limited
+     * to the media types currently enabled in settings (defaults to
+     * images-only). Excluded IDs (from settings) are filtered out.
      *
+     * Renamed from get_all_image_attachment_ids() in v1.11.0; the old name
+     * is preserved as a thin alias for backward compatibility.
+     *
+     * @since 1.11.0
      * @return int[]
      */
-    public static function get_all_image_attachment_ids() {
+    public static function get_all_attachment_ids() {
         global $wpdb;
 
-        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-        $ids = $wpdb->get_col(
-            "SELECT ID FROM {$wpdb->posts}
-             WHERE post_type = 'attachment'
-               AND post_mime_type LIKE 'image/%'
-             ORDER BY ID ASC"
-        );
+        list( $mime_sql, $mime_params ) = self::build_mime_where();
 
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $sql = "SELECT ID FROM {$wpdb->posts}
+                WHERE post_type = 'attachment'
+                  AND {$mime_sql}
+                ORDER BY ID ASC";
+
+        if ( ! empty( $mime_params ) ) {
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+            $sql = $wpdb->prepare( $sql, $mime_params );
+        }
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+        $ids = $wpdb->get_col( $sql );
         $ids = array_map( 'intval', (array) $ids );
 
         // Filter out user-excluded IDs.
@@ -235,6 +383,18 @@ class MBR_WP_Performance_Orphaned_Images {
         }
 
         return $ids;
+    }
+
+    /**
+     * Backward-compatible alias for get_all_attachment_ids(). Retained so
+     * any code (including third-party callers) that learned the v1.10.0
+     * method name continues to work.
+     *
+     * @deprecated 1.11.0 Use get_all_attachment_ids() instead.
+     * @return int[]
+     */
+    public static function get_all_image_attachment_ids() {
+        return self::get_all_attachment_ids();
     }
 
     /**
@@ -385,11 +545,20 @@ class MBR_WP_Performance_Orphaned_Images {
                 $matches[] = 'postmeta';
             }
 
-            // Not orphaned if any "definitive" match is found. We treat
-            // parent + featured_image + post_content as definitive. A pure
-            // postmeta hit alone moves the item to REVIEW (string-match,
-            // not authoritative).
-            $definitive = array_intersect( $matches, array( 'parent', 'featured_image', 'post_content' ) );
+            // Definitive matches prove the attachment is in use right now:
+            // it appears in some post's content, or is set as a featured
+            // image. These short-circuit the candidate.
+            //
+            // post_parent is intentionally NOT in the definitive set
+            // (changed in v1.11.0). WordPress sets post_parent on upload
+            // when an attachment is added via the post editor, and the
+            // link survives any content edits that remove the actual
+            // reference. Treating it as definitive would hide every
+            // attachment uploaded for a post and later removed from the
+            // content — a very common case for videos, audio, and PDFs.
+            // Instead, parent-only matches drop to Review tier so the
+            // user can inspect the parent post and confirm.
+            $definitive = array_intersect( $matches, array( 'featured_image', 'post_content' ) );
             if ( ! empty( $definitive ) ) {
                 continue; // Not an orphan, skip.
             }
@@ -428,6 +597,7 @@ class MBR_WP_Performance_Orphaned_Images {
      *
      * @param array $args {
      *   @type string $confidence    'high', 'review', or '' for all.
+     *   @type string $media_type    'images', 'videos', 'audio', 'documents', 'archives', or '' for all (since 1.11.0).
      *   @type int    $per_page
      *   @type int    $page
      *   @type string $orderby       'attachment_id' or 'file_size'
@@ -441,6 +611,7 @@ class MBR_WP_Performance_Orphaned_Images {
 
         $defaults = array(
             'confidence' => '',
+            'media_type' => '',
             'per_page'   => 25,
             'page'       => 1,
             'orderby'    => 'file_size',
@@ -454,6 +625,18 @@ class MBR_WP_Performance_Orphaned_Images {
         if ( in_array( $args['confidence'], array( self::CONFIDENCE_HIGH, self::CONFIDENCE_REVIEW ), true ) ) {
             $where   .= ' AND confidence = %s';
             $params[] = $args['confidence'];
+        }
+
+        // Media-type filter (since 1.11.0). Translates a single type key
+        // into the same mime patterns used during the scan.
+        if ( ! empty( $args['media_type'] ) ) {
+            list( $mime_sql, $mime_params ) = self::build_mime_where( array( $args['media_type'] ) );
+            if ( $mime_sql !== '1=0' ) {
+                $where .= ' AND ' . $mime_sql;
+                foreach ( $mime_params as $p ) {
+                    $params[] = $p;
+                }
+            }
         }
 
         $orderby = in_array( $args['orderby'], array( 'attachment_id', 'file_size', 'scanned_at' ), true )
@@ -488,7 +671,9 @@ class MBR_WP_Performance_Orphaned_Images {
     }
 
     /**
-     * Get aggregate stats for the current candidate set.
+     * Get aggregate stats for the current candidate set, broken down by
+     * confidence (high/review) and by media type (images/videos/audio/
+     * documents/archives/other).
      *
      * @return array
      */
@@ -496,6 +681,7 @@ class MBR_WP_Performance_Orphaned_Images {
         global $wpdb;
         $table = self::table_name();
 
+        // Confidence breakdown.
         $rows = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT confidence, COUNT(*) AS cnt, SUM(file_size) AS bytes
@@ -510,6 +696,14 @@ class MBR_WP_Performance_Orphaned_Images {
             'review'       => array( 'count' => 0, 'bytes' => 0 ),
             'total_count'  => 0,
             'total_bytes'  => 0,
+            'by_type'      => array(
+                'images'    => array( 'count' => 0, 'bytes' => 0 ),
+                'videos'    => array( 'count' => 0, 'bytes' => 0 ),
+                'audio'     => array( 'count' => 0, 'bytes' => 0 ),
+                'documents' => array( 'count' => 0, 'bytes' => 0 ),
+                'archives'  => array( 'count' => 0, 'bytes' => 0 ),
+                'other'     => array( 'count' => 0, 'bytes' => 0 ),
+            ),
         );
 
         foreach ( (array) $rows as $row ) {
@@ -518,6 +712,25 @@ class MBR_WP_Performance_Orphaned_Images {
             $stats[ $key ]['bytes']  = (int) $row['bytes'];
             $stats['total_count']   += (int) $row['cnt'];
             $stats['total_bytes']   += (int) $row['bytes'];
+        }
+
+        // Per-type breakdown — done in PHP since mime_type is stored verbatim
+        // and categorise_mime() is the canonical mapping. Pulling just two
+        // columns keeps memory minimal even on large candidate lists.
+        $type_rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT mime_type, file_size FROM {$table} WHERE status = %s",
+                self::STATUS_CANDIDATE
+            ),
+            ARRAY_A
+        );
+        foreach ( (array) $type_rows as $row ) {
+            $cat = self::categorise_mime( $row['mime_type'] );
+            if ( ! isset( $stats['by_type'][ $cat ] ) ) {
+                $cat = 'other';
+            }
+            $stats['by_type'][ $cat ]['count']++;
+            $stats['by_type'][ $cat ]['bytes'] += (int) $row['file_size'];
         }
 
         return $stats;
@@ -778,6 +991,13 @@ class MBR_WP_Performance_Orphaned_Images {
      * Quick re-verification of orphan status before destructive action.
      * Returns true if the attachment is *still* an orphan.
      *
+     * Note (v1.11.0): post_parent is intentionally not checked here. The
+     * classifier in process_batch() now treats parent as suggestive rather
+     * than definitive — a parent-only candidate goes to Review tier where
+     * the user has explicitly approved the deletion via single-row delete.
+     * Re-verifying parent here would override that approval and break
+     * deletion of legitimate review-tier orphans.
+     *
      * @param int $id
      * @return bool
      */
@@ -787,15 +1007,6 @@ class MBR_WP_Performance_Orphaned_Images {
         $id = (int) $id;
         if ( $id <= 0 ) {
             return false;
-        }
-
-        // Live parent?
-        $parent = (int) wp_get_post_parent_id( $id );
-        if ( $parent ) {
-            $parent_status = get_post_status( $parent );
-            if ( $parent_status && ! in_array( $parent_status, array( 'trash', 'auto-draft' ), true ) ) {
-                return false;
-            }
         }
 
         // Featured image somewhere?

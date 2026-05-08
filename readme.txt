@@ -4,11 +4,11 @@ Tags: performance, optimization, speed, cache, database, webp, image
 Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.10.0
+Stable tag: 1.11.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, orphaned image cleanup, and WooCommerce optimisations.
+Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, orphaned media cleanup, and WooCommerce optimisations.
 
 == Description ==
 
@@ -111,16 +111,17 @@ MBR WP Performance is a powerful, all-in-one performance optimization plugin tha
 * Bulk resize tool for existing Media Library images — scan first, then downscale in place with progress bar and live log
 * Automatic sub-size regeneration and stale WebP cleanup after each bulk resize
 
-**Orphaned Image Cleanup**
-* Scans the Media Library for image attachments no longer referenced anywhere on the site
-* Detection covers post parents, featured images, post content (matching by attachment ID, shortcode reference and filename stem so sized variants are caught), and a string-search across postmeta values
+**Orphaned Media Cleanup**
+* Scans the Media Library for attachments no longer referenced anywhere on the site — covering images, videos, audio, documents, and archives (configurable per scan)
+* Detection covers post parents, featured images, post content (matching by attachment ID, shortcode reference and filename stem so sized variants and URL-only references are caught), and a string-search across postmeta values
 * Two-tier confidence classifier — high-confidence orphans are eligible for bulk-delete, review-tier candidates require manual inspection
 * Configurable restore window (7, 14, 30 or 60 days, or "keep forever") with a daily cron purge of expired records
 * Staging table records the full attachment post row, postmeta and file manifest before deletion — database records can be restored within the configured window
 * Per-attachment exclusions list to permanently keep specific IDs off the orphan list
-* Deletes the original file, all WordPress sub-size variants, the "scaled" full-size variant and matching `.webp` siblings — no orphan files left on disk
+* For images: deletes the original file, all WordPress sub-size variants, the "scaled" full-size variant and matching `.webp` siblings; for other media types, removes the single attached file
 * Pre-deletion re-verification blocks the action if an attachment has become referenced since the last scan
 * Live progress bar during scans, batched in 50-attachment chunks to avoid timeouts on large libraries
+* Defaults to images-only on upgrade from v1.10.0 — broader media types are opt-in via settings checkboxes
 
 **WooCommerce Optimisations**
 * Dedicated tab that only activates when WooCommerce is installed
@@ -179,6 +180,18 @@ Click 'WP Performance' in the WordPress admin toolbar at the top of the screen. 
 Lazy Loading delays loading of images/videos until they're needed (saving bandwidth), while Preloading loads critical resources early (improving perceived speed). They work together for optimal performance.
 
 == Changelog ==
+
+= 1.11.0 =
+* Feature: Orphaned Images tab renamed and expanded to "Orphaned Media" — scope now covers images, videos, audio, documents, and archives alongside the original image-only detection
+* Feature: Media-type checkbox group in tab settings — users opt in per type (Images / Videos / Audio / Documents / Archives); defaults to images-only on upgrade so v1.10.0 behaviour is preserved
+* Feature: New Type column in the candidate list with category icons (image, video, audio, document, archive) for quick visual scanning
+* Feature: Type filter dropdown alongside the existing Confidence and Sort filters — narrow the list to a specific media type
+* Feature: Per-type stat breakdown row above the candidates table showing count and reclaimable bytes for each enabled type
+* Tab slug changed from `orphaned-images` to `orphaned-media`; the legacy slug continues to work for one release for any bookmarked URLs
+* Detection logic for non-image types relies on the existing filename-stem matching in `post_content` (which already catches URL-only references in `[video]`, `[audio]`, and `<a href>` tags) plus the postmeta string-search; explicit builder-aware detection lands in v1.12.0
+* Non-image deletions only remove the single attached file — no sub-sizes or `.webp` siblings to clean up for those types, so the deletion path is naturally simpler
+* Backward-compatible: existing v1.10.0 staging-table rows and exclusions list carry over unchanged
+* Behaviour change: post_parent is no longer treated as definitive proof an attachment is in use. WordPress sets post_parent on upload via the post editor and never clears it, so attachments uploaded into a post and later removed from the content stayed hidden under v1.10.0. Parent-only matches now drop to Review tier so they can be inspected and deleted manually. Featured-image and post-content matches remain definitive.
 
 = 1.10.0 =
 * Feature: New "Orphaned Images" tab — scans the Media Library for image attachments that are no longer referenced anywhere, with a safe two-stage deletion workflow and a configurable restore window
@@ -295,6 +308,9 @@ Lazy Loading delays loading of images/videos until they're needed (saving bandwi
 * Database optimization
 
 == Upgrade Notice ==
+
+= 1.11.0 =
+The Orphaned Images tab is renamed to Orphaned Media and the scanner now supports videos, audio, documents, and archives in addition to images. Existing sites default to images-only on upgrade — tick the additional media-type checkboxes in tab settings to expand the scan. The legacy `orphaned-images` URL still works for one release.
 
 = 1.10.0 =
 Adds an Orphaned Images tab that scans the Media Library for unused images and removes them with a configurable restore window. Detection covers post parents, featured images, post content and postmeta — page builder data stores (Elementor, Bricks etc.) are not yet covered, so review the candidate list carefully before bulk-deleting. Test on a staging copy first; deletion physically removes files from disk.

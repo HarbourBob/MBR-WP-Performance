@@ -2,8 +2,8 @@
 /**
  * Plugin Name: MBR WP Performance
  * Plugin URI: https://littlewebshack.com/mbr-wp-performance
- * Description: Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, orphaned image cleanup, and WooCommerce optimisations.
- * Version: 1.10.0
+ * Description: Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, orphaned media cleanup, and WooCommerce optimisations.
+ * Version: 1.11.0
  * Author: Made by Robert
  * Author URI: https://madebyrobert.co.uk
  * Text Domain: mbr-wp-performance
@@ -39,7 +39,7 @@ add_filter( 'plugin_row_meta', function ( $links, $file, $data ) {
 }, 10, 3 );
 
 // Define plugin constants
-define( 'MBR_WP_PERFORMANCE_VERSION', '1.10.0' );
+define( 'MBR_WP_PERFORMANCE_VERSION', '1.11.0' );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -218,10 +218,29 @@ class MBR_WP_Performance {
             $opts = get_option( 'mbr_wp_performance_options', array() );
             if ( is_array( $opts ) && ! isset( $opts['orphaned_images'] ) ) {
                 $opts['orphaned_images'] = array(
-                    'restore_days' => MBR_WP_Performance_Orphaned_Images::DEFAULT_RESTORE_DAYS,
-                    'excluded_ids' => array(),
+                    'restore_days'  => MBR_WP_Performance_Orphaned_Images::DEFAULT_RESTORE_DAYS,
+                    'enabled_types' => array( 'images' ),
+                    'excluded_ids'  => array(),
                 );
                 update_option( 'mbr_wp_performance_options', $opts );
+            }
+        }
+
+        // --- Migrations from < 1.11.0 ---
+        // The Orphaned Media feature replaced the v1.10.0 Orphaned Images tab.
+        // Seed enabled_types for sites that had v1.10.0 settings so behaviour
+        // remains identical (images-only) until the user opts in to other types.
+        if ( version_compare( $stored, '1.11.0', '<' ) ) {
+            $opts = get_option( 'mbr_wp_performance_options', array() );
+            if ( is_array( $opts ) ) {
+                if ( ! isset( $opts['orphaned_images'] ) || ! is_array( $opts['orphaned_images'] ) ) {
+                    $opts['orphaned_images'] = array();
+                }
+                if ( ! isset( $opts['orphaned_images']['enabled_types'] )
+                     || ! is_array( $opts['orphaned_images']['enabled_types'] ) ) {
+                    $opts['orphaned_images']['enabled_types'] = array( 'images' );
+                    update_option( 'mbr_wp_performance_options', $opts );
+                }
             }
         }
 
@@ -351,8 +370,9 @@ class MBR_WP_Performance {
                 'woocommerce' => array(),
                 'image_dimensions' => array(),
                 'orphaned_images' => array(
-                    'restore_days' => MBR_WP_Performance_Orphaned_Images::DEFAULT_RESTORE_DAYS,
-                    'excluded_ids' => array(),
+                    'restore_days'  => MBR_WP_Performance_Orphaned_Images::DEFAULT_RESTORE_DAYS,
+                    'enabled_types' => array( 'images' ),
+                    'excluded_ids'  => array(),
                 ),
             );
             
