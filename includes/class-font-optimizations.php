@@ -126,7 +126,7 @@ class MBR_WP_Performance_Font_Optimizations {
                     if ( ! empty( $woff2_match[1] ) ) {
                         // Preload only the FIRST (primary) font file
                         printf(
-                            '<link rel="preload" href="%s" as="font" type="font/woff2" crossorigin>' . "\n",
+                            '<link rel="preload" href="%s" as="font" type="font/woff2" crossorigin="anonymous">' . "\n",
                             esc_url( $woff2_match[1] )
                         );
                         $preloaded++;
@@ -264,7 +264,7 @@ class MBR_WP_Performance_Font_Optimizations {
         
         foreach ( $urls as $url ) {
             printf(
-                '<link rel="preload" href="%s" as="font" type="font/woff2" crossorigin>' . "\n",
+                '<link rel="preload" href="%s" as="font" type="font/woff2" crossorigin="anonymous">' . "\n",
                 esc_url( $url )
             );
         }
@@ -345,7 +345,7 @@ class MBR_WP_Performance_Font_Optimizations {
         
         foreach ( $domain_list as $domain ) {
             printf(
-                '<link rel="preconnect" href="https://%s" crossorigin>' . "\n",
+                '<link rel="preconnect" href="https://%s" crossorigin="anonymous">' . "\n",
                 esc_attr( $domain )
             );
         }

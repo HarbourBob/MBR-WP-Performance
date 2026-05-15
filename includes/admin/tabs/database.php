@@ -155,6 +155,60 @@ $db_options = isset( $options['database'] ) ? $options['database'] : array();
                 </td>
             </tr>
         </table>
+
+        <?php
+        $last_cleanup = get_option( 'mbr_wp_performance_db_last_cleanup', array() );
+        if ( ! empty( $last_cleanup['completed_at'] ) ) :
+        ?>
+        <h3 style="margin-top:20px;"><?php esc_html_e( 'Last Auto-Cleanup', 'mbr-wp-performance' ); ?></h3>
+        <p class="description">
+            <?php
+            /* translators: %s = datetime */
+            printf( esc_html__( 'Completed: %s', 'mbr-wp-performance' ), '<code>' . esc_html( $last_cleanup['completed_at'] ) . '</code>' );
+            ?>
+        </p>
+        <?php if ( ! empty( $last_cleanup['actions'] ) ) : ?>
+        <table class="widefat striped" style="max-width:500px;">
+            <thead><tr><th><?php esc_html_e( 'Action', 'mbr-wp-performance' ); ?></th><th><?php esc_html_e( 'Items', 'mbr-wp-performance' ); ?></th></tr></thead>
+            <tbody>
+                <?php foreach ( $last_cleanup['actions'] as $action => $n ) : ?>
+                <tr><td><?php echo esc_html( str_replace( '_', ' ', $action ) ); ?></td><td><?php echo (int) $n; ?></td></tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php endif; ?>
+        <?php endif; ?>
+
+        <p style="margin-top:14px;">
+            <button type="button" class="button button-secondary" id="mbr-db-cleanup-now"><?php esc_html_e( 'Run Auto-Cleanup Now', 'mbr-wp-performance' ); ?></button>
+            <span id="mbr-db-cleanup-status" style="margin-left:.6em;"></span>
+        </p>
+        <script>
+        (function(){
+            var btn=document.getElementById('mbr-db-cleanup-now');
+            if(!btn) return;
+            btn.addEventListener('click',function(){
+                var s=document.getElementById('mbr-db-cleanup-status');
+                btn.disabled=true;
+                s.textContent='<?php echo esc_js( __( 'Running…', 'mbr-wp-performance' ) ); ?>';
+                var d=new FormData();
+                d.append('action','mbr_wp_performance_db_cleanup_run');
+                d.append('nonce','<?php echo esc_js( wp_create_nonce( 'mbr_wp_performance_nonce' ) ); ?>');
+                fetch(ajaxurl,{method:'POST',body:d,credentials:'same-origin'})
+                    .then(function(r){return r.json();})
+                    .then(function(j){
+                        if(j&&j.success){
+                            s.textContent='<?php echo esc_js( __( 'Done. Reloading…', 'mbr-wp-performance' ) ); ?>';
+                            setTimeout(function(){location.reload();},700);
+                        } else {
+                            s.textContent='<?php echo esc_js( __( 'Failed.', 'mbr-wp-performance' ) ); ?>';
+                            btn.disabled=false;
+                        }
+                    })
+                    .catch(function(){ s.textContent='<?php echo esc_js( __( 'Failed.', 'mbr-wp-performance' ) ); ?>'; btn.disabled=false; });
+            });
+        })();
+        </script>
     </div>
     
     <!-- Orphaned Data Cleanup Section -->

@@ -98,6 +98,58 @@ $dim_defaults = array(
     </table>
 </div>
 
+<!-- AVIF Section (v1.12.0) -->
+<?php
+$avif_diag      = class_exists( 'MBR_WP_Performance_AVIF_Converter' ) ? MBR_WP_Performance_AVIF_Converter::get_diagnostics() : array();
+$avif_supported = ! empty( $avif_diag['any_avif'] );
+?>
+<div class="mbr-wp-performance-section">
+    <h2><?php esc_html_e( 'AVIF', 'mbr-wp-performance' ); ?> <span style="font-size:12px;font-weight:normal;color:#666;">— <?php esc_html_e( 'New in v1.12.0', 'mbr-wp-performance' ); ?></span></h2>
+    <p class="description" style="margin-bottom: 16px;">
+        <?php esc_html_e( 'AVIF is typically 20-30% smaller than WebP at equivalent perceived quality. When both are enabled, the <picture> wrapper emits AVIF first, then WebP, then the JPEG/PNG fallback — browsers automatically pick the first format they support.', 'mbr-wp-performance' ); ?>
+    </p>
+
+    <?php if ( ! $avif_supported ) : ?>
+        <div class="notice notice-warning inline" style="margin:0 0 16px;">
+            <p><?php esc_html_e( 'Server-side AVIF encoding is not available. Requires PHP 8.1+ with GD compiled for AVIF, or Imagick 7.0.25+ with AVIF support. Enabling AVIF without one of these will silently skip conversion.', 'mbr-wp-performance' ); ?></p>
+            <p>
+                GD AVIF: <code><?php echo ! empty( $avif_diag['gd_avif'] ) ? '✓' : '✗'; ?></code> &nbsp;
+                Imagick AVIF: <code><?php echo ! empty( $avif_diag['imagick_avif'] ) ? '✓' : '✗'; ?></code>
+            </p>
+        </div>
+    <?php endif; ?>
+
+    <table class="form-table">
+        <tbody>
+            <tr>
+                <th scope="row">
+                    <label for="webp_avif_enabled">
+                        <?php esc_html_e( 'Enable AVIF Conversion', 'mbr-wp-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'On upload, generate an .avif sibling alongside the WebP. The <picture> wrapper will emit the AVIF source first so capable browsers (Chrome 85+, Firefox 93+, Safari 16.4+) use it.', 'mbr-wp-performance' ); ?>">?</span>
+                    </label>
+                </th>
+                <td>
+                    <input type="checkbox" name="mbr_wp_performance_options[webp][avif_enabled]" id="webp_avif_enabled" value="1" <?php checked( ! empty( $webp_options['avif_enabled'] ) ); ?> <?php disabled( ! $avif_supported ); ?>>
+                    <p class="description"><?php esc_html_e( 'Requires Automatic Conversion + <picture> Tags to be enabled above for end-to-end delivery.', 'mbr-wp-performance' ); ?></p>
+                </td>
+            </tr>
+
+            <tr>
+                <th scope="row">
+                    <label for="webp_avif_quality">
+                        <?php esc_html_e( 'AVIF Quality', 'mbr-wp-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'AVIF tolerates lower numbers than WebP. 60 is a sensible default — perceptually equivalent to WebP at ~75. Lower = smaller file.', 'mbr-wp-performance' ); ?>">?</span>
+                    </label>
+                </th>
+                <td>
+                    <input type="number" name="mbr_wp_performance_options[webp][avif_quality]" id="webp_avif_quality" value="<?php echo esc_attr( isset( $webp_options['avif_quality'] ) ? $webp_options['avif_quality'] : 60 ); ?>" min="1" max="100" class="small-text">
+                    <p class="description"><?php esc_html_e( '1 (lowest, smallest) to 100 (highest, largest). Default: 60.', 'mbr-wp-performance' ); ?></p>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
 <!-- Image Sizing & Dimensions Section -->
 <div class="mbr-wp-performance-section">
     <h2><?php esc_html_e( 'Image Sizing &amp; Dimensions', 'mbr-wp-performance' ); ?></h2>
@@ -163,6 +215,34 @@ $dim_defaults = array(
                 <td>
                     <input type="checkbox" name="mbr_wp_performance_options[image_dimensions][add_missing_dimensions]" id="image_dimensions_add_missing" value="1" <?php checked( ! empty( $dim_options['add_missing_dimensions'] ) ); ?>>
                     <p class="description"><?php esc_html_e( 'Works on post content, Gutenberg blocks, Elementor widgets, attachment images and post thumbnails. Only local images are measured — external URLs, SVGs and data URIs are skipped. Results are cached for a week.', 'mbr-wp-performance' ); ?></p>
+                </td>
+            </tr>
+
+            <!-- decoding="async" (v1.12.0) -->
+            <tr>
+                <th scope="row">
+                    <label for="image_decoding_async">
+                        <?php esc_html_e( 'Add decoding="async" to Images', 'mbr-wp-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Lets the browser decode images off the main thread, improving INP/responsiveness on image-heavy pages. The LCP candidate (fetchpriority="high") is automatically skipped so it can still decode synchronously.', 'mbr-wp-performance' ); ?>">?</span>
+                    </label>
+                </th>
+                <td>
+                    <input type="checkbox" name="mbr_wp_performance_options[image_dimensions][decoding_async]" id="image_decoding_async" value="1" <?php checked( ! empty( $dim_options['decoding_async'] ) ); ?>>
+                    <p class="description"><?php esc_html_e( 'New in v1.12.0. Skips images already carrying a decoding or fetchpriority="high" attribute.', 'mbr-wp-performance' ); ?></p>
+                </td>
+            </tr>
+
+            <!-- Strip EXIF on upload (v1.12.0) -->
+            <tr>
+                <th scope="row">
+                    <label for="image_strip_exif">
+                        <?php esc_html_e( 'Strip EXIF Metadata on Upload', 'mbr-wp-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Removes EXIF, IPTC and XMP metadata (camera serial, GPS coordinates, embedded thumbnails) from newly uploaded JPEGs. ICC colour profiles are preserved. Privacy win plus typically a 5-30% file size reduction with zero visible quality loss.', 'mbr-wp-performance' ); ?>">?</span>
+                    </label>
+                </th>
+                <td>
+                    <input type="checkbox" name="mbr_wp_performance_options[image_dimensions][strip_exif]" id="image_strip_exif" value="1" <?php checked( ! empty( $dim_options['strip_exif'] ) ); ?>>
+                    <p class="description"><?php esc_html_e( 'New in v1.12.0. Only affects new uploads. Existing images are unchanged. Requires Imagick (preferred) or GD.', 'mbr-wp-performance' ); ?></p>
                 </td>
             </tr>
         </tbody>

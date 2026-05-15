@@ -396,11 +396,28 @@ class MBR_WP_Performance_WebP_Converter {
         $webp_srcset = $this->build_webp_srcset( $srcset );
         $webp_src    = $this->webp_variant_for_url( $src );
 
-        if ( ! $webp_src && ! $webp_srcset ) {
+        // Look up AVIF variants when the AVIF converter is loaded and enabled.
+        $avif_src    = false;
+        $avif_srcset = '';
+        $opts        = mbr_wp_performance()->get_options( 'webp' );
+        if ( ! empty( $opts['avif_enabled'] ) && class_exists( 'MBR_WP_Performance_AVIF_Converter' ) ) {
+            $avif_src    = MBR_WP_Performance_AVIF_Converter::avif_variant_for_url( $src );
+            $avif_srcset = MBR_WP_Performance_AVIF_Converter::build_avif_srcset( $srcset );
+        }
+
+        if ( ! $webp_src && ! $webp_srcset && ! $avif_src && ! $avif_srcset ) {
             return $img_html;
         }
 
         $sources = '';
+
+        // AVIF first — browsers pick the first <source> they understand.
+        if ( $avif_srcset ) {
+            $sources .= '<source type="image/avif" srcset="' . esc_attr( $avif_srcset ) . '">';
+        } elseif ( $avif_src ) {
+            $sources .= '<source type="image/avif" srcset="' . esc_attr( $avif_src ) . '">';
+        }
+
         if ( $webp_srcset ) {
             $sources .= '<source type="image/webp" srcset="' . esc_attr( $webp_srcset ) . '">';
         } elseif ( $webp_src ) {

@@ -429,6 +429,19 @@ $core_options = isset( $options['core'] ) ? $options['core'] : array();
                 </td>
             </tr>
             <?php endif; ?>
+
+            <tr>
+                <th scope="row">
+                    <label for="html_minify">
+                        <?php esc_html_e( 'Minify HTML', 'mbr-wp-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Strips HTML comments and collapses unnecessary whitespace from rendered pages. Preserves <pre>, <textarea>, <script> and <style> content.', 'mbr-wp-performance' ); ?>">?</span>
+                    </label>
+                </th>
+                <td>
+                    <input type="checkbox" name="mbr_wp_performance_options[core][html_minify]" id="html_minify" value="1" <?php checked( isset( $core_options['html_minify'] ) && $core_options['html_minify'] ); ?>>
+                    <p class="description"><?php esc_html_e( 'New in v1.12.0. Saves typically 5-15% of HTML transfer size.', 'mbr-wp-performance' ); ?></p>
+                </td>
+            </tr>
         </table>
     </div>
     

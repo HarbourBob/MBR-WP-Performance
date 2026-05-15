@@ -45,6 +45,20 @@ $lazy_options = isset( $options['lazy_loading'] ) ? $options['lazy_loading'] : a
                     <p class="description"><?php esc_html_e( 'Defers loading of iframes and embedded videos.', 'mbr-wp-performance' ); ?></p>
                 </td>
             </tr>
+
+            <!-- Video Facade (v1.12.0) -->
+            <tr>
+                <th scope="row">
+                    <label for="video_facade">
+                        <?php esc_html_e( 'YouTube / Vimeo Facade', 'mbr-wp-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Replaces YouTube and Vimeo iframes with a static thumbnail and play button. The real iframe is only loaded when the user clicks. Saves ~1.4MB of YouTube JS on initial page load.', 'mbr-wp-performance' ); ?>">?</span>
+                    </label>
+                </th>
+                <td>
+                    <input type="checkbox" name="mbr_wp_performance_options[lazy_loading][video_facade]" id="video_facade" value="1" <?php checked( ! empty( $lazy_options['video_facade'] ) ); ?>>
+                    <p class="description"><?php esc_html_e( 'New in v1.12.0. Stronger than plain iframe lazy-loading — no third-party JS runs until click. Privacy bonus: no YouTube cookies until interaction.', 'mbr-wp-performance' ); ?></p>
+                </td>
+            </tr>
             
             <!-- Exclude from Lazy Loading -->
             <tr>

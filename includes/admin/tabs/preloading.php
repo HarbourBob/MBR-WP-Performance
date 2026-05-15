@@ -246,6 +246,20 @@ $preload_options = isset( $options['preloading'] ) ? $options['preloading'] : ar
                     <p class="description"><?php esc_html_e( 'Enter one domain per line (can use // or https://)', 'mbr-wp-performance' ); ?></p>
                 </td>
             </tr>
+
+            <!-- Hover Prefetch (instant.page) — v1.12.0 -->
+            <tr>
+                <th scope="row">
+                    <label for="hover_prefetch">
+                        <?php esc_html_e( 'Hover Prefetch (instant.page)', 'mbr-wp-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Prefetches the destination page when a visitor hovers over a link, making the click feel instant. Honours the Save-Data header.', 'mbr-wp-performance' ); ?>">?</span>
+                    </label>
+                </th>
+                <td>
+                    <input type="checkbox" name="mbr_wp_performance_options[preloading][hover_prefetch]" id="hover_prefetch" value="1" <?php checked( ! empty( $preload_options['hover_prefetch'] ) ); ?>>
+                    <p class="description"><?php esc_html_e( 'New in v1.12.0. Uses the open-source instant.page runtime (MIT).', 'mbr-wp-performance' ); ?></p>
+                </td>
+            </tr>
         </tbody>
     </table>
 </div>

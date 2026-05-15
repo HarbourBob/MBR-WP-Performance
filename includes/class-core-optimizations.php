@@ -714,7 +714,7 @@ class MBR_WP_Performance_Core_Optimizations {
                 $type = 'script';
             }
             
-            $crossorigin = ( 'font' === $type ) ? ' crossorigin' : '';
+            $crossorigin = ( 'font' === $type ) ? ' crossorigin="anonymous"' : '';
             
             printf(
                 '<link rel="preload" href="%s" as="%s"%s>' . "\n",

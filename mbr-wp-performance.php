@@ -3,7 +3,7 @@
  * Plugin Name: MBR WP Performance
  * Plugin URI: https://littlewebshack.com/mbr-wp-performance
  * Description: Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, orphaned media cleanup, and WooCommerce optimisations.
- * Version: 1.11.0
+ * Version: 1.12.0
  * Author: Made by Robert
  * Author URI: https://madebyrobert.co.uk
  * Text Domain: mbr-wp-performance
@@ -39,7 +39,7 @@ add_filter( 'plugin_row_meta', function ( $links, $file, $data ) {
 }, 10, 3 );
 
 // Define plugin constants
-define( 'MBR_WP_PERFORMANCE_VERSION', '1.11.0' );
+define( 'MBR_WP_PERFORMANCE_VERSION', '1.12.0' );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -122,6 +122,40 @@ class MBR_WP_Performance {
         
         // Multisite support
         require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/class-multisite.php';
+
+        // ====================================================================
+        // v1.12.0 additions
+        // ====================================================================
+
+        // AVIF converter (sister to WebP).
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/class-avif-converter.php';
+
+        // Self-hosted third-party scripts (gtag.js, gtm.js, fbevents.js).
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/class-third-party-scripts.php';
+
+        // YouTube / Vimeo facade.
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/class-video-facade.php';
+
+        // Browser-cache and compression .htaccess rules.
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/class-server-headers.php';
+
+        // Autoloaded options audit.
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/class-autoload-audit.php';
+
+        // WP-Cron viewer.
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/class-cron-viewer.php';
+
+        // HTML minification.
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/class-html-minify.php';
+
+        // Image enhancements (decoding="async" + EXIF strip).
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/class-image-enhancements.php';
+
+        // Hover prefetch (instant.page).
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/class-hover-prefetch.php';
+
+        // Caching plugin conflict detector.
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/class-conflict-detector.php';
     }
 
     /**
@@ -244,6 +278,23 @@ class MBR_WP_Performance {
             }
         }
 
+        // --- Migrations from < 1.12.0 ---
+        // v1.12.0 introduces three new option sections (preloading, lazy_loading,
+        // third_party, server_headers). Ensure they exist so admin tabs reading
+        // them with $options['key'] don't trip undefined-index warnings.
+        if ( version_compare( $stored, '1.12.0', '<' ) ) {
+            $opts = get_option( 'mbr_wp_performance_options', array() );
+            if ( ! is_array( $opts ) ) {
+                $opts = array();
+            }
+            foreach ( array( 'preloading', 'lazy_loading', 'third_party', 'server_headers' ) as $section ) {
+                if ( ! isset( $opts[ $section ] ) || ! is_array( $opts[ $section ] ) ) {
+                    $opts[ $section ] = array();
+                }
+            }
+            update_option( 'mbr_wp_performance_options', $opts );
+        }
+
         // Stamp the version once all migrations have completed.
         update_option( 'mbr_wp_performance_version', MBR_WP_PERFORMANCE_VERSION );
     }
@@ -271,6 +322,16 @@ class MBR_WP_Performance {
         MBR_WP_Performance_WooCommerce_Optimizations::instance();
         MBR_WP_Performance_Image_Dimensions::instance();
         MBR_WP_Performance_Orphaned_Images::instance();
+
+        // v1.12.0 modules.
+        MBR_WP_Performance_AVIF_Converter::instance();
+        MBR_WP_Performance_Third_Party_Scripts::instance();
+        MBR_WP_Performance_Video_Facade::instance();
+        MBR_WP_Performance_Server_Headers::instance();
+        MBR_WP_Performance_HTML_Minify::instance();
+        MBR_WP_Performance_Image_Enhancements::instance();
+        MBR_WP_Performance_Hover_Prefetch::instance();
+        MBR_WP_Performance_Conflict_Detector::instance();
     }
     
     /**
@@ -374,6 +435,11 @@ class MBR_WP_Performance {
                     'enabled_types' => array( 'images' ),
                     'excluded_ids'  => array(),
                 ),
+                // v1.12.0 sections.
+                'preloading'     => array(),
+                'lazy_loading'   => array(),
+                'third_party'    => array(),
+                'server_headers' => array(),
             );
             
             add_option( 'mbr_wp_performance_options', $default_options );
@@ -404,6 +470,14 @@ class MBR_WP_Performance {
         if ( ! empty( $existing_opts['webp']['htaccess_rules'] ) ) {
             MBR_WP_Performance_WebP_Converter::add_htaccess_rules();
         }
+        // Write AVIF .htaccess rules if enabled.
+        if ( ! empty( $existing_opts['webp']['avif_enabled'] ) && ! empty( $existing_opts['webp']['htaccess_rules'] ) ) {
+            MBR_WP_Performance_AVIF_Converter::add_htaccess_rules();
+        }
+        // Write Server Headers .htaccess rules if enabled.
+        if ( ! empty( $existing_opts['server_headers']['browser_cache'] ) ) {
+            MBR_WP_Performance_Server_Headers::instance()->ensure_rules();
+        }
     }
 
     /**
@@ -421,9 +495,16 @@ class MBR_WP_Performance {
         // Clear scheduled events
         wp_clear_scheduled_hook( 'mbr_wp_performance_database_cleanup' );
         wp_clear_scheduled_hook( 'mbr_wp_performance_orphan_purge' );
-        
+        wp_clear_scheduled_hook( 'mbr_wp_performance_third_party_refresh' );
+
         // Clean up WebP files and .htaccess rules.
         MBR_WP_Performance_WebP_Converter::cleanup_on_deactivation();
+        // Clean up AVIF.
+        MBR_WP_Performance_AVIF_Converter::cleanup_on_deactivation();
+        // Clean up third-party script cache.
+        MBR_WP_Performance_Third_Party_Scripts::cleanup_on_deactivation();
+        // Clean up server-header rules.
+        MBR_WP_Performance_Server_Headers::cleanup_on_deactivation();
         
         // Flush rewrite rules
         flush_rewrite_rules();

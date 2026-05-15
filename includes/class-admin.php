@@ -98,6 +98,14 @@ class MBR_WP_Performance_Admin {
         // Multisite: import site settings into network defaults
         add_action( 'wp_ajax_mbr_wp_performance_import_site_settings', array( $this, 'ajax_import_site_settings' ) );
 
+        // v1.12.0 AJAX handlers.
+        add_action( 'wp_ajax_mbr_wp_performance_autoload_top',       array( $this, 'ajax_autoload_top' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_autoload_toggle',    array( $this, 'ajax_autoload_toggle' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_cron_unschedule',    array( $this, 'ajax_cron_unschedule' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_cron_clear_hook',    array( $this, 'ajax_cron_clear_hook' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_third_party_refresh', array( $this, 'ajax_third_party_refresh' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_db_cleanup_run',     array( $this, 'ajax_db_cleanup_run' ) );
+
         // WooCommerce cleanup AJAX handlers
         add_action( 'wp_ajax_mbr_wp_performance_wc_clear_sessions', array( $this, 'ajax_wc_clear_sessions' ) );
         add_action( 'wp_ajax_mbr_wp_performance_wc_clear_transients', array( $this, 'ajax_wc_clear_transients' ) );
@@ -242,6 +250,16 @@ class MBR_WP_Performance_Admin {
             $sanitized['orphaned_images'] = $this->sanitize_orphaned_images_options( $options['orphaned_images'] );
         }
 
+        // v1.12.0 — third-party scripts.
+        if ( isset( $options['third_party'] ) && is_array( $options['third_party'] ) ) {
+            $sanitized['third_party'] = $this->sanitize_third_party_options( $options['third_party'] );
+        }
+
+        // v1.12.0 — server headers.
+        if ( isset( $options['server_headers'] ) && is_array( $options['server_headers'] ) ) {
+            $sanitized['server_headers'] = $this->sanitize_server_headers_options( $options['server_headers'] );
+        }
+
         return $sanitized;
     }
 
@@ -277,6 +295,7 @@ class MBR_WP_Performance_Admin {
             'lazy_load_images',
             'remove_query_strings',
             'disable_woocommerce_scripts',
+            'html_minify',
         );
         
         foreach ( $boolean_fields as $field ) {
@@ -499,6 +518,7 @@ class MBR_WP_Performance_Admin {
             'cloudflare_early_hints',
             'fetch_priority',
             'disable_core_fetch_priority',
+            'hover_prefetch',
         );
         
         foreach ( $boolean_fields as $field ) {
@@ -549,6 +569,7 @@ class MBR_WP_Performance_Admin {
             'add_missing_dimensions',
             'lazy_fade_in',
             'lazy_background_images',
+            'video_facade',
         );
         
         foreach ( $boolean_fields as $field ) {
@@ -647,6 +668,7 @@ class MBR_WP_Performance_Admin {
             'auto_convert',
             'picture_tags',
             'htaccess_rules',
+            'avif_enabled',
         );
 
         foreach ( $boolean_fields as $field ) {
@@ -658,11 +680,26 @@ class MBR_WP_Performance_Admin {
             ? max( 1, min( 100, absint( $options['compression_level'] ) ) )
             : 75;
 
+        // AVIF quality (1-100, default 60 — lower than WebP, AVIF tolerates it).
+        $sanitized['avif_quality'] = isset( $options['avif_quality'] )
+            ? max( 1, min( 100, absint( $options['avif_quality'] ) ) )
+            : 60;
+
         // Write or remove .htaccess rules based on the setting.
         if ( $sanitized['htaccess_rules'] ) {
             MBR_WP_Performance_WebP_Converter::add_htaccess_rules();
         } else {
             MBR_WP_Performance_WebP_Converter::remove_htaccess_rules();
+        }
+
+        // AVIF .htaccess rules — only when both AVIF and the WebP htaccess
+        // toggle are on, since they share the same delivery pattern.
+        if ( class_exists( 'MBR_WP_Performance_AVIF_Converter' ) ) {
+            if ( $sanitized['avif_enabled'] && $sanitized['htaccess_rules'] ) {
+                MBR_WP_Performance_AVIF_Converter::add_htaccess_rules();
+            } else {
+                MBR_WP_Performance_AVIF_Converter::remove_htaccess_rules();
+            }
         }
 
         return $sanitized;
@@ -681,6 +718,8 @@ class MBR_WP_Performance_Admin {
         $boolean_fields = array(
             'resize_on_upload',
             'add_missing_dimensions',
+            'decoding_async',
+            'strip_exif',
         );
 
         foreach ( $boolean_fields as $field ) {
@@ -871,6 +910,15 @@ class MBR_WP_Performance_Admin {
                     case 'webp':
                         $this->render_webp_tab( $options );
                         break;
+                    case 'server-headers':
+                        $this->render_server_headers_tab( $options );
+                        break;
+                    case 'third-party':
+                        $this->render_third_party_tab( $options );
+                        break;
+                    case 'diagnostics':
+                        $this->render_diagnostics_tab( $options );
+                        break;
                     case 'orphaned-media':
                     case 'orphaned-images':
                         // Old slug aliased to the new tab for one release so
@@ -920,7 +968,10 @@ class MBR_WP_Performance_Admin {
             'preloading' => __( 'Preloading', 'mbr-wp-performance' ),
             'lazy-loading' => __( 'Lazy Loading', 'mbr-wp-performance' ),
             'database' => __( 'Database', 'mbr-wp-performance' ),
-            'webp' => __( 'WebP', 'mbr-wp-performance' ),
+            'webp' => __( 'WebP / AVIF', 'mbr-wp-performance' ),
+            'server-headers' => __( 'Server', 'mbr-wp-performance' ),
+            'third-party' => __( 'Third-Party', 'mbr-wp-performance' ),
+            'diagnostics' => __( 'Diagnostics', 'mbr-wp-performance' ),
             'orphaned-media' => __( 'Orphaned Media', 'mbr-wp-performance' ),
             'woocommerce' => __( 'WooCommerce', 'mbr-wp-performance' ),
         );
@@ -1011,6 +1062,33 @@ class MBR_WP_Performance_Admin {
     }
 
     /**
+     * Render Server Headers tab (v1.12.0).
+     *
+     * @param array $options
+     */
+    private function render_server_headers_tab( $options ) {
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/admin/tabs/server-headers.php';
+    }
+
+    /**
+     * Render Third-Party tab (v1.12.0).
+     *
+     * @param array $options
+     */
+    private function render_third_party_tab( $options ) {
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/admin/tabs/third-party.php';
+    }
+
+    /**
+     * Render Diagnostics tab (v1.12.0).
+     *
+     * @param array $options
+     */
+    private function render_diagnostics_tab( $options ) {
+        require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/admin/tabs/diagnostics.php';
+    }
+
+    /**
      * Render Orphaned Media tab. Renamed from render_orphaned_images_tab()
      * in v1.11.0 when scope expanded beyond images.
      *
@@ -1068,6 +1146,37 @@ class MBR_WP_Performance_Admin {
             wp_schedule_event( time() + HOUR_IN_SECONDS, 'weekly', 'mbr_wp_performance_database_cleanup' );
         }
 
+        return $sanitized;
+    }
+
+    /**
+     * Sanitize Third-Party Scripts options.
+     *
+     * @since 1.12.0
+     * @param array $options
+     * @return array
+     */
+    private function sanitize_third_party_options( $options ) {
+        $sanitized = array();
+        $bools     = array( 'host_gtag', 'host_gtm', 'host_analytics', 'host_fbpixel' );
+        foreach ( $bools as $b ) {
+            $sanitized[ $b ] = ! empty( $options[ $b ] ) ? 1 : 0;
+        }
+        return $sanitized;
+    }
+
+    /**
+     * Sanitize Server Headers options.
+     *
+     * @since 1.12.0
+     * @param array $options
+     * @return array
+     */
+    private function sanitize_server_headers_options( $options ) {
+        $sanitized = array(
+            'browser_cache'    => ! empty( $options['browser_cache'] ) ? 1 : 0,
+            'gzip_compression' => ! empty( $options['gzip_compression'] ) ? 1 : 0,
+        );
         return $sanitized;
     }
 
@@ -3095,5 +3204,111 @@ class MBR_WP_Performance_Admin {
         MBR_WP_Performance_Orphaned_Images::exclude_attachment( $id );
 
         wp_send_json_success( array( 'attachment_id' => $id ) );
+    }
+
+    /* ======================================================================
+     * v1.12.0 AJAX HANDLERS
+     * ==================================================================== */
+
+    /**
+     * Top autoloaded options.
+     */
+    public function ajax_autoload_top() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
+        }
+        $limit = isset( $_POST['limit'] ) ? (int) $_POST['limit'] : 30;
+        $rows  = MBR_WP_Performance_Autoload_Audit::top_autoloaded( $limit );
+        wp_send_json_success( array(
+            'rows'        => $rows,
+            'total_bytes' => MBR_WP_Performance_Autoload_Audit::total_autoloaded_size(),
+            'total_count' => MBR_WP_Performance_Autoload_Audit::total_autoloaded_count(),
+        ) );
+    }
+
+    /**
+     * Toggle autoload on a single option.
+     */
+    public function ajax_autoload_toggle() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
+        }
+        $name     = isset( $_POST['option_name'] ) ? sanitize_text_field( wp_unslash( $_POST['option_name'] ) ) : '';
+        $autoload = ! empty( $_POST['autoload'] );
+        if ( '' === $name ) {
+            wp_send_json_error( __( 'Missing option name.', 'mbr-wp-performance' ) );
+        }
+        if ( MBR_WP_Performance_Autoload_Audit::is_protected_option( $name ) ) {
+            wp_send_json_error( __( 'That option is protected and cannot be modified.', 'mbr-wp-performance' ) );
+        }
+        $ok = MBR_WP_Performance_Autoload_Audit::set_autoload( $name, $autoload );
+        if ( ! $ok ) {
+            wp_send_json_error( __( 'Unable to update autoload flag.', 'mbr-wp-performance' ) );
+        }
+        wp_send_json_success( array( 'option_name' => $name, 'autoload' => $autoload ) );
+    }
+
+    /**
+     * Unschedule one cron event.
+     */
+    public function ajax_cron_unschedule() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
+        }
+        $hook      = isset( $_POST['hook'] ) ? sanitize_text_field( wp_unslash( $_POST['hook'] ) ) : '';
+        $timestamp = isset( $_POST['timestamp'] ) ? (int) $_POST['timestamp'] : 0;
+        $args      = isset( $_POST['args'] ) ? json_decode( wp_unslash( $_POST['args'] ), true ) : array();
+        if ( '' === $hook || $timestamp <= 0 ) {
+            wp_send_json_error( __( 'Missing hook or timestamp.', 'mbr-wp-performance' ) );
+        }
+        $ok = MBR_WP_Performance_Cron_Viewer::unschedule( $hook, $timestamp, is_array( $args ) ? $args : array() );
+        if ( ! $ok ) {
+            wp_send_json_error( __( 'Could not unschedule that event.', 'mbr-wp-performance' ) );
+        }
+        wp_send_json_success();
+    }
+
+    /**
+     * Clear every scheduled instance of a hook.
+     */
+    public function ajax_cron_clear_hook() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
+        }
+        $hook = isset( $_POST['hook'] ) ? sanitize_text_field( wp_unslash( $_POST['hook'] ) ) : '';
+        if ( '' === $hook ) {
+            wp_send_json_error( __( 'Missing hook.', 'mbr-wp-performance' ) );
+        }
+        $count = MBR_WP_Performance_Cron_Viewer::clear_all_for_hook( $hook );
+        wp_send_json_success( array( 'cleared' => $count ) );
+    }
+
+    /**
+     * Force a refresh of cached third-party scripts.
+     */
+    public function ajax_third_party_refresh() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
+        }
+        $results = MBR_WP_Performance_Third_Party_Scripts::instance()->refresh_all();
+        wp_send_json_success( array( 'results' => $results ) );
+    }
+
+    /**
+     * Run the database auto-cleanup on demand.
+     */
+    public function ajax_db_cleanup_run() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
+        }
+        MBR_WP_Performance_Database_Optimizations::instance()->run_scheduled_cleanup();
+        $log = get_option( 'mbr_wp_performance_db_last_cleanup', array() );
+        wp_send_json_success( array( 'log' => $log ) );
     }
 }
