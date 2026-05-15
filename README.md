@@ -3,7 +3,7 @@
 [![WordPress](https://img.shields.io/badge/WordPress-5.8%2B-blue.svg)](https://wordpress.org)
 [![PHP Version](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
 [![License](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
-[![Version](https://img.shields.io/badge/Version-1.12.0-orange.svg)](https://github.com/harbourbob/mbr-wp-performance/releases)
+[![Version](https://img.shields.io/badge/Version-1.12.1-orange.svg)](https://github.com/harbourbob/mbr-wp-performance/releases)
 [![Made by Robert](https://img.shields.io/badge/Made%20by-Robert-brightgreen.svg)](https://madebyrobert.co.uk)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-%E2%98%95-yellow.svg)](https://buymeacoffee.com/robertpalmer/)
 
@@ -13,7 +13,7 @@
 
 ---
 
-## ✨ New in v1.12.0 — Three new tabs, AVIF, and modules now fully wired up
+## ✨ New in v1.12.1 — Three new tabs, AVIF, and modules now fully wired up
 
 The largest single release the plugin has had. Three placeholder modules from earlier versions are now fully implemented, three new tabs have been added, AVIF conversion lands alongside WebP, and a handful of new toggles slot into existing tabs.
 
