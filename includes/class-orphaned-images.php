@@ -141,17 +141,31 @@ class MBR_WP_Performance_Orphaned_Images {
 
     /**
      * Build a SQL WHERE-clause fragment matching the configured media types
-     * against post_mime_type, plus the parameters to bind. Returns a tuple
-     * [sql_fragment, params_array]. The fragment is wrapped in parentheses
-     * and starts with "AND " so it can be appended to existing WHERE clauses.
+     * against a mime-type column, plus the parameters to bind. Returns a
+     * tuple [sql_fragment, params_array]. The fragment is wrapped in
+     * parentheses so it can be appended to existing WHERE clauses with AND.
+     *
+     * Callers can override $column when filtering the staging table (which
+     * uses `mime_type`) rather than `wp_posts` (which uses `post_mime_type`).
      *
      * @since 1.11.0
-     * @param string[]|null $types Override the enabled types (used for filtering).
+     * @since 1.12.1 Added $column parameter to support the staging table.
+     * @param string[]|null $types  Override the enabled types (used for filtering).
+     * @param string        $column Column name to match against. Defaults to
+     *                              `post_mime_type` for backward compatibility
+     *                              with the `wp_posts` scan SQL.
      * @return array { 0: string $sql, 1: array $params }
      */
-    public static function build_mime_where( $types = null ) {
+    public static function build_mime_where( $types = null, $column = 'post_mime_type' ) {
         $types = is_array( $types ) ? $types : self::get_enabled_types();
         $map   = self::media_type_map();
+
+        // Whitelist the column name — these are the only two we ever query.
+        // Anything else falls back to the default so a stray caller can't
+        // smuggle arbitrary identifiers into the SQL.
+        if ( ! in_array( $column, array( 'post_mime_type', 'mime_type' ), true ) ) {
+            $column = 'post_mime_type';
+        }
 
         $clauses = array();
         $params  = array();
@@ -163,11 +177,11 @@ class MBR_WP_Performance_Orphaned_Images {
             foreach ( $map[ $type ] as $pattern ) {
                 if ( substr( $pattern, -1 ) === '/' ) {
                     // Prefix wildcard: "image/" matches "image/jpeg" etc.
-                    $clauses[] = 'post_mime_type LIKE %s';
+                    $clauses[] = "{$column} LIKE %s";
                     $params[]  = $pattern . '%';
                 } else {
                     // Exact mime match.
-                    $clauses[] = 'post_mime_type = %s';
+                    $clauses[] = "{$column} = %s";
                     $params[]  = $pattern;
                 }
             }
@@ -398,6 +412,69 @@ class MBR_WP_Performance_Orphaned_Images {
     }
 
     /**
+     * Build the LIKE patterns used to scan post_content for references to
+     * an attachment. Returns an array of patterns ready to be bound into
+     * `$wpdb->prepare()` placeholders — they are already wrapped in `%`
+     * wildcards and run through `$wpdb->esc_like()` where appropriate.
+     *
+     * Images get three patterns:
+     *   - %wp-image-{ID}%  : Gutenberg / classic editor class
+     *   - %attachment_{ID}%: shortcode / legacy block reference
+     *   - %/{stem}%        : filename stem, matches sized variants
+     *                        (e.g. "image-300x200.jpg" against "image")
+     *
+     * Non-images (PDFs, video, audio, archives) get two patterns:
+     *   - %attachment_{ID}%: shortcode / legacy block reference
+     *   - %/{basename}%    : the FULL filename including extension
+     *
+     * Critically, non-images do NOT get the stem-only pattern. There are
+     * no sized variants for a PDF, and stripping the extension makes the
+     * match dangerously broad — a PDF called "pricing.pdf" would match any
+     * post containing a link like "/pricing-tiers/" or text mentioning
+     * "/pricing-faq", causing the scanner to wrongly classify the PDF as
+     * referenced and silently drop it from the candidate list.
+     *
+     * Fixes a bug introduced in v1.11.0 when non-image media types were
+     * first added to the scanner. Before this helper, all media types
+     * shared the same stem-only matching logic that was originally
+     * designed for images.
+     *
+     * @since 1.12.1
+     * @param int    $id   Attachment ID.
+     * @param string $file Absolute path to the attached file.
+     * @param string $mime Mime type of the attachment.
+     * @return string[]    LIKE patterns ready for prepare().
+     */
+    private static function content_search_patterns( $id, $file, $mime ) {
+        global $wpdb;
+
+        $patterns = array();
+        $basename = wp_basename( (string) $file );
+        $is_image = strpos( (string) $mime, 'image/' ) === 0;
+
+        // Shortcode / legacy block reference — relevant for all media types.
+        $patterns[] = '%attachment_' . $id . '%';
+
+        if ( $is_image ) {
+            // Gutenberg / classic editor class — only emitted for images.
+            $patterns[] = '%wp-image-' . $id . '%';
+            // Filename stem (no extension) so sized variants are matched.
+            $stem = preg_replace( '/\.[a-z0-9]+$/i', '', $basename );
+            if ( $stem !== '' ) {
+                $patterns[] = '%/' . $wpdb->esc_like( $stem ) . '%';
+            }
+        } else {
+            // Non-images: match full basename including extension. Prevents
+            // the false-positive that hid orphan PDFs before v1.12.1.
+            if ( $basename !== '' ) {
+                $patterns[] = '%/' . $wpdb->esc_like( $basename ) . '%';
+            }
+        }
+
+        return $patterns;
+    }
+
+    /**
      * Process a single batch of attachment IDs and write candidate rows
      * to the staging table.
      *
@@ -477,13 +554,18 @@ class MBR_WP_Performance_Orphaned_Images {
         // is very expensive on large content tables. For the typical 50-row
         // batch this is 50 quick queries each hitting an indexed status filter
         // and only LIKE-scanning published rows.
+        //
+        // The patterns differ for images vs non-images — see
+        // content_search_patterns() for why. (Fixed in v1.12.1; before then
+        // every media type used the image-style stem match, which silently
+        // hid orphan PDFs with common filenames.)
         $content_referenced = array();
         foreach ( $attachment_data as $id => $data ) {
-            $patterns = array(
-                '%wp-image-' . $id . '%',         // Gutenberg / classic editor class
-                '%attachment_' . $id . '%',        // shortcode/block reference
-                '%/' . $wpdb->esc_like( $data['stem'] ) . '%', // filename (matches sized variants too)
-            );
+            $patterns = self::content_search_patterns( $id, $data['file'], $data['mime'] );
+
+            if ( empty( $patterns ) ) {
+                continue;
+            }
 
             $where = array();
             $args  = array();
@@ -628,9 +710,12 @@ class MBR_WP_Performance_Orphaned_Images {
         }
 
         // Media-type filter (since 1.11.0). Translates a single type key
-        // into the same mime patterns used during the scan.
+        // into the same mime patterns used during the scan. The staging
+        // table column is `mime_type` (the scan SQL uses `post_mime_type`
+        // on `wp_posts`), so we pass that column name explicitly — fixed
+        // in v1.12.1.
         if ( ! empty( $args['media_type'] ) ) {
-            list( $mime_sql, $mime_params ) = self::build_mime_where( array( $args['media_type'] ) );
+            list( $mime_sql, $mime_params ) = self::build_mime_where( array( $args['media_type'] ), 'mime_type' );
             if ( $mime_sql !== '1=0' ) {
                 $where .= ' AND ' . $mime_sql;
                 foreach ( $mime_params as $p ) {
@@ -1021,24 +1106,30 @@ class MBR_WP_Performance_Orphaned_Images {
             return false;
         }
 
-        // Content reference?
+        // Content reference? Use the same media-type-aware pattern logic
+        // as the main scan so a non-image isn't false-positive matched on a
+        // stem alone (fixed in v1.12.1).
         $file = get_attached_file( $id );
         if ( $file ) {
-            $stem = preg_replace( '/\.[a-z0-9]+$/i', '', wp_basename( $file ) );
-            $hit  = $wpdb->get_var(
-                $wpdb->prepare(
-                    "SELECT ID FROM {$wpdb->posts}
-                     WHERE post_status NOT IN ('trash','auto-draft','inherit')
-                       AND post_type NOT IN ('revision','attachment')
-                       AND (post_content LIKE %s OR post_content LIKE %s OR post_content LIKE %s)
-                     LIMIT 1",
-                    '%wp-image-' . $id . '%',
-                    '%attachment_' . $id . '%',
-                    '%/' . $wpdb->esc_like( $stem ) . '%'
-                )
-            );
-            if ( $hit ) {
-                return false;
+            $mime     = get_post_mime_type( $id );
+            $patterns = self::content_search_patterns( $id, $file, (string) $mime );
+
+            if ( ! empty( $patterns ) ) {
+                $where = array();
+                foreach ( $patterns as $p ) {
+                    $where[] = 'post_content LIKE %s';
+                }
+                $sql = "SELECT ID FROM {$wpdb->posts}
+                         WHERE post_status NOT IN ('trash','auto-draft','inherit')
+                           AND post_type NOT IN ('revision','attachment')
+                           AND (" . implode( ' OR ', $where ) . ')
+                         LIMIT 1';
+
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+                $hit = $wpdb->get_var( $wpdb->prepare( $sql, $patterns ) );
+                if ( $hit ) {
+                    return false;
+                }
             }
         }
 

@@ -4,7 +4,7 @@ Tags: performance, optimization, speed, cache, database, webp, image
 Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.12.0
+Stable tag: 1.12.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -181,41 +181,30 @@ Lazy Loading delays loading of images/videos until they're needed (saving bandwi
 
 == Changelog ==
 
+= 1.12.1 =
+* Fix: Orphaned Media scanner was failing to detect orphan PDF, Word, video, audio and archive files because the post_content reference check stripped the file extension before matching. Stem-only matching is correct for images (so sized variants like `image-300x200.jpg` match the original `image.jpg`) but for non-image media there are no sized variants, and the stripped stem caused unrelated URLs to match — a PDF called `pricing.pdf` was wrongly classified as referenced whenever any post linked to `/pricing-page/`, `/pricing-tiers/`, or similar. Non-image media now match against the full filename including extension. Images keep the existing stem-based logic so sized-variant detection is unchanged.
+* Fix: Type=Documents (and Videos / Audio / Archives) filter in the Orphaned Media candidate list was producing an empty result set. The filter built SQL referencing `post_mime_type` (the column name on `wp_posts`) but applied it to the orphan staging table where the column is `mime_type`. `build_mime_where()` now accepts a column-name parameter and the staging-table caller passes the correct value.
+* No data migration required. Re-run a scan after upgrading and any non-image attachments that were silently dropped under v1.12.0 will now surface correctly. Existing candidates in the staging table are unaffected.
+
 = 1.12.0 =
 * Fix: JavaScript optimisations module — previously a placeholder class with UI toggles but no backend logic — is now fully wired up. Defer, Move-to-Footer, Defer jQuery, Remove jQuery (with test mode), Minify inline JS, Delay JS (with interaction-triggered runtime and configurable timeout), Disable Concatenation, and Remove Script Versions all work as advertised. Each defer/footer/delay path honours its own exclusion textarea.
-
 * Fix: CSS optimisations module — previously a placeholder class — is now fully wired up. Inline Critical CSS, Async CSS (via preload+onload with the standard loadCSS polyfill for older browsers), Minify inline CSS, Conditional Block Styles (should_load_separate_core_block_assets), Remove CSS Versions, Disable Elementor Google Fonts, and Disable WooCommerce CSS on non-shop pages all functional.
-
 * Fix: Database optimisations module — previously had only the WooCommerce cron listener — now drives full scheduled cleanup. The `mbr_wp_performance_database_cleanup` cron auto-reschedules to match the cleanup_schedule setting (daily/weekly/manual) and runs: auto-draft purge with configurable age, trash emptying with configurable retention, spam comment deletion with configurable age, unapproved comment deletion with configurable age, expired transient cleanup (handles site transients on multisite), and revision trimming to the keep-N setting. A "Last Auto-Cleanup" log table is displayed on the Database tab plus a "Run Auto-Cleanup Now" button.
-
 * Feature: AVIF image conversion alongside WebP. New `<picture>` wrapper emits AVIF first, then WebP, then the JPEG/PNG fallback — browsers automatically pick the first format they support. AVIF is typically 20-30% smaller than WebP at equivalent perceived quality. Requires PHP 8.1+ with GD AVIF, or Imagick 7.0.25+. Falls back gracefully where unsupported; new tab section in WebP tab includes server capability diagnostics.
-
 * Feature: Self-hosted third-party scripts. New "Third-Party" tab with per-script toggles for Google Analytics (gtag.js), Google Tag Manager (gtm.js), legacy Google Analytics (analytics.js), and Facebook Pixel (fbevents.js). Scripts are downloaded daily to /wp-content/uploads/mbr-wp-performance/third-party/ and outbound <script src=> URLs are rewritten via output buffer. Removes the PSI "Reduce the impact of third-party code" warning and stops first-paint requests to googletagmanager.com / connect.facebook.net.
-
 * Feature: YouTube and Vimeo facade pattern. Replaces embedded video iframes with a static thumbnail and play button; the real iframe is only loaded on click. Saves ~1.4MB of YouTube JS on initial page load and stops YouTube cookies being set until user interaction. Vimeo thumbnails are hydrated lazily via the public v2 API behind an IntersectionObserver. Keyboard accessible (Enter/Space). Toggle on Lazy Loading tab.
-
 * Feature: New "Server" tab. Browser-cache headers (Expires + Cache-Control, 1 year for images/fonts, 30 days for CSS/JS) and Brotli + Gzip text compression via .htaccess. Detects the web server and shows an equivalent Nginx snippet for Nginx hosts. Addresses two of the most common PSI warnings: "Serve static assets with an efficient cache policy" and "Enable text compression". Marker blocks "MBR Browser Cache" and "MBR Compression" — fully removed on deactivation.
-
 * Feature: New "Diagnostics" tab containing three tools:
   - **Autoloaded Options Audit** — shows total autoloaded bytes and the top 30 options by size, with a one-click "Disable autoload" button. Protected core options (siteurl, home, active_plugins, template, stylesheet, etc.) cannot be modified. Transients are flagged. This is the single most common WordPress DB perf killer and has not been addressable from inside the plugin until now.
-
   - **WP-Cron Viewer** — lists every scheduled event with next-run, recurrence, and a "Callback?" column showing whether any PHP callback is currently registered. Events with no callback (left over from deactivated plugins) are flagged "orphan" and can be unscheduled with one click. Includes instructions for replacing WP-Cron with a real system cron job for performance-sensitive sites.
-
   - **Caching Plugin Conflict Detector** — detects WP Rocket, W3 Total Cache, LiteSpeed Cache, FlyingPress, WP Super Cache, Perfmatters, and Autoptimize, and lists which MBR options overlap with each — preventing the common pitfall of having defer/delay/minify enabled in two plugins at once.
-
 * Feature: HTML minification (Core tab). Output-buffered, strips HTML comments (preserves IE conditionals), collapses whitespace between tags. Carefully preserves the contents of `<pre>`, `<textarea>`, `<script>`, and `<style>` via placeholder swap. Typically saves 5-15% of HTML transfer size.
-
 * Feature: `decoding="async"` on images (WebP tab → Image Sizing & Dimensions). Lets the browser decode images off the main thread, improving INP on image-heavy pages. Auto-skips any image already carrying `fetchpriority="high"` so the LCP candidate continues to decode synchronously.
-
 * Feature: EXIF metadata stripping on upload (WebP tab → Image Sizing & Dimensions). Removes EXIF, IPTC and XMP metadata (camera serial, GPS coordinates, embedded thumbnails) from newly uploaded JPEGs. ICC colour profiles are preserved so colours stay accurate. Uses Imagick where available (clean stripImage()) or falls back to GD. Privacy win plus typically 5-30% file size reduction with zero visible quality loss.
-
 * Feature: Hover prefetch (Preloading tab). On link hover (or first touchstart on mobile), the destination page is prefetched so the next click feels instant. Uses the canonical instant.page v5.2.0 runtime (MIT). Server-side bail when the `Save-Data: on` header is present so users on metered connections aren't penalised.
-
 * Improvement: `crossorigin="anonymous"` is now explicit on all preload and preconnect tags (font preloads and resource hints) — previously the bare `crossorigin` attribute was used, which is technically equivalent but flagged inconsistently by some Lighthouse audits.
 * Three new option sections seeded on upgrade: `preloading`, `lazy_loading`, `third_party`, `server_headers`. Migration block handles the upgrade idempotently.
-
 * On deactivation: all v1.12.0 .htaccess marker blocks (MBR AVIF, MBR Browser Cache, MBR Compression) are cleanly removed; the third-party script refresh cron is unscheduled; AVIF files in the registry are deleted.
-
 * Combine JS and Combine CSS toggles remain in the UI for forward compatibility but are no-ops in this release — a safe implementation handling dependency graphs and async order is a separate engineering project. Admin notice clarifies this when either toggle is enabled. Remove Unused CSS similarly remains a UI toggle pointing users at MBR Advanced Asset Manager for per-asset control.
 
 = 1.11.0 =
