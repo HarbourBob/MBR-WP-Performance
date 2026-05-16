@@ -55,9 +55,13 @@ class MBR_WP_Performance_AVIF_Converter {
             return;
         }
 
-        // Auto-convert on upload (alongside WebP).
+        // Auto-convert on upload + on-the-fly intermediate sizes.
+        // See class-webp-converter.php for the rationale on the second hook —
+        // it catches Elementor custom thumbnails and any other image written
+        // via WP_Image_Editor->_save() outside the attachment-metadata pipeline.
         if ( ! empty( $options['auto_convert'] ) ) {
             add_filter( 'wp_generate_attachment_metadata', array( $this, 'handle_new_upload' ), 11, 2 );
+            add_filter( 'image_make_intermediate_size', array( $this, 'handle_intermediate_size' ), 11, 1 );
         }
     }
 
@@ -205,6 +209,30 @@ class MBR_WP_Performance_AVIF_Converter {
     }
 
     /**
+     * Convert an intermediate-size image to AVIF as it's written to disk.
+     *
+     * Hooked on `image_make_intermediate_size`. See the matching method on
+     * MBR_WP_Performance_WebP_Converter for the full rationale — same
+     * mechanism, same coverage gap being closed (Elementor custom thumbs
+     * et al).
+     *
+     * @param string $filename Absolute path to the just-written image.
+     * @return string Unchanged (pass-through filter).
+     *
+     * @since 1.12.2
+     */
+    public function handle_intermediate_size( $filename ) {
+        if ( ! is_string( $filename ) || ! file_exists( $filename ) ) {
+            return $filename;
+        }
+        $ext = strtolower( pathinfo( $filename, PATHINFO_EXTENSION ) );
+        if ( in_array( $ext, array( 'jpg', 'jpeg', 'png' ), true ) ) {
+            $this->convert_single_image( $filename );
+        }
+        return $filename;
+    }
+
+    /**
      * Register an AVIF file path.
      */
     public function register_avif_file( $relative ) {
@@ -336,9 +364,28 @@ class MBR_WP_Performance_AVIF_Converter {
     }
 
     /**
-     * Clean up AVIF files on plugin deactivation.
+     * Reverse runtime side-effects on plugin deactivation.
+     *
+     * Removes the .htaccess marker block only. Generated .avif files and
+     * the registry option are user data and now survive a deactivate /
+     * reactivate cycle. Wiping them here previously meant every plugin
+     * update silently destroyed every converted image. cleanup_on_uninstall()
+     * handles their removal when the plugin is genuinely deleted.
+     *
+     * @since 1.12.0
      */
     public static function cleanup_on_deactivation() {
+        self::remove_htaccess_rules();
+    }
+
+    /**
+     * Delete generated AVIF files and clear the registry on plugin uninstall.
+     *
+     * Called from uninstall.php only.
+     *
+     * @since 1.12.2
+     */
+    public static function cleanup_on_uninstall() {
         $upload_dir = wp_upload_dir();
         $registry   = get_option( 'mbr_avif_registry', array() );
         if ( ! empty( $registry ) && is_array( $registry ) ) {
@@ -349,7 +396,6 @@ class MBR_WP_Performance_AVIF_Converter {
                 }
             }
         }
-        self::remove_htaccess_rules();
         delete_option( 'mbr_avif_registry' );
     }
 }

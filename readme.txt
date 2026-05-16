@@ -4,7 +4,7 @@ Tags: performance, optimization, speed, cache, database, webp, image
 Requires at least: 5.8
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 1.12.1
+Stable tag: 1.12.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -180,6 +180,11 @@ Click 'WP Performance' in the WordPress admin toolbar at the top of the screen. 
 Lazy Loading delays loading of images/videos until they're needed (saving bandwidth), while Preloading loads critical resources early (improving perceived speed). They work together for optimal performance.
 
 == Changelog ==
+
+= 1.12.2 =
+* Fixed: WebP and AVIF files were deleted on plugin deactivation, wiping all converted images on every manual update. File and registry cleanup moved to a new uninstall.php so deactivate/reactivate cycles now preserve user data.
+* Fixed: Elementor's per-widget custom thumbnails (uploads/elementor/thumbs/) were never receiving .webp/.avif siblings because they bypass wp_generate_attachment_metadata. Hooked image_make_intermediate_size to cover any image written via WP_Image_Editor, including Elementor's lazy thumbs, regenerate-thumbnails plugins, and the Edit Image tool.
+* Improved: Bulk Converter now also generates AVIF when AVIF Conversion is enabled, and backfills missing .avif siblings for images that already have a .webp from a previous WebP-only run. The bulk table row surfaces AVIF size and compression inline alongside the WebP figures.
 
 = 1.12.1 =
 * Fix: Orphaned Media scanner was failing to detect orphan PDF, Word, video, audio and archive files because the post_content reference check stripped the file extension before matching. Stem-only matching is correct for images (so sized variants like `image-300x200.jpg` match the original `image.jpg`) but for non-image media there are no sized variants, and the stripped stem caused unrelated URLs to match — a PDF called `pricing.pdf` was wrongly classified as referenced whenever any post linked to `/pricing-page/`, `/pricing-tiers/`, or similar. Non-image media now match against the full filename including extension. Images keep the existing stem-based logic so sized-variant detection is unchanged.

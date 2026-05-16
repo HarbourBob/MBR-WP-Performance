@@ -787,12 +787,21 @@ console.log('==========================================');
                             var d = resp.data || {};
                             var filename = (d.original_path || imagePath).split('/').pop();
                             var fullUrl  = mbrWpPerformance.uploadUrl + '/' + (d.original_path || imagePath);
+                            // Surface AVIF result inline so the row reflects what was actually done.
+                            var compCell = d.compression || '';
+                            if (d.avif_size) {
+                                var avifLabel = 'AVIF ' + d.avif_size;
+                                if (d.avif_compression) {
+                                    avifLabel += ' (' + d.avif_compression + ')';
+                                }
+                                compCell += ' <span style="opacity:0.65;font-size:0.9em;">+ ' + avifLabel + '</span>';
+                            }
                             var row = '<tr>' +
                                 '<th scope="row" class="check-column"><input type="checkbox" class="mbr-webp-item-checkbox" value="' + imagePath + '"></th>' +
                                 '<td><a href="' + fullUrl + '" target="_blank">' + filename + '</a></td>' +
                                 '<td>' + (d.original_size || '') + '</td>' +
                                 '<td>' + (d.webp_size || '') + '</td>' +
-                                '<td>' + (d.compression || '') + '</td>' +
+                                '<td>' + compCell + '</td>' +
                                 '</tr>';
                             $list.prepend(row);
                             $status.text('Converted: ' + (d.original_path || imagePath));

@@ -44,9 +44,21 @@ class MBR_WP_Performance_WebP_Converter {
     private function __construct() {
         $options = mbr_wp_performance()->get_options( 'webp' );
 
-        // Auto-convert on upload.
+        // Auto-convert on upload + on-the-fly intermediate sizes.
+        //
+        // wp_generate_attachment_metadata catches the original file and WP's
+        // registered sub-sizes once metadata is sealed at upload time.
+        //
+        // image_make_intermediate_size additionally catches any image written
+        // via WP_Image_Editor->_save() after that point — most importantly
+        // Elementor's per-widget custom thumbnails in uploads/elementor/thumbs/,
+        // which are generated lazily on first render and so never reach the
+        // attachment-metadata pipeline. Without this hook, those thumbs ship
+        // as plain PNG/JPEG and the front-end <picture> wrapper silently
+        // skips them.
         if ( ! empty( $options['auto_convert'] ) ) {
             add_filter( 'wp_generate_attachment_metadata', array( $this, 'handle_new_upload' ), 10, 2 );
+            add_filter( 'image_make_intermediate_size', array( $this, 'handle_intermediate_size' ), 10, 1 );
         }
 
         // Front-end image wrapping (only when enabled and not in admin/editor).
@@ -192,6 +204,33 @@ class MBR_WP_Performance_WebP_Converter {
 
         update_option( 'mbr_webp_converted_images', $converted_images );
         return $metadata;
+    }
+
+    /**
+     * Convert an intermediate-size image as it's written to disk.
+     *
+     * Hooked on `image_make_intermediate_size`, fired from
+     * WP_Image_Editor::_save() after make_image() writes the file and
+     * permissions are set. Covers every resize WP or a third party
+     * performs via the image editor — WP core sub-sizes (already handled
+     * by handle_new_upload, harmless overwrite here), Elementor custom
+     * thumbnails, regenerate-thumbnails plugins, the Edit Image admin
+     * tool, and so on.
+     *
+     * @param string $filename Absolute path to the just-written image.
+     * @return string Unchanged (this is a pass-through filter).
+     *
+     * @since 1.12.2
+     */
+    public function handle_intermediate_size( $filename ) {
+        if ( ! is_string( $filename ) || ! file_exists( $filename ) ) {
+            return $filename;
+        }
+        $ext = strtolower( pathinfo( $filename, PATHINFO_EXTENSION ) );
+        if ( in_array( $ext, array( 'jpg', 'jpeg', 'png' ), true ) ) {
+            $this->convert_single_image( $filename );
+        }
+        return $filename;
     }
 
     /* ======================================================================
@@ -559,14 +598,45 @@ class MBR_WP_Performance_WebP_Converter {
     }
 
     /* ======================================================================
-     * CLEANUP ON DEACTIVATION
+     * CLEANUP ON DEACTIVATION / UNINSTALL
      * ==================================================================== */
 
     /**
-     * Clean up WebP files created by this plugin.
+     * Reverse runtime side-effects on plugin deactivation.
+     *
+     * Removes the .htaccess marker block and clears the Elementor cache so
+     * the site behaves like the plugin isn't installed once it's deactivated.
+     *
+     * Does NOT delete the .webp files on disk or any plugin options — those
+     * are user data and must survive a deactivate / reactivate cycle, which
+     * is the standard manual-update flow for plugins not hosted on .org.
+     * Wiping them here meant every plugin update silently destroyed every
+     * converted image. That work now lives in cleanup_on_uninstall(),
+     * invoked from uninstall.php only when the plugin is genuinely deleted.
+     *
+     * @since 1.6.0
      */
     public static function cleanup_on_deactivation() {
-        $upload_dir   = wp_upload_dir();
+        // Remove .htaccess rules.
+        self::remove_htaccess_rules();
+
+        // Clear Elementor cache if active.
+        if ( class_exists( '\Elementor\Plugin' ) ) {
+            \Elementor\Plugin::instance()->files_manager->clear_cache();
+        }
+    }
+
+    /**
+     * Delete generated WebP files and clear registry on plugin uninstall.
+     *
+     * Called from uninstall.php when the user genuinely deletes the plugin.
+     * Reverses everything cleanup_on_deactivation() deliberately leaves
+     * intact.
+     *
+     * @since 1.12.2
+     */
+    public static function cleanup_on_uninstall() {
+        $upload_dir    = wp_upload_dir();
         $webp_registry = get_option( 'mbr_webp_registry', array() );
 
         if ( ! empty( $webp_registry ) && is_array( $webp_registry ) ) {
@@ -578,17 +648,8 @@ class MBR_WP_Performance_WebP_Converter {
             }
         }
 
-        // Remove .htaccess rules.
-        self::remove_htaccess_rules();
-
-        // Clear plugin data.
         delete_option( 'mbr_webp_converted_images' );
         delete_option( 'mbr_webp_registry_migrated' );
         delete_option( 'mbr_webp_registry' );
-
-        // Clear Elementor cache if active.
-        if ( class_exists( '\Elementor\Plugin' ) ) {
-            \Elementor\Plugin::instance()->files_manager->clear_cache();
-        }
     }
 }

@@ -2586,6 +2586,9 @@ class MBR_WP_Performance_Admin {
             wp_send_json_error( __( 'Insufficient permissions.', 'mbr-wp-performance' ) );
         }
 
+        $options      = mbr_wp_performance()->get_options( 'webp' );
+        $avif_enabled = ! empty( $options['avif_enabled'] );
+
         $upload_dir  = wp_upload_dir();
         $image_paths = array();
         $iterator    = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $upload_dir['basedir'] ) );
@@ -2595,11 +2598,30 @@ class MBR_WP_Performance_Admin {
                 continue;
             }
             $extension = strtolower( $file->getExtension() );
-            if ( in_array( $extension, array( 'jpg', 'jpeg', 'png' ), true ) ) {
-                $webp_path = preg_replace( '/\.(jpe?g|png)$/i', '.webp', $file->getPathname() );
-                if ( ! file_exists( $webp_path ) ) {
-                    $image_paths[] = str_replace( $upload_dir['basedir'] . '/', '', $file->getPathname() );
+            if ( ! in_array( $extension, array( 'jpg', 'jpeg', 'png' ), true ) ) {
+                continue;
+            }
+
+            $source_path = $file->getPathname();
+            $needs       = false;
+
+            // Missing .webp sibling — always a reason to queue.
+            $webp_path = preg_replace( '/\.(jpe?g|png)$/i', '.webp', $source_path );
+            if ( ! file_exists( $webp_path ) ) {
+                $needs = true;
+            }
+
+            // Missing .avif sibling — only a reason to queue when AVIF is enabled.
+            // Covers the "enabled AVIF after a previous WebP-only bulk run" case.
+            if ( ! $needs && $avif_enabled ) {
+                $avif_path = preg_replace( '/\.(jpe?g|png)$/i', '.avif', $source_path );
+                if ( ! file_exists( $avif_path ) ) {
+                    $needs = true;
                 }
+            }
+
+            if ( $needs ) {
+                $image_paths[] = str_replace( $upload_dir['basedir'] . '/', '', $source_path );
             }
         }
 
@@ -2608,6 +2630,12 @@ class MBR_WP_Performance_Admin {
 
     /**
      * AJAX: Process (convert) a single image.
+     *
+     * Handles WebP and, when enabled, AVIF in a single pass. Each format is
+     * skipped if the sibling file already exists (e.g. a previous bulk run
+     * created the .webp but AVIF was enabled afterwards — only AVIF gets done
+     * this time). Response always includes WebP-shaped fields so the existing
+     * bulk-table row renders normally; AVIF info is appended as extra fields.
      */
     public function ajax_webp_process_image() {
         check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
@@ -2624,42 +2652,94 @@ class MBR_WP_Performance_Admin {
         $upload_dir          = wp_upload_dir();
         $full_path           = $upload_dir['basedir'] . '/' . $image_path_relative;
 
-        $converter = MBR_WP_Performance_WebP_Converter::instance();
-        $result    = $converter->convert_single_image( $full_path );
-
-        if ( ! $result ) {
-            wp_send_json_error( __( 'Server failed to convert the file.', 'mbr-wp-performance' ) );
+        if ( ! file_exists( $full_path ) ) {
+            wp_send_json_error( __( 'Source image no longer exists.', 'mbr-wp-performance' ) );
         }
 
-        if ( 'skipped' === $result['status'] ) {
-            wp_send_json_success( array(
-                'original_path' => $image_path_relative,
-                'original_size' => size_format( $result['original_size'], 2 ),
-                'webp_size'     => size_format( $result['webp_size'], 2 ),
-                'compression'   => __( 'Skipped (larger)', 'mbr-wp-performance' ),
-            ) );
-            return;
+        $options      = mbr_wp_performance()->get_options( 'webp' );
+        $avif_enabled = ! empty( $options['avif_enabled'] );
+
+        $response = array(
+            'original_path' => $image_path_relative,
+            'original_size' => '',
+            'webp_size'     => '',
+            'compression'   => '',
+        );
+
+        // ---- WebP ----
+        $webp_path = preg_replace( '/\.(jpe?g|png)$/i', '.webp', $full_path );
+
+        if ( file_exists( $webp_path ) ) {
+            // Already converted on a previous run — report sizes from disk so
+            // the bulk-table row still renders sensibly.
+            $original_size             = filesize( $full_path );
+            $webp_size                 = filesize( $webp_path );
+            $response['original_size'] = size_format( $original_size, 2 );
+            $response['webp_size']     = size_format( $webp_size, 2 );
+            if ( $original_size > 0 ) {
+                $pct                     = ( ( $original_size - $webp_size ) / $original_size ) * 100;
+                $response['compression'] = number_format( $pct, 2 ) . '%';
+            }
+        } else {
+            $converter   = MBR_WP_Performance_WebP_Converter::instance();
+            $webp_result = $converter->convert_single_image( $full_path );
+
+            if ( ! $webp_result ) {
+                wp_send_json_error( __( 'Server failed to convert the file.', 'mbr-wp-performance' ) );
+            }
+
+            $response['original_size'] = size_format( $webp_result['original_size'], 2 );
+            $response['webp_size']     = size_format( $webp_result['webp_size'], 2 );
+
+            if ( 'skipped' === $webp_result['status'] ) {
+                $response['compression'] = __( 'Skipped (larger)', 'mbr-wp-performance' );
+            } elseif ( 'success' === $webp_result['status'] ) {
+                $converted_images   = get_option( 'mbr_webp_converted_images', array() );
+                $converted_images[] = array(
+                    'original_path' => $image_path_relative,
+                    'webp_path'     => str_replace( $upload_dir['basedir'] . '/', '', $webp_result['webp_path'] ),
+                    'original_size' => $webp_result['original_size'],
+                    'webp_size'     => $webp_result['webp_size'],
+                );
+                update_option( 'mbr_webp_converted_images', $converted_images );
+
+                $compression             = ( ( $webp_result['original_size'] - $webp_result['webp_size'] ) / $webp_result['original_size'] ) * 100;
+                $response['compression'] = number_format( $compression, 2 ) . '%';
+            }
         }
 
-        if ( 'success' === $result['status'] ) {
-            $converted_images   = get_option( 'mbr_webp_converted_images', array() );
-            $converted_images[] = array(
-                'original_path' => $image_path_relative,
-                'webp_path'     => str_replace( $upload_dir['basedir'] . '/', '', $result['webp_path'] ),
-                'original_size' => $result['original_size'],
-                'webp_size'     => $result['webp_size'],
-            );
-            update_option( 'mbr_webp_converted_images', $converted_images );
+        // ---- AVIF ----
+        if ( $avif_enabled && class_exists( 'MBR_WP_Performance_AVIF_Converter' ) ) {
+            $avif_path = preg_replace( '/\.(jpe?g|png)$/i', '.avif', $full_path );
 
-            $compression = ( ( $result['original_size'] - $result['webp_size'] ) / $result['original_size'] ) * 100;
+            if ( file_exists( $avif_path ) ) {
+                // Already present — surface size for the UI.
+                $original_size         = filesize( $full_path );
+                $avif_size             = filesize( $avif_path );
+                $response['avif_size'] = size_format( $avif_size, 2 );
+                if ( $original_size > 0 ) {
+                    $pct                          = ( ( $original_size - $avif_size ) / $original_size ) * 100;
+                    $response['avif_compression'] = number_format( $pct, 2 ) . '%';
+                }
+            } else {
+                $avif_converter = MBR_WP_Performance_AVIF_Converter::instance();
+                $avif_result    = $avif_converter->convert_single_image( $full_path );
 
-            wp_send_json_success( array(
-                'original_path' => $image_path_relative,
-                'original_size' => size_format( $result['original_size'], 2 ),
-                'webp_size'     => size_format( $result['webp_size'], 2 ),
-                'compression'   => number_format( $compression, 2 ) . '%',
-            ) );
+                if ( $avif_result ) {
+                    $response['avif_size'] = size_format( $avif_result['avif_size'], 2 );
+                    if ( 'skipped' === $avif_result['status'] ) {
+                        $response['avif_compression'] = __( 'Skipped (larger)', 'mbr-wp-performance' );
+                    } elseif ( 'success' === $avif_result['status'] ) {
+                        $pct                          = ( ( $avif_result['original_size'] - $avif_result['avif_size'] ) / $avif_result['original_size'] ) * 100;
+                        $response['avif_compression'] = number_format( $pct, 2 ) . '%';
+                    }
+                } else {
+                    $response['avif_compression'] = __( 'Failed', 'mbr-wp-performance' );
+                }
+            }
         }
+
+        wp_send_json_success( $response );
     }
 
     /**
