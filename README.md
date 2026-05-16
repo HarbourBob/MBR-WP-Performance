@@ -13,7 +13,7 @@
 
 ---
 
-## ✨ New in v1.12.1 — Three new tabs, AVIF, and modules now fully wired up
+## ✨ New in v1.12.3 — Three new tabs, AVIF, and modules now fully wired up
 
 The largest single release the plugin has had. Three placeholder modules from earlier versions are now fully implemented, three new tabs have been added, AVIF conversion lands alongside WebP, and a handful of new toggles slot into existing tabs.
 
