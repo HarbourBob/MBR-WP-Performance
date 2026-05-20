@@ -4,7 +4,7 @@
 [![PHP Version](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
 [![License](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 [![Version](https://img.shields.io/badge/Version-1.12.3-orange.svg)](https://github.com/harbourbob/mbr-wp-performance/releases)
-[![Made by Robert](https://img.shields.io/badge/Made%20by-Robert-brightgreen.svg)](https://madebyrobert.co.uk)
+[![Downloads](https://img.shields.io/github/downloads/harbourbob/mbr-wp-performance/total)](https://github.com/harbourbob/mbr-wp-performance/releases)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-%E2%98%95-yellow.svg)](https://buymeacoffee.com/robertpalmer/)
 
 > **A comprehensive WordPress performance plugin with granular controls across thirteen dedicated tabs.** Every optimisation is individually toggleable, every option is explained in plain language, and the whole thing is free forever — no premium tiers, no upsells, no tracking.
