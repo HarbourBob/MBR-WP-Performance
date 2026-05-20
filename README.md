@@ -9,7 +9,7 @@
 
 > **A comprehensive WordPress performance plugin with granular controls across thirteen dedicated tabs.** Every optimisation is individually toggleable, every option is explained in plain language, and the whole thing is free forever — no premium tiers, no upsells, no tracking.
 
-[**📥 Download Latest**](https://github.com/harbourbob/mbr-wp-performance/releases) · [**🐛 Report a Bug**](https://github.com/harbourbob/mbr-wp-performance/issues) · [**💡 Request a Feature**](https://github.com/harbourbob/mbr-wp-performance/issues) · [**📖 User Guide (PDF)**]([https://littlewebshack.com/](https://littlewebshack.com/wp-content/uploads/2026/05/mbr-wp-performance-user-guide-1.12.0.pdf)](https://littlewebshack.com/wp-content/uploads/2026/05/mbr-wp-performance-user-guide-1.12.0.pdf))
+[**📥 Download Latest**](https://github.com/harbourbob/mbr-wp-performance/releases) · [**🐛 Report a Bug**](https://github.com/harbourbob/mbr-wp-performance/issues) · [**💡 Request a Feature**](https://github.com/harbourbob/mbr-wp-performance/issues) · [**📖 User Guide (PDF)**]([https://littlewebshack.com/](https://littlewebshack.com/wp-content/uploads/2026/05/mbr-wp-performance-user-guide-1.12.0.pdf])
 
 ---
 
