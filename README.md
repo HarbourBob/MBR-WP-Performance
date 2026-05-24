@@ -13,11 +13,13 @@
 
 ---
 
-## ✨ New in v1.12.3 — Three new tabs, AVIF, and modules now fully wired up
+## ✨ Highlights
 
-The largest single release the plugin has had. Three placeholder modules from earlier versions are now fully implemented, three new tabs have been added, AVIF conversion lands alongside WebP, and a handful of new toggles slot into existing tabs.
+Thirteen tabs of individually-toggleable optimisations — image conversion, script and style delivery, font self-hosting, database cleanup, server-level caching, third-party self-hosting, and a diagnostics suite that catches conflicts before they bite. Everything is explained in plain language, nothing phones home, and there's no "pro" tier holding features back.
 
-### 🆕 Three new tabs
+> **Latest: v1.13.2** — WordPress 7.0 ready (with a one-click switch to disable the new core AI subsystem), plus a run of stability and page-builder compatibility fixes. See the [changelog](#-changelog) for the full history.
+
+### 🖥️ Server, Third-Party & Diagnostics tabs
 
 - 🖥️ **Server** — Browser-cache headers and Brotli / Gzip compression rules written to `.htaccess` on Apache and LiteSpeed. Directly clears two of the most common PageSpeed Insights warnings: *"Serve static assets with an efficient cache policy"* and *"Enable text compression"*. Nginx hosts get a copy-ready server-config snippet instead
 - 🌐 **Third-Party** — Self-hosts Google Analytics (gtag.js), Google Tag Manager (gtm.js), legacy analytics.js, and Facebook Pixel (fbevents.js). Daily refresh cron keeps the cached copies fresh. Removes the *"Reduce the impact of third-party code"* PSI warning and stops first-paint requests to googletagmanager.com and connect.facebook.net
@@ -29,23 +31,27 @@ The largest single release the plugin has had. Three placeholder modules from ea
 - **`decoding="async"`** on images — lets the browser decode off the main thread, improving INP on image-heavy pages. The LCP candidate (any image carrying `fetchpriority="high"`) is auto-skipped so it still decodes synchronously
 - **Strip EXIF metadata on upload** — removes EXIF, IPTC and XMP from new JPEG uploads (camera serial, GPS coordinates, embedded thumbnails). ICC colour profiles preserved. Privacy win plus typically 5-30% smaller files. Imagick `stripImage()` preferred, GD fallback at quality 92
 
-### 🔧 Modules now fully wired up
+### 🔧 Fully-implemented JavaScript, CSS & Database modules
 
-The JavaScript, CSS, and Database optimisation modules were partial in earlier releases — admin tabs displayed toggles but several toggles had no backend logic. In v1.12.0 every toggle on those three tabs does real work:
+Every toggle on the JavaScript, CSS, and Database tabs does real work — no placeholder switches:
 
 - 📜 **JavaScript** — Defer, Defer jQuery, Move-to-Footer, Remove jQuery (with test mode for logged-out-only scoping), inline-JS minification, Delay JS with an interaction-triggered runtime and configurable timeout, Disable Concatenation, Remove Script Versions
 - 🎨 **CSS** — Inline Critical CSS, Async CSS (preload + onload with the standard loadCSS polyfill), inline-CSS minification, Conditional Block Styles, Remove CSS Versions, Disable Elementor Google Fonts, Disable WooCommerce CSS on non-shop pages
 - 🗄️ **Database** — Scheduled cleanup cron actually runs: auto-draft purge, trash emptying, spam/unapproved comment cleanup, expired transient deletion (multisite-aware), revision trimming. Schedule selector (daily / weekly / manual) re-schedules the cron automatically. **Last Auto-Cleanup log** plus a **Run Auto-Cleanup Now** button
 
-### ➕ New settings on existing tabs
+### ➕ Fine-grained per-tab controls
 
-- ⚙️ **Core tab:** Minify HTML — output-buffered, preserves `<pre>`, `<textarea>`, `<script>`, `<style>` and IE conditional comments
+- ⚙️ **Core tab:** Minify HTML — output-buffered, preserves `<pre>`, `<textarea>`, `<script>`, `<style>` and IE conditional comments, and automatically skips pages that embed a nested HTML document
 - 🚀 **Preloading tab:** Hover Prefetch — instant.page v5.2.0 runtime; honours `Save-Data: on`
 - 🐢 **Lazy Loading tab:** YouTube / Vimeo Facade — replaces embedded video iframes with a static thumbnail + play button. Real iframe only loads on click. Saves ~1.4MB of YouTube JS on initial page load. Keyboard accessible. No third-party cookies until interaction
 
-> ℹ️ **Combine JS, Combine CSS, and Remove Unused CSS** remain visible in the UI for forward compatibility but are no-ops in v1.12.0 — they surface an admin notice when enabled. A safe implementation of each requires a separate engineering project. Use Defer, Delay, Inline Critical CSS, Async CSS, or [MBR Advanced Asset Manager](https://github.com/harbourbob/mbr-advanced-asset-manager) for per-asset control in the meantime.
+### 🤖 WordPress 7.0 ready
 
-> 🧹 **Clean uninstall:** All v1.12.0 `.htaccess` marker blocks (*MBR AVIF*, *MBR Browser Cache*, *MBR Compression*) are removed cleanly on deactivation. The third-party script refresh cron is unscheduled. The AVIF file registry is purged.
+- **Disable AI Features (WordPress 7.0+)** — a one-click switch on the Core tab that turns off WordPress 7.0's built-in AI subsystem (the AI Client, the Abilities API, and the Settings → Connectors plumbing). It hooks core's own kill switch, `wp_supports_ai` → `__return_false` at `PHP_INT_MAX`, with `wp_ai_client_prevent_prompt` as a second guard, so the subsystem never bootstraps. Off by default, no effect on WordPress 6.x (the filter doesn't exist there), and safe to leave enabled across mixed-version sites. A surface-area control for owners who want nothing to do with on-site AI — not a dashboard-hiding tool
+
+> ℹ️ **Combine JS, Combine CSS, and Remove Unused CSS** remain visible in the UI for forward compatibility but are currently no-ops — they surface an admin notice when enabled. A safe implementation of each requires a separate engineering project. Use Defer, Delay, Inline Critical CSS, Async CSS, or [MBR Advanced Asset Manager](https://github.com/harbourbob/mbr-advanced-asset-manager) for per-asset control in the meantime.
+
+> 🧹 **Clean uninstall:** All `.htaccess` marker blocks (*MBR AVIF*, *MBR Browser Cache*, *MBR Compression*) are removed cleanly on deactivation. The third-party script refresh cron is unscheduled. The AVIF file registry is purged.
 
 ---
 
@@ -65,18 +71,18 @@ The JavaScript, CSS, and Database optimisation modules were partial in earlier r
 
 | Tab | Focus |
 |-----|-------|
-| ⚙️ **Core Features** | WordPress-level toggles: emojis, embeds, REST API, Heartbeat, query strings, HTML minify |
-| 📜 **JavaScript** | Defer, defer jQuery, jQuery removal, minify, delay until interaction *(now fully wired in v1.12.0)* |
-| 🎨 **CSS** | Critical CSS generator, async loading, minify, unused-style scanner *(now fully wired in v1.12.0)* |
+| ⚙️ **Core Features** | WordPress-level toggles: emojis, embeds, REST API, Heartbeat, query strings, HTML minify, disable WordPress 7.0 AI |
+| 📜 **JavaScript** | Defer, defer jQuery, jQuery removal, minify, delay until interaction, disable concatenation |
+| 🎨 **CSS** | Critical CSS generator, async loading, minify, unused-style scanner, conditional block styles |
 | 🔤 **Fonts** | Self-hosted Google Fonts, preloading, font-display, Font Awesome optimisation |
-| 🚀 **Preloading** | LCP image preload, fetch priority, Cloudflare Early Hints, speculative loading, hover prefetch *(new)* |
-| 🐢 **Lazy Loading** | Native image/iFrame lazy loading, YouTube / Vimeo facade *(new)*, fine-grained exclusions |
-| 🗄️ **Database** | Revisions, transients, orphaned metadata, table optimisation, scheduled cleanup *(now functional)* |
-| 🖼️ **WebP / AVIF** | WebP **and AVIF** *(new)* conversion, bulk converter, `<picture>` delivery, `.htaccess` rules |
-| 📐 **Image Sizing** | Resize large uploads, inject missing dimensions, `decoding="async"` *(new)*, EXIF strip *(new)*, bulk resize tool |
-| 🖥️ **Server** *(new in v1.12.0)* | Browser cache headers, Brotli / Gzip compression, Nginx snippet for non-Apache hosts |
-| 🌐 **Third-Party** *(new in v1.12.0)* | Self-host gtag.js, gtm.js, analytics.js, fbevents.js — daily refresh cron, URL rewriting |
-| 🔬 **Diagnostics** *(new in v1.12.0)* | Autoload audit, WP-Cron viewer, caching plugin conflict detector |
+| 🚀 **Preloading** | LCP image preload, fetch priority, Cloudflare Early Hints, speculative loading, hover prefetch |
+| 🐢 **Lazy Loading** | Native image/iFrame lazy loading, YouTube / Vimeo facade, fine-grained exclusions |
+| 🗄️ **Database** | Revisions, transients, orphaned metadata, table optimisation, scheduled cleanup |
+| 🖼️ **WebP / AVIF** | WebP **and** AVIF conversion, bulk converter, `<picture>` delivery, `.htaccess` rules |
+| 📐 **Image Sizing** | Resize large uploads, inject missing dimensions, `decoding="async"`, EXIF strip, bulk resize tool |
+| 🖥️ **Server** | Browser cache headers, Brotli / Gzip compression, Nginx snippet for non-Apache hosts |
+| 🌐 **Third-Party** | Self-host gtag.js, gtm.js, analytics.js, fbevents.js — daily refresh cron, URL rewriting |
+| 🔬 **Diagnostics** | Autoload audit, WP-Cron viewer, caching plugin conflict detector |
 | 🗑️ **Orphaned Media** | Find and safely remove unreferenced images, videos, audio, documents, archives |
 | 🛒 **WooCommerce** | Cart fragments, conditional asset loading, Action Scheduler retention |
 
@@ -85,13 +91,13 @@ The JavaScript, CSS, and Database optimisation modules were partial in earlier r
 ## 📚 Detailed Features
 
 ### ⚙️ Core Features
-Disable WordPress defaults that don't earn their place — emojis, embeds, dashicons, jQuery Migrate, XML-RPC, RSS feeds, self-pingbacks, REST API links. Throttle the Heartbeat API, limit revisions, strip query strings. Three REST API access modes for tightening user enumeration without breaking the block editor, with a namespace allowlist for plugins that legitimately need public REST access. **New in v1.12.0:** Minify HTML — output-buffered, comments and whitespace stripped, `<pre>` / `<textarea>` / `<script>` / `<style>` and IE conditional comments preserved.
+Disable WordPress defaults that don't earn their place — emojis, embeds, dashicons, jQuery Migrate, XML-RPC, RSS feeds, self-pingbacks, REST API links. Throttle the Heartbeat API, limit revisions, strip query strings. Three REST API access modes for tightening user enumeration without breaking the block editor, with a namespace allowlist for plugins that legitimately need public REST access. **Minify HTML** — output-buffered, comments and whitespace stripped, `<pre>` / `<textarea>` / `<script>` / `<style>` / `<svg>` and IE conditional comments preserved, and pages containing a nested/embedded HTML document automatically skipped. **Disable AI Features (WordPress 7.0+)** — switches off WordPress 7.0's built-in AI Client, Abilities API, and Connectors plumbing via core's own `wp_supports_ai` kill switch; off by default and inert on WordPress 6.x.
 
 ### 📜 JavaScript Optimisation
-**Now fully implemented in v1.12.0** — previous releases had a placeholder class with admin UI but partial backend logic. Defer or async script loading, defer jQuery specifically, move scripts to the footer, optionally remove jQuery entirely (with a test mode that scopes the removal to logged-out visitors only). Minify inline JS and delay execution of analytics and chat widgets until the user actually interacts with the page — configurable timeout ensures delayed scripts run eventually even if the user never interacts. Per-option exclusion lists keep your essential scripts running normally. Disable WordPress's admin-script concatenation, strip `?ver=` query strings from script URLs.
+Defer or async script loading, defer jQuery specifically, move scripts to the footer, optionally remove jQuery entirely (with a test mode that scopes the removal to logged-out visitors only). Minify inline JS and delay execution of analytics and chat widgets until the user actually interacts with the page — configurable timeout ensures delayed scripts run eventually even if the user never interacts. Per-option exclusion lists keep your essential scripts running normally. Disable WordPress's admin-script concatenation, strip `?ver=` query strings from script URLs.
 
 ### 🎨 CSS Optimisation
-**Now fully implemented in v1.12.0** — previous releases had a placeholder class with admin UI but no backend logic. One-click critical CSS generator, async loading (preload + onload pattern with the standard loadCSS polyfill for older browsers), minify inline CSS, built-in scanner for unused styles. Conditionally load block styles, remove global styles for classic themes, kill duplicate Elementor Google Fonts requests, dequeue WooCommerce stylesheets on non-shop pages, strip CSS version query strings.
+One-click critical CSS generator, async loading (preload + onload pattern with the standard loadCSS polyfill for older browsers), minify inline CSS, built-in scanner for unused styles. Conditionally load block styles, remove global styles for classic themes, kill duplicate Elementor Google Fonts requests, dequeue WooCommerce stylesheets on non-shop pages, strip CSS version query strings.
 
 ### 🔤 Font Management
 Self-host Google Fonts to eliminate render-blocking third-party requests (and improve GDPR posture). Preload critical fonts with an explicit `crossorigin="anonymous"` attribute *(fixed in v1.12.0)*, manage manual entries for fonts the auto-scanner misses, enable subsetting, and pick your `font-display` strategy. Optimise or fully disable Font Awesome.
@@ -137,7 +143,7 @@ Network-activate and manage defaults from the Network Admin. Push settings to al
 
 ## 📋 Requirements
 
-- WordPress **5.8** or higher
+- WordPress **5.8** or higher (tested up to **7.0**)
 - PHP **7.4** or higher (**PHP 8.1+** for AVIF encoding)
 - MySQL **5.6** or higher
 - GD library with WebP support (for image conversion and resizing)
@@ -250,9 +256,36 @@ Self-hosting addresses the *delivery* cost (no DNS / TLS / round-trip to googlet
 **What's the difference between WebP and Image Sizing?**
 WebP and AVIF create smaller-format copies of each image without changing dimensions. Image Sizing changes the actual pixel dimensions so browsers don't download files larger than they need. They're complementary — use both for the biggest PageSpeed wins.
 
+**Does Minify HTML work with page builders?**
+Yes. It preserves `<pre>`, `<textarea>`, `<script>`, `<style>` and `<svg>` contents intact, only collapses whitespace runs that span a line break (so inline-element spacing and attribute values are kept), and skips AMP / REST / AJAX responses. It also detects pages that embed a *complete* HTML document inside a builder HTML widget (a nested `<!doctype>` / `<html>` / `<head>`) and skips those automatically, since collapsing whitespace across a nested document can confuse the browser's parser. One honest caveat: with Brotli/Gzip compression enabled (see the Server tab), HTML minification saves very little of the *compressed* transfer — it's the lowest-impact optimisation here, so don't feel obliged to use it.
+
+**What does "Disable AI Features (WordPress 7.0+)" actually do?**
+WordPress 7.0 ships a built-in AI subsystem — an AI Client, the Abilities API, and a Settings → Connectors screen for wiring the site to AI providers. It stays dormant until a provider connector is configured, so the default-install cost is minimal. This toggle switches the whole subsystem off via core's own kill switch (`wp_supports_ai` → `__return_false` at `PHP_INT_MAX`), with `wp_ai_client_prevent_prompt` as a second guard. It's off by default, has no effect on WordPress 6.x (the filter doesn't exist there), and is safe to leave enabled across mixed-version sites. It's a surface-area control, not a dashboard-hiding tool — the Connectors screen stays in place.
+
 ---
 
 ## 📝 Changelog
+
+### 1.13.2
+- 🐛 **Fix (HTML minify):** pages that embed a complete HTML document inside a page-builder HTML widget (e.g. an Elementor "HTML" widget holding a full `<!doctype html>…</html>` landing page) could lose their layout — the nested, doubly-declared document re-parsed differently in the browser once its whitespace was collapsed, dropping the container boundaries and letting content run full-width. The minifier now detects a nested/embedded document (a second `<!doctype>`, `<html>`, or `<head>`) and skips those pages entirely, byte-for-byte. Normal single-document pages are minified as before.
+
+### 1.13.1
+- 🐛 Carries the v1.12.1–v1.12.3 fixes forward into the 1.13.x line — they were made against the v1.12.0 base and had not yet reached the v1.13.0 branch. See the 1.12.1–1.12.3 entries below for detail. In short: orphan-media full-filename matching, Elementor-upload conversion, and the HTML-minify placeholder fix (plus more conservative whitespace handling, `<svg>` preservation, and AMP/REST/AJAX guards).
+
+### 1.13.0
+- ✨ **New "Disable AI Features (WordPress 7.0+)" toggle** on the Core tab (under WordPress Features). WordPress 7.0 ships a built-in AI Client, the Abilities API, and a Settings → Connectors screen for wiring a site to AI providers. The toggle switches the whole subsystem off via core's own kill switch — `wp_supports_ai` → `__return_false` at `PHP_INT_MAX`, plus `wp_ai_client_prevent_prompt` as a second guard — so the AI Client and Abilities API never bootstrap
+- ℹ️ Off by default; existing behaviour unchanged on upgrade. No effect on WordPress 6.x (the `wp_supports_ai` filter doesn't exist there), so it's safe across mixed-version sites. The Connectors admin screen is intentionally left in place — this is a performance and surface-area control, not a dashboard-hiding tool
+- ✅ Tested up to WordPress 7.0
+
+### 1.12.3
+- 🐛 **Fix (HTML minify):** Minify HTML broke the front end of every site it was enabled on. The placeholder used to protect `<script>` / `<style>` / `<pre>` / `<textarea>` blocks was itself an HTML comment (`<!--MBR_PLACEHOLDER_0-->`), so the comment-stripping pass deleted the placeholders and the protected blocks were never restored — every inline script and stylesheet was silently dropped. Placeholders are now a collision-free per-request token. Whitespace handling is also more conservative (only newline-spanning runs collapse to a single space) so inline-element spacing and attribute values survive; inline `<svg>` is protected; AMP / REST / AJAX responses are skipped; and each regex pass falls back to the un-minified buffer if PCRE bails
+
+### 1.12.2
+- 🐛 **Fix (Elementor uploads):** WebP / AVIF conversion, EXIF stripping, and resize-on-upload were silently bypassed when uploading through Elementor's media picker (or any page-builder media interface that triggers editor-context detection). The editor-context early-return was disabling upload-pipeline optimisations as collateral damage. Upload-pipeline modules (WebP, AVIF, Image Dimensions, Image Enhancements) now initialise regardless of editor context; each still self-gates its editor-sensitive front-end filters, so front-end optimisations remain suppressed inside editors as before
+
+### 1.12.1
+- 🐛 **Fix (Orphaned Media):** the scanner failed to detect orphan PDF, Word, video, audio, and archive files because the post_content reference check stripped the file extension before matching. Stem-only matching is correct for images (so `image-300x200.jpg` matches `image.jpg`) but for non-image media it caused unrelated URLs to match — a PDF called `pricing.pdf` was treated as referenced whenever any post linked to `/pricing-page/`. Non-image media now match against the full filename including extension; images keep the stem-based logic so sized-variant detection is unchanged
+- 🐛 Fix: the Type = Documents / Videos / Audio / Archives filter on the candidate list returned nothing, because it queried `post_mime_type` against the staging table (whose column is `mime_type`). `build_mime_where()` now takes a column-name parameter and the staging-table caller passes the correct value
 
 ### 1.12.0
 - ✨ **Three new tabs:** Server (browser cache headers + Brotli/Gzip via `.htaccess`, Nginx snippet for non-Apache hosts), Third-Party (self-host gtag.js / gtm.js / analytics.js / fbevents.js with daily refresh cron and URL rewriting), Diagnostics (Autoloaded Options Audit, WP-Cron Viewer with orphan detection, Caching Plugin Conflict Detector)
