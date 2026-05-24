@@ -3,7 +3,7 @@
  * Plugin Name: MBR WP Performance
  * Plugin URI: https://littlewebshack.com/mbr-wp-performance
  * Description: Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, orphaned media cleanup, and WooCommerce optimisations.
- * Version: 1.13.0
+ * Version: 1.13.2
  * Author: Made by Robert
  * Author URI: https://madebyrobert.co.uk
  * Text Domain: mbr-wp-performance
@@ -39,7 +39,7 @@ add_filter( 'plugin_row_meta', function ( $links, $file, $data ) {
 }, 10, 3 );
 
 // Define plugin constants
-define( 'MBR_WP_PERFORMANCE_VERSION', '1.13.0' );
+define( 'MBR_WP_PERFORMANCE_VERSION', '1.13.2' );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -303,33 +303,51 @@ class MBR_WP_Performance {
      * Initialize optimization modules
      */
     public function init_optimizations() {
-        // Don't run optimizations in Elementor editor or preview mode
+        // Upload-pipeline modules instantiate REGARDLESS of editor context.
+        // When the Media Library is opened from inside a page builder editor
+        // (Elementor's image picker, Bricks' media controls, etc.), uploads
+        // route through standard WordPress filters — and we need to be
+        // registered on those filters whether or not the request happens to
+        // originate from an editor context.
+        //
+        // Each of these modules:
+        //   * registers its upload-time hook (wp_handle_upload /
+        //     wp_generate_attachment_metadata / big_image_size_threshold)
+        //     unconditionally — these don't affect editor rendering.
+        //   * gates any front-end / editor-sensitive filters internally,
+        //     either at registration time (e.g. ! is_admin()) or via a
+        //     skip-context check inside the callback.
+        //
+        // Before v1.13.1 these all sat below the early-return below, which
+        // meant Elementor-side uploads silently bypassed WebP / AVIF
+        // conversion, EXIF stripping, and resize-on-upload.
+        MBR_WP_Performance_WebP_Converter::instance();
+        MBR_WP_Performance_AVIF_Converter::instance();
+        MBR_WP_Performance_Image_Dimensions::instance();
+        MBR_WP_Performance_Image_Enhancements::instance();
+
+        // Front-end optimisations are skipped inside page builder editors
+        // and previews so they can't interfere with the editing experience.
         if ( $this->is_elementor_editor() ) {
             return;
         }
-        
-        // Don't run optimizations in any page builder editor
         if ( $this->is_page_builder_editor() ) {
             return;
         }
-        
+
         MBR_WP_Performance_Core_Optimizations::instance();
         MBR_WP_Performance_JavaScript_Optimizations::instance();
         MBR_WP_Performance_CSS_Optimizations::instance();
         MBR_WP_Performance_Font_Optimizations::instance();
         MBR_WP_Performance_Database_Optimizations::instance();
-        MBR_WP_Performance_WebP_Converter::instance();
         MBR_WP_Performance_WooCommerce_Optimizations::instance();
-        MBR_WP_Performance_Image_Dimensions::instance();
         MBR_WP_Performance_Orphaned_Images::instance();
 
-        // v1.12.0 modules.
-        MBR_WP_Performance_AVIF_Converter::instance();
+        // v1.12.0 modules (non-upload).
         MBR_WP_Performance_Third_Party_Scripts::instance();
         MBR_WP_Performance_Video_Facade::instance();
         MBR_WP_Performance_Server_Headers::instance();
         MBR_WP_Performance_HTML_Minify::instance();
-        MBR_WP_Performance_Image_Enhancements::instance();
         MBR_WP_Performance_Hover_Prefetch::instance();
         MBR_WP_Performance_Conflict_Detector::instance();
     }

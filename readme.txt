@@ -4,7 +4,7 @@ Tags: performance, optimization, speed, cache, database, webp, image
 Requires at least: 5.8
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.13.0
+Stable tag: 1.13.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -185,6 +185,18 @@ Lazy Loading delays loading of images/videos until they're needed (saving bandwi
 It can. WordPress 7.0 added a core AI Client, the Abilities API and a Settings -> Connectors screen. They stay dormant until you connect an AI provider, so they don't slow a default site down — but if you'd rather the subsystem never loaded at all, tick "Disable AI Features (WordPress 7.0+)" on the Core tab. It uses WordPress's own wp_supports_ai kill switch and has no effect on WordPress 6.x.
 
 == Changelog ==
+
+= 1.13.2 =
+* Fix: HTML minification could break the layout of pages that embed a complete HTML document inside a page-builder HTML widget — for example an Elementor "HTML" widget holding a full `<!doctype html>...</html>` landing page. The rendered response then contains a nested, doubly-declared document (two DOCTYPEs, two `<html>`, two `<head>`). Browsers tolerate this by leniently re-parsing, but collapsing the whitespace across the nested structure changed how the parser resolved it and stripped the page's container boundaries, letting content run full-width to the browser edges. The minifier now detects a nested/embedded document (a second `<!doctype>`, `<html>`, or `<head>`) and skips minification on those pages entirely, leaving them byte-for-byte untouched. Natively-built pages with a single document continue to be minified as normal.
+* No settings change required. If you previously disabled Minify HTML because of this, it is now safe to re-enable — affected pages are skipped automatically while the rest of your site is still minified.
+
+= 1.13.1 =
+This release folds in three bug fixes that were made against the 1.12.x line (1.12.1, 1.12.2, 1.12.3) but had not yet been carried forward into the 1.13.0 codebase.
+
+* Fix (HTML minify): Minify HTML (Core tab) broke the front end of every site it was enabled on. The minifier extracts script / style / pre / textarea blocks into placeholders before stripping comments, but the placeholder format was itself an HTML comment (`<!--MBR_PLACEHOLDER_0-->`). The comment-stripping step then deleted the placeholders, so the protected blocks were never restored — every inline script and stylesheet was silently dropped. Placeholders are now a collision-free per-request alphanumeric token. Whitespace handling is also now conservative (only newline-spanning runs are collapsed) so inline-element spacing and attribute values are preserved; inline `<svg>` is protected; AMP / REST / AJAX responses are skipped; and each regex pass falls back to the un-minified buffer if PCRE bails.
+* Fix (Elementor uploads): WebP / AVIF "Convert on Upload", EXIF stripping, and resize-on-upload were silently bypassed when uploading through Elementor's media picker (or any page-builder media interface that triggers editor-context detection). The plugin's editor-context early-return was killing upload-pipeline optimisations as collateral damage. Upload-pipeline modules (WebP, AVIF, Image Dimensions, Image Enhancements) now instantiate before the editor early-return; each self-gates its editor-sensitive front-end filters internally, so front-end optimisations remain suppressed inside editors exactly as before.
+* Fix (orphan media): The Orphaned Media scanner failed to detect orphan PDF, Word, video, audio and archive files because the post_content reference check stripped the file extension before matching. Stem-only matching is correct for images (so `image-300x200.jpg` matches `image.jpg`) but for non-image media it caused unrelated URLs to match — a PDF called `pricing.pdf` was wrongly classified as referenced whenever any post linked to `/pricing-page/` etc. Non-image media now match against the full filename including extension; images keep the stem-based logic so sized-variant detection is unchanged. Also fixes the Type=Documents / Videos / Audio / Archives filter on the candidate list, which previously returned nothing because it queried `post_mime_type` against the staging table (whose column is `mime_type`).
+* No data migration required for any of the three. Re-run an Orphaned Media scan after upgrading and any non-image attachments dropped under earlier 1.13.0 builds will surface correctly.
 
 = 1.13.0 =
 * Feature: New "Disable AI Features (WordPress 7.0+)" toggle on the Core tab, under WordPress Features. WordPress 7.0 ships a built-in AI Client, the Abilities API, and a Settings -> Connectors screen for wiring a site to AI providers. That infrastructure stays dormant until a provider connector is configured, so the front-end cost on a default install is minimal — but for site owners who want nothing to do with it, this toggle switches the whole subsystem off rather than leaving it idling. It hooks core's own kill switch (`add_filter( 'wp_supports_ai', '__return_false' )`) at PHP_INT_MAX priority so the AI Client and Abilities API never bootstrap, plus `wp_ai_client_prevent_prompt` as a second guard against any prompt execution that slips through.
