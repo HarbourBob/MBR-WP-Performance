@@ -119,6 +119,11 @@ class MBR_WP_Performance_Core_Optimizations {
             remove_action( 'template_redirect', 'rest_output_link_header', 11 );
         }
         
+        // WordPress 7.0 AI
+        if ( $this->get_option( 'disable_ai_support' ) ) {
+            $this->disable_ai_support();
+        }
+        
         // Third-Party Scripts
         if ( $this->get_option( 'disable_google_maps' ) ) {
             add_action( 'wp_enqueue_scripts', array( $this, 'disable_google_maps' ), 99 );
@@ -344,6 +349,23 @@ class MBR_WP_Performance_Core_Optimizations {
     private function hide_wp_version() {
         remove_action( 'wp_head', 'wp_generator' );
         add_filter( 'the_generator', '__return_empty_string' );
+    }
+
+    /**
+     * Disable WordPress 7.0 AI support.
+     *
+     * Mirrors core's native kill switch (the WP_AI_SUPPORT constant /
+     * wp_supports_ai filter) so the AI Client and Abilities API never
+     * bootstrap and no provider connectors load. Belt-and-braces: the
+     * second filter blocks any prompt execution that slips through.
+     *
+     * Uses PHP_INT_MAX priority to win against anything attempting to
+     * re-enable AI later in the request. Harmless on WordPress < 7.0,
+     * where these filters simply don't exist.
+     */
+    private function disable_ai_support() {
+        add_filter( 'wp_supports_ai', '__return_false', PHP_INT_MAX );
+        add_filter( 'wp_ai_client_prevent_prompt', '__return_true', PHP_INT_MAX );
     }
 
     /**

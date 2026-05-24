@@ -229,6 +229,19 @@ $core_options = isset( $options['core'] ) ? $options['core'] : array();
                     <input type="checkbox" name="mbr_wp_performance_options[core][remove_rest_api_links]" id="remove_rest_api_links" value="1" <?php checked( isset( $core_options['remove_rest_api_links'] ) && $core_options['remove_rest_api_links'] ); ?>>
                 </td>
             </tr>
+
+            <tr>
+                <th scope="row">
+                    <label for="disable_ai_support">
+                        <?php esc_html_e( 'Disable AI Features (WordPress 7.0+)', 'mbr-wp-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'WordPress 7.0 adds a built-in AI Client, the Abilities API and a Settings -> Connectors screen. These stay dormant until you connect a provider, so the front-end impact is small. Enable this to switch the whole subsystem off using core\'s native kill switch (the wp_supports_ai filter), preventing it from bootstrapping at all. Has no effect on WordPress below 7.0.', 'mbr-wp-performance' ); ?>">?</span>
+                    </label>
+                </th>
+                <td>
+                    <input type="checkbox" name="mbr_wp_performance_options[core][disable_ai_support]" id="disable_ai_support" value="1" <?php checked( isset( $core_options['disable_ai_support'] ) && $core_options['disable_ai_support'] ); ?>>
+                    <p class="description"><?php esc_html_e( 'Stops the WordPress 7.0 AI Client and Abilities API from loading. Leave off if you intend to use AI-powered plugins that rely on core connectors.', 'mbr-wp-performance' ); ?></p>
+                </td>
+            </tr>
         </table>
     </div>
     
