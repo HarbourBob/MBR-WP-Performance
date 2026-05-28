@@ -58,13 +58,20 @@ class MBR_WP_Performance_Autoload_Audit {
         global $wpdb;
         $limit = max( 1, min( 200, (int) $limit ) );
 
+        // Exclude the plugin's own options — the docblock promises this, and
+        // they're small, legitimately autoloaded, and not something we want to
+        // invite the user to disable via our own tool.
+        $own_prefix = $wpdb->esc_like( 'mbr_wp_performance_' ) . '%';
+
         $rows = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT option_name, LENGTH(option_value) AS size
                  FROM {$wpdb->options}
                  WHERE autoload IN ('yes','on')
+                   AND option_name NOT LIKE %s
                  ORDER BY size DESC
                  LIMIT %d",
+                $own_prefix,
                 $limit
             )
         );

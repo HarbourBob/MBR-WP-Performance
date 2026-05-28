@@ -120,8 +120,25 @@ console.log('==========================================');
             if (!confirm(mbrWpPerformance.i18n.confirmReset)) {
                 return;
             }
-            // Reset form - let WordPress handle this naturally
-            window.location.href = window.location.href + '&reset=1';
+
+            var $button = $(this);
+            MBR_WP_Performance_Admin.showLoading($button);
+
+            $.post(mbrWpPerformance.ajaxUrl, {
+                action: 'mbr_wp_performance_reset_settings',
+                nonce: mbrWpPerformance.nonce
+            }).done(function(response) {
+                if (response && response.success) {
+                    // Reload so every tab reflects the freshly reset values.
+                    window.location.reload();
+                } else {
+                    MBR_WP_Performance_Admin.hideLoading($button);
+                    alert((response && response.data && response.data.message) || 'Reset failed.');
+                }
+            }).fail(function() {
+                MBR_WP_Performance_Admin.hideLoading($button);
+                alert('Reset failed.');
+            });
         },
 
         /**

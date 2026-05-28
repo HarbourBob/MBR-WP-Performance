@@ -52,6 +52,7 @@ class MBR_WP_Performance_Admin {
         
         // AJAX handlers
         add_action( 'wp_ajax_mbr_wp_performance_save_settings', array( $this, 'ajax_save_settings' ) );
+        add_action( 'wp_ajax_mbr_wp_performance_reset_settings', array( $this, 'ajax_reset_settings' ) );
         add_action( 'wp_ajax_mbr_wp_performance_clean_revisions', array( $this, 'ajax_clean_revisions' ) );
         add_action( 'wp_ajax_mbr_wp_performance_scan_post_meta', array( $this, 'ajax_scan_post_meta' ) );
         add_action( 'wp_ajax_mbr_wp_performance_delete_post_meta', array( $this, 'ajax_delete_post_meta' ) );
@@ -1785,12 +1786,22 @@ class MBR_WP_Performance_Admin {
         // Minify the critical CSS
         $critical_css = $this->minify_css( $critical_css );
         
-        // Store in options
+        // Store in options.
+        //
+        // Persist into the canonical [css][critical_css] field. This is the
+        // field the textarea reads/writes and the only one whitelisted by
+        // sanitize_css_options(), so the generated CSS survives both this
+        // write and any subsequent settings save. (The old
+        // [css][critical_css_content] key was stripped by the sanitiser on
+        // every save, so the generator's output never persisted.)
         $options = get_option( 'mbr_wp_performance_options', array() );
-        if ( ! isset( $options['css'] ) ) {
+        if ( ! is_array( $options ) ) {
+            $options = array();
+        }
+        if ( ! isset( $options['css'] ) || ! is_array( $options['css'] ) ) {
             $options['css'] = array();
         }
-        $options['css']['critical_css_content'] = $critical_css;
+        $options['css']['critical_css'] = $critical_css;
         update_option( 'mbr_wp_performance_options', $options );
         
         wp_send_json_success( array( 
@@ -2040,6 +2051,30 @@ class MBR_WP_Performance_Admin {
         delete_option( 'mbr_wp_performance_css_scan' );
         
         wp_send_json_success( array( 'message' => __( 'Scan data cleared.', 'mbr-wp-performance' ) ) );
+    }
+
+    /**
+     * AJAX reset all settings to defaults.
+     *
+     * Replaces the entire options array with the canonical defaults. Guarded
+     * by nonce and capability check; runs as a POST request (never a GET) so
+     * it can't be triggered by a crawler, prefetch, or a link the user lands
+     * on by accident.
+     */
+    public function ajax_reset_settings() {
+        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'mbr-wp-performance' ) ) );
+        }
+
+        $defaults = mbr_wp_performance()->default_options();
+
+        // update_options() both persists to the DB (via update_option, which
+        // runs the registered sanitiser) and refreshes the in-memory cache.
+        mbr_wp_performance()->update_options( $defaults );
+
+        wp_send_json_success( array( 'message' => __( 'Settings reset to defaults.', 'mbr-wp-performance' ) ) );
     }
     
     /**

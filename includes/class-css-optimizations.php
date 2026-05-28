@@ -190,19 +190,20 @@ class MBR_WP_Performance_CSS_Optimizations {
     /**
      * Output the saved critical CSS inline at the top of <head>.
      *
-     * The Critical CSS generator (in class-admin.php) writes its output to
-     * options[css][critical_css_content]. We emit that here, well before any
-     * <link rel="stylesheet"> tags, so above-the-fold styling paints
-     * immediately even when the full stylesheets are async-loaded.
+     * Both the auto-generator (in class-admin.php) and the user-editable
+     * textarea write to options[css][critical_css]. We emit that here, well
+     * before any <link rel="stylesheet"> tags, so above-the-fold styling
+     * paints immediately even when the full stylesheets are async-loaded.
      */
     public function output_critical_css() {
         if ( $this->should_skip() ) {
             return;
         }
-        $css = $this->get_option( 'critical_css_content', '' );
-        if ( '' === $css ) {
-            // Fall back to a user-provided textarea if present.
-            $css = $this->get_option( 'critical_css', '' );
+        $css = $this->get_option( 'critical_css', '' );
+        // Backwards-compatibility: emit any legacy generator output that may
+        // still be stored under the old key on sites upgraded mid-cycle.
+        if ( ! is_string( $css ) || '' === trim( $css ) ) {
+            $css = $this->get_option( 'critical_css_content', '' );
         }
         if ( ! is_string( $css ) || '' === trim( $css ) ) {
             return;

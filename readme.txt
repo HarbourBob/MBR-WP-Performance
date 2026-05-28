@@ -4,7 +4,7 @@ Tags: performance, optimization, speed, cache, database, webp, image
 Requires at least: 5.8
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.13.2
+Stable tag: 1.13.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -185,6 +185,12 @@ Lazy Loading delays loading of images/videos until they're needed (saving bandwi
 It can. WordPress 7.0 added a core AI Client, the Abilities API and a Settings -> Connectors screen. They stay dormant until you connect an AI provider, so they don't slow a default site down — but if you'd rather the subsystem never loaded at all, tick "Disable AI Features (WordPress 7.0+)" on the Core tab. It uses WordPress's own wp_supports_ai kill switch and has no effect on WordPress 6.x.
 
 == Changelog ==
+
+= 1.13.3 =
+* Fix (Critical CSS): The "Auto-Generate Critical CSS" button stored its output under an internal key (`[css][critical_css_content]`) that was not in the CSS sanitiser's whitelist, so the sanitiser stripped it on every save. Generated CSS only survived at all because the admin JS also drops it into the editable textarea, which does persist. The generator now writes straight to the canonical `[css][critical_css]` field, so its output persists immediately and the frontend emits it without depending on that fallback. No action needed on upgrade; if you previously generated critical CSS and saved, it is already in the right field.
+* Fix (Reset to Defaults): The "Reset to Defaults" button did nothing. It navigated to `?...&reset=1`, but no handler ever read that parameter. It now runs a proper nonce- and capability-checked POST request that resets every section to its defaults and reloads the page. (Implemented as POST rather than a GET link so it can't be triggered by a crawler, prefetch, or a stray bookmark.)
+* Fix (Autoload Audit): The Diagnostics → Autoloaded Options audit claimed in code to exclude the plugin's own options but the query didn't, so MBR WP Performance's own options could appear in the list and be offered for autoload-disabling. The query now excludes the `mbr_wp_performance_` namespace as documented.
+* Housekeeping: First-install defaults and the new reset routine now share a single `default_options()` definition rather than duplicating the structure.
 
 = 1.13.2 =
 * Fix: HTML minification could break the layout of pages that embed a complete HTML document inside a page-builder HTML widget — for example an Elementor "HTML" widget holding a full `<!doctype html>...</html>` landing page. The rendered response then contains a nested, doubly-declared document (two DOCTYPEs, two `<html>`, two `<head>`). Browsers tolerate this by leniently re-parsing, but collapsing the whitespace across the nested structure changed how the parser resolved it and stripped the page's container boundaries, letting content run full-width to the browser edges. The minifier now detects a nested/embedded document (a second `<!doctype>`, `<html>`, or `<head>`) and skips minification on those pages entirely, leaving them byte-for-byte untouched. Natively-built pages with a single document continue to be minified as normal.

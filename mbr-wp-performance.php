@@ -3,7 +3,7 @@
  * Plugin Name: MBR WP Performance
  * Plugin URI: https://littlewebshack.com/mbr-wp-performance
  * Description: Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, orphaned media cleanup, and WooCommerce optimisations.
- * Version: 1.13.2
+ * Version: 1.13.3
  * Author: Made by Robert
  * Author URI: https://madebyrobert.co.uk
  * Text Domain: mbr-wp-performance
@@ -39,7 +39,7 @@ add_filter( 'plugin_row_meta', function ( $links, $file, $data ) {
 }, 10, 3 );
 
 // Define plugin constants
-define( 'MBR_WP_PERFORMANCE_VERSION', '1.13.2' );
+define( 'MBR_WP_PERFORMANCE_VERSION', '1.13.3' );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -423,6 +423,39 @@ class MBR_WP_Performance {
     }
 
     /**
+     * The default options structure used on first install and by the
+     * "Reset to Defaults" action.
+     *
+     * Every section the admin tabs read is seeded so templates never trip an
+     * undefined-index notice, and so a reset returns the plugin to a known
+     * clean state.
+     *
+     * @return array
+     */
+    public function default_options() {
+        return array(
+            'core'             => array(),
+            'javascript'       => array(),
+            'css'              => array(),
+            'fonts'            => array(),
+            'database'         => array(),
+            'webp'             => array(),
+            'woocommerce'      => array(),
+            'image_dimensions' => array(),
+            'orphaned_images'  => array(
+                'restore_days'  => MBR_WP_Performance_Orphaned_Images::DEFAULT_RESTORE_DAYS,
+                'enabled_types' => array( 'images' ),
+                'excluded_ids'  => array(),
+            ),
+            // v1.12.0 sections.
+            'preloading'     => array(),
+            'lazy_loading'   => array(),
+            'third_party'    => array(),
+            'server_headers' => array(),
+        );
+    }
+
+    /**
      * Plugin activation
      *
      * @param bool $network_wide Whether the plugin is being activated network-wide.
@@ -439,27 +472,8 @@ class MBR_WP_Performance {
         
         if ( false === $installed_version ) {
             // First time installation
-            $default_options = array(
-                'core' => array(),
-                'javascript' => array(),
-                'css' => array(),
-                'fonts' => array(),
-                'database' => array(),
-                'webp' => array(),
-                'woocommerce' => array(),
-                'image_dimensions' => array(),
-                'orphaned_images' => array(
-                    'restore_days'  => MBR_WP_Performance_Orphaned_Images::DEFAULT_RESTORE_DAYS,
-                    'enabled_types' => array( 'images' ),
-                    'excluded_ids'  => array(),
-                ),
-                // v1.12.0 sections.
-                'preloading'     => array(),
-                'lazy_loading'   => array(),
-                'third_party'    => array(),
-                'server_headers' => array(),
-            );
-            
+            $default_options = $this->default_options();
+
             add_option( 'mbr_wp_performance_options', $default_options );
             update_option( 'mbr_wp_performance_version', MBR_WP_PERFORMANCE_VERSION );
 
