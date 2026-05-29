@@ -3,7 +3,7 @@
 [![WordPress](https://img.shields.io/badge/WordPress-5.8%2B-blue.svg)](https://wordpress.org)
 [![PHP Version](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
 [![License](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
-[![Version](https://img.shields.io/badge/Version-1.13.7-orange.svg)](https://github.com/harbourbob/mbr-wp-performance/releases)
+[![Version](https://img.shields.io/badge/Version-1.13.9-orange.svg)](https://github.com/harbourbob/mbr-wp-performance/releases)
 [![Downloads](https://img.shields.io/github/downloads/harbourbob/mbr-wp-performance/total)](https://github.com/harbourbob/mbr-wp-performance/releases)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-%E2%98%95-yellow.svg)](https://buymeacoffee.com/robertpalmer/)
 
@@ -17,7 +17,7 @@
 
 Thirteen tabs of individually-toggleable optimisations — image conversion, script and style delivery, font self-hosting, database cleanup, server-level caching, third-party self-hosting, and a diagnostics suite that catches conflicts before they bite. Everything is explained in plain language, nothing phones home, and there's no "pro" tier holding features back.
 
-> **Latest: v1.13.7** — WordPress 7.0 ready (with a one-click switch to disable the new core AI subsystem), plus a run of stability and page-builder compatibility fixes. See the [changelog](#-changelog) for the full history.
+> **Latest: v1.13.9** — WordPress 7.0 ready (with a one-click switch to disable the new core AI subsystem), plus a run of stability and page-builder compatibility fixes. See the [changelog](#-changelog) for the full history.
 
 ### 🖥️ Server, Third-Party & Diagnostics tabs
 
