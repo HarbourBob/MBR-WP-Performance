@@ -60,7 +60,6 @@ console.log('==========================================');
             $('#get-db-info').on('click', function(e) { self.getDatabaseInfo.call(this, e); });
             
             // CSS operations
-            $('#generate-critical-css').on('click', function(e) { self.generateCriticalCSS.call(this, e); });
             $('#scan-css').on('click', function(e) { self.scanCSS.call(this, e); });
             $('#clear-scan-data').on('click', function(e) { self.clearScanData.call(this, e); });
             
@@ -659,30 +658,6 @@ console.log('==========================================');
                 MBR_WP_Performance_Admin.hideLoading($button);
                 if (response.success) {
                     $status.html(response.data.html);
-                } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
-                }
-            });
-        },
-
-        /**
-         * Generate critical CSS
-         */
-        generateCriticalCSS: function(e) {
-            e.preventDefault();
-            var $button = $(this);
-            var $status = $('#critical-css-status');
-            
-            MBR_WP_Performance_Admin.showLoading($button);
-            
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_generate_critical_css',
-                nonce: mbrWpPerformance.nonce
-            }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
-                if (response.success) {
-                    $('#critical_css').val(response.data.css);
-                    MBR_WP_Performance_Admin.showMessage($status, 'Critical CSS generated successfully', 'success');
                 } else {
                     MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
                 }

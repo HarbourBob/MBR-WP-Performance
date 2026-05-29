@@ -168,41 +168,8 @@ $font_options = isset( $options['fonts'] ) ? $options['fonts'] : array();
     <!-- Google Fonts Optimization Section -->
     <div class="mbr-wp-performance-section">
         <h2><?php esc_html_e( 'Google Fonts Optimization', 'mbr-wp-performance' ); ?></h2>
-        
-        <?php $css_options = isset( $options['css'] ) ? $options['css'] : array(); ?>
-        
+
         <table class="form-table">
-            <tr>
-                <th scope="row">
-                    <label for="google_fonts_mode">
-                        <?php esc_html_e( 'Optimize Google Fonts', 'mbr-wp-performance' ); ?>
-                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Choose how to handle Google Fonts loading', 'mbr-wp-performance' ); ?>">?</span>
-                    </label>
-                </th>
-                <td>
-                    <label><input type="radio" name="mbr_wp_performance_options[css][google_fonts_mode]" value="default" <?php checked( isset( $css_options['google_fonts_mode'] ) ? $css_options['google_fonts_mode'] : 'default', 'default' ); ?>> <?php esc_html_e( 'Default (No optimization)', 'mbr-wp-performance' ); ?></label><br>
-                    <label><input type="radio" name="mbr_wp_performance_options[css][google_fonts_mode]" value="combine" <?php checked( isset( $css_options['google_fonts_mode'] ) ? $css_options['google_fonts_mode'] : 'default', 'combine' ); ?>> <?php esc_html_e( 'Combine Font Requests', 'mbr-wp-performance' ); ?></label>
-                    <p class="description"><?php esc_html_e( 'Note: Self-hosting and disabling are configured in the sections above.', 'mbr-wp-performance' ); ?></p>
-                </td>
-            </tr>
-            
-            <tr>
-                <th scope="row">
-                    <label for="font_display">
-                        <?php esc_html_e( 'Font Display Strategy', 'mbr-wp-performance' ); ?>
-                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Controls how fonts are displayed during loading', 'mbr-wp-performance' ); ?>">?</span>
-                    </label>
-                </th>
-                <td>
-                    <select name="mbr_wp_performance_options[css][font_display]" id="font_display">
-                        <option value="swap" <?php selected( isset( $css_options['font_display'] ) ? $css_options['font_display'] : 'swap', 'swap' ); ?>><?php esc_html_e( 'swap (Recommended - Shows fallback, swaps when loaded)', 'mbr-wp-performance' ); ?></option>
-                        <option value="block" <?php selected( isset( $css_options['font_display'] ) ? $css_options['font_display'] : 'swap', 'block' ); ?>><?php esc_html_e( 'block (Wait for font, invisible text during load)', 'mbr-wp-performance' ); ?></option>
-                        <option value="fallback" <?php selected( isset( $css_options['font_display'] ) ? $css_options['font_display'] : 'swap', 'fallback' ); ?>><?php esc_html_e( 'fallback (Brief block, then fallback if slow)', 'mbr-wp-performance' ); ?></option>
-                        <option value="optional" <?php selected( isset( $css_options['font_display'] ) ? $css_options['font_display'] : 'swap', 'optional' ); ?>><?php esc_html_e( 'optional (Use font only if cached)', 'mbr-wp-performance' ); ?></option>
-                    </select>
-                </td>
-            </tr>
-            
             <?php if ( defined( 'ELEMENTOR_VERSION' ) ) : ?>
             <tr>
                 <th scope="row">
@@ -212,7 +179,7 @@ $font_options = isset( $options['fonts'] ) ? $options['fonts'] : array();
                     </label>
                 </th>
                 <td>
-                    <input type="checkbox" name="mbr_wp_performance_options[css][disable_elementor_fonts]" id="disable_elementor_fonts" value="1" <?php checked( isset( $css_options['disable_elementor_fonts'] ) && $css_options['disable_elementor_fonts'] ); ?>>
+                    <input type="checkbox" name="mbr_wp_performance_options[fonts][disable_elementor_fonts]" id="disable_elementor_fonts" value="1" <?php checked( isset( $font_options['disable_elementor_fonts'] ) && $font_options['disable_elementor_fonts'] ); ?>>
                 </td>
             </tr>
             <?php endif; ?>

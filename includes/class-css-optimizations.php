@@ -16,6 +16,29 @@ if ( ! defined( 'ABSPATH' ) ) {
 class MBR_WP_Performance_CSS_Optimizations {
 
     /**
+     * Number of stylesheets to keep render-blocking when async_css is enabled
+     * without a critical-CSS bridge.
+     *
+     * Async-loading every stylesheet without an inline-critical-CSS bridge in
+     * place causes a Flash of Unstyled Content / broken-paint window before
+     * the async stylesheets resolve. Keeping the first couple of eligible
+     * stylesheets render-blocking guarantees the page paints with real CSS
+     * regardless of how the user has configured the rest of the chain.
+     */
+    const ASYNC_SAFETY_THRESHOLD = 2;
+
+    /**
+     * Count of async-eligible stylesheets seen so far in this request.
+     *
+     * Used by the safety interlock; only incremented for stylesheets that
+     * would otherwise be async'd, so the threshold isn't burned by excluded
+     * handles or print stylesheets.
+     *
+     * @var int
+     */
+    private $async_count = 0;
+
+    /**
      * Single instance.
      *
      * @var MBR_WP_Performance_CSS_Optimizations
@@ -107,6 +130,24 @@ class MBR_WP_Performance_CSS_Optimizations {
     }
 
     /**
+     * Is a critical-CSS bridge in place?
+     *
+     * "Bridge" means: the user has enabled inline_critical_css AND has
+     * populated the critical_css textarea with actual content. Only in that
+     * state is it safe to async every stylesheet without the page briefly
+     * painting unstyled. The async_stylesheet() interlock consults this.
+     *
+     * @return bool
+     */
+    private function has_critical_css_bridge() {
+        if ( ! $this->get_option( 'inline_critical_css' ) ) {
+            return false;
+        }
+        $critical = $this->get_option( 'critical_css', '' );
+        return is_string( $critical ) && '' !== trim( $critical );
+    }
+
+    /**
      * Should CSS rewriting be suppressed for the current request?
      *
      * @return bool
@@ -176,11 +217,6 @@ class MBR_WP_Performance_CSS_Optimizations {
             add_filter( 'style_loader_src', array( $this, 'remove_style_version' ), 10, 1 );
         }
 
-        // Disable Elementor's Google Fonts requests entirely.
-        if ( $this->get_option( 'disable_elementor_fonts' ) && defined( 'ELEMENTOR_VERSION' ) ) {
-            add_filter( 'elementor/frontend/print_google_fonts', '__return_false' );
-        }
-
         // Disable WooCommerce stylesheets on non-shop pages.
         if ( $this->get_option( 'disable_woocommerce_css' ) && class_exists( 'WooCommerce' ) ) {
             add_action( 'wp_enqueue_scripts', array( $this, 'disable_woocommerce_css' ), 99 );
@@ -243,6 +279,28 @@ class MBR_WP_Performance_CSS_Optimizations {
         // Skip print stylesheets (already non-blocking).
         if ( 'print' === $media ) {
             return $tag;
+        }
+
+        // Safety interlock.
+        //
+        // If there is no critical-CSS bridge in place (Inline Critical CSS on
+        // AND Critical CSS Code populated), async-loading every stylesheet
+        // causes a Flash of Unstyled Content while the preloaded links
+        // resolve. Most users misread that paint window as "the layout is
+        // broken" and either disable async_css or, worse, assume the plugin
+        // has reset their settings.
+        //
+        // We keep the first ASYNC_SAFETY_THRESHOLD eligible stylesheets
+        // render-blocking so the page always has real CSS at first paint, and
+        // async the remainder for partial benefit. The counter is only
+        // incremented for stylesheets that would otherwise be async'd — so
+        // excluded handles, print stylesheets and the inlined critical-CSS
+        // tag don't burn the budget.
+        if ( ! $this->has_critical_css_bridge() ) {
+            $this->async_count++;
+            if ( $this->async_count <= self::ASYNC_SAFETY_THRESHOLD ) {
+                return $tag;
+            }
         }
 
         $media_attr = $media ? esc_attr( $media ) : 'all';

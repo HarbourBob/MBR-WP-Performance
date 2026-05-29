@@ -3,7 +3,7 @@
  * Plugin Name: MBR WP Performance
  * Plugin URI: https://littlewebshack.com/mbr-wp-performance
  * Description: Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, orphaned media cleanup, and WooCommerce optimisations.
- * Version: 1.13.3
+ * Version: 1.13.6
  * Author: Made by Robert
  * Author URI: https://madebyrobert.co.uk
  * Text Domain: mbr-wp-performance
@@ -39,7 +39,7 @@ add_filter( 'plugin_row_meta', function ( $links, $file, $data ) {
 }, 10, 3 );
 
 // Define plugin constants
-define( 'MBR_WP_PERFORMANCE_VERSION', '1.13.3' );
+define( 'MBR_WP_PERFORMANCE_VERSION', '1.13.6' );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'MBR_WP_PERFORMANCE_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -293,6 +293,49 @@ class MBR_WP_Performance {
                 }
             }
             update_option( 'mbr_wp_performance_options', $opts );
+        }
+
+        // --- Migrations from < 1.13.5 ---
+        // Three font-related fields were rendered on the Fonts tab but their
+        // form inputs were scoped to mbr_wp_performance_options[css][...]
+        // instead of [fonts][...]. Submitting the Fonts tab therefore POSTed
+        // a partial css section, and sanitize_css_options — doing exactly
+        // what it should do for the css tab — replaced the whole stored css
+        // section, clearing every other CSS toggle.
+        //
+        // Fix: each tab posts under its own section, the keys move to
+        // [fonts], and we migrate any existing [css][...] values across so
+        // user intent is preserved. google_fonts_mode is dropped entirely
+        // (the radio had no runtime consumer and was effectively dead UI);
+        // font_display already had a canonical entry in [fonts] from the
+        // legitimate select earlier on the same tab, so the [css] copy is
+        // only adopted if [fonts] doesn't already have one.
+        if ( version_compare( $stored, '1.13.5', '<' ) ) {
+            $opts = get_option( 'mbr_wp_performance_options', array() );
+            if ( is_array( $opts ) ) {
+                if ( ! isset( $opts['fonts'] ) || ! is_array( $opts['fonts'] ) ) {
+                    $opts['fonts'] = array();
+                }
+                if ( isset( $opts['css'] ) && is_array( $opts['css'] ) ) {
+                    // Move disable_elementor_fonts only if fonts doesn't already have a deliberate value.
+                    if ( isset( $opts['css']['disable_elementor_fonts'] )
+                         && ! isset( $opts['fonts']['disable_elementor_fonts'] ) ) {
+                        $opts['fonts']['disable_elementor_fonts'] = (bool) $opts['css']['disable_elementor_fonts'];
+                    }
+                    unset( $opts['css']['disable_elementor_fonts'] );
+
+                    // Same pattern for font_display.
+                    if ( isset( $opts['css']['font_display'] )
+                         && ! isset( $opts['fonts']['font_display'] ) ) {
+                        $opts['fonts']['font_display'] = $opts['css']['font_display'];
+                    }
+                    unset( $opts['css']['font_display'] );
+
+                    // google_fonts_mode is dropped — no UI, no consumer.
+                    unset( $opts['css']['google_fonts_mode'] );
+                }
+                update_option( 'mbr_wp_performance_options', $opts );
+            }
         }
 
         // Stamp the version once all migrations have completed.

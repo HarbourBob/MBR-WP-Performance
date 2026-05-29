@@ -65,6 +65,11 @@ class MBR_WP_Performance_Font_Optimizations {
             // Remove from head
             add_action( 'wp_head', array( $this, 'remove_google_fonts_meta' ), 1 );
         }
+
+        // Disable Elementor's Google Fonts requests entirely.
+        if ( $this->get_option( 'disable_elementor_fonts' ) && defined( 'ELEMENTOR_VERSION' ) ) {
+            add_filter( 'elementor/frontend/print_google_fonts', '__return_false' );
+        }
         
         // Preconnect to font domains
         if ( $this->get_option( 'preconnect_domains' ) ) {

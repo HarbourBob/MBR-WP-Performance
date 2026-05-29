@@ -69,7 +69,6 @@ class MBR_WP_Performance_Admin {
         add_action( 'wp_ajax_mbr_wp_performance_convert_innodb', array( $this, 'ajax_convert_innodb' ) );
         add_action( 'wp_ajax_mbr_wp_performance_repair_tables', array( $this, 'ajax_repair_tables' ) );
         add_action( 'wp_ajax_mbr_wp_performance_db_info', array( $this, 'ajax_db_info' ) );
-        add_action( 'wp_ajax_mbr_wp_performance_generate_critical_css', array( $this, 'ajax_generate_critical_css' ) );
         add_action( 'wp_ajax_mbr_wp_performance_scan_css', array( $this, 'ajax_scan_css' ) );
         add_action( 'wp_ajax_mbr_wp_performance_clear_scan_data', array( $this, 'ajax_clear_scan_data' ) );
         add_action( 'wp_ajax_mbr_wp_performance_download_fonts', array( $this, 'ajax_download_fonts' ) );
@@ -409,7 +408,6 @@ class MBR_WP_Performance_Admin {
             'remove_global_styles',
             'load_block_styles_conditionally',
             'remove_css_versions',
-            'disable_elementor_fonts',
             'disable_woocommerce_css',
         );
         
@@ -428,15 +426,6 @@ class MBR_WP_Performance_Admin {
             if ( isset( $options[ $field ] ) ) {
                 $sanitized[ $field ] = sanitize_textarea_field( $options[ $field ] );
             }
-        }
-        
-        // Select options
-        if ( isset( $options['google_fonts_mode'] ) ) {
-            $sanitized['google_fonts_mode'] = sanitize_text_field( $options['google_fonts_mode'] );
-        }
-        
-        if ( isset( $options['font_display'] ) ) {
-            $sanitized['font_display'] = sanitize_text_field( $options['font_display'] );
         }
         
         return $sanitized;
@@ -464,6 +453,7 @@ class MBR_WP_Performance_Admin {
             'async_font_awesome',
             'disable_local_fallback',
             'remove_font_display',
+            'disable_elementor_fonts',
         );
         
         foreach ( $boolean_fields as $field ) {
@@ -1716,146 +1706,6 @@ class MBR_WP_Performance_Admin {
         $html .= '</ul>';
         
         wp_send_json_success( array( 'html' => $html ) );
-    }
-    
-    /**
-     * AJAX generate critical CSS
-     */
-    public function ajax_generate_critical_css() {
-        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
-        
-        if ( ! current_user_can( 'manage_options' ) ) {
-            wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'mbr-wp-performance' ) ) );
-        }
-        
-        // Get homepage URL
-        $home_url = home_url( '/' );
-        
-        // Fetch the homepage HTML
-        $response = wp_remote_get( $home_url, array(
-            'timeout' => 30,
-            'sslverify' => false,
-        ) );
-        
-        if ( is_wp_error( $response ) ) {
-            wp_send_json_error( array( 'message' => __( 'Failed to fetch homepage.', 'mbr-wp-performance' ) ) );
-        }
-        
-        $html = wp_remote_retrieve_body( $response );
-        
-        // Extract all CSS file URLs from the HTML
-        preg_match_all( '/<link[^>]+rel=["\']stylesheet["\'][^>]+href=["\'](https?:\/\/[^"\']+)["\']/', $html, $css_matches );
-        preg_match_all( '/<link[^>]+href=["\'](https?:\/\/[^"\']+)["\'][^>]+rel=["\']stylesheet["\']/', $html, $css_matches2 );
-        
-        $css_urls = array_merge( $css_matches[1], $css_matches2[1] );
-        $css_urls = array_unique( $css_urls );
-        
-        if ( empty( $css_urls ) ) {
-            wp_send_json_error( array( 'message' => __( 'No CSS files found on homepage.', 'mbr-wp-performance' ) ) );
-        }
-        
-        // Combine all CSS
-        $all_css = '';
-        foreach ( $css_urls as $css_url ) {
-            $css_response = wp_remote_get( $css_url, array(
-                'timeout' => 15,
-                'sslverify' => false,
-            ) );
-            
-            if ( ! is_wp_error( $css_response ) ) {
-                $all_css .= wp_remote_retrieve_body( $css_response ) . "\n";
-            }
-        }
-        
-        // Extract critical CSS (above-the-fold selectors)
-        // This is a simplified approach - gets CSS for common above-fold elements
-        $critical_selectors = array(
-            'body', 'html', 
-            'header', '.header', '#header', '.site-header',
-            'nav', '.nav', '.navigation', '.menu', '.main-navigation',
-            '.hero', '.banner', '#banner',
-            'h1', 'h2', 'h3',
-            'p', 'a',
-            '.logo', '#logo',
-            '.container', '.wrapper',
-            '#content', '.content', '.main-content',
-        );
-        
-        $critical_css = $this->extract_css_for_selectors( $all_css, $critical_selectors );
-        
-        // Minify the critical CSS
-        $critical_css = $this->minify_css( $critical_css );
-        
-        // Store in options.
-        //
-        // Persist into the canonical [css][critical_css] field. This is the
-        // field the textarea reads/writes and the only one whitelisted by
-        // sanitize_css_options(), so the generated CSS survives both this
-        // write and any subsequent settings save. (The old
-        // [css][critical_css_content] key was stripped by the sanitiser on
-        // every save, so the generator's output never persisted.)
-        $options = get_option( 'mbr_wp_performance_options', array() );
-        if ( ! is_array( $options ) ) {
-            $options = array();
-        }
-        if ( ! isset( $options['css'] ) || ! is_array( $options['css'] ) ) {
-            $options['css'] = array();
-        }
-        $options['css']['critical_css'] = $critical_css;
-        update_option( 'mbr_wp_performance_options', $options );
-        
-        wp_send_json_success( array( 
-            'css' => $critical_css,
-            'message' => sprintf( 
-                __( 'Generated %d bytes of critical CSS from %d stylesheets.', 'mbr-wp-performance' ),
-                strlen( $critical_css ),
-                count( $css_urls )
-            )
-        ) );
-    }
-    
-    /**
-     * Extract CSS rules for specific selectors
-     */
-    private function extract_css_for_selectors( $css, $selectors ) {
-        $critical_css = '';
-        
-        // Remove comments
-        $css = preg_replace( '/\/\*.*?\*\//s', '', $css );
-        
-        // Extract @import and @font-face rules (always critical)
-        preg_match_all( '/@import[^;]+;/i', $css, $imports );
-        preg_match_all( '/@font-face\s*\{[^}]+\}/si', $css, $font_faces );
-        
-        $critical_css .= implode( "\n", $imports[0] );
-        $critical_css .= implode( "\n", $font_faces[0] );
-        
-        // Extract rules for each selector
-        foreach ( $selectors as $selector ) {
-            $pattern = '/' . preg_quote( $selector, '/' ) . '[^{]*\{[^}]+\}/i';
-            preg_match_all( $pattern, $css, $matches );
-            if ( ! empty( $matches[0] ) ) {
-                $critical_css .= implode( "\n", $matches[0] ) . "\n";
-            }
-        }
-        
-        return $critical_css;
-    }
-    
-    /**
-     * Minify CSS
-     */
-    private function minify_css( $css ) {
-        // Remove comments
-        $css = preg_replace( '/\/\*.*?\*\//s', '', $css );
-        
-        // Remove whitespace
-        $css = preg_replace( '/\s+/', ' ', $css );
-        
-        // Remove spaces around special characters
-        $css = preg_replace( '/\s*([{}:;,])\s*/', '$1', $css );
-        
-        return trim( $css );
     }
     
     /**
