@@ -55,6 +55,17 @@ class MBR_WP_Performance_AVIF_Converter {
             return;
         }
 
+        // If the user has AVIF enabled but the server can't actually encode
+        // AVIF, hooking the upload filter just triggers per-upload warnings
+        // and produces no .avif files. Surface the mismatch as an admin
+        // notice on the plugin's own screens instead, and don't hook the
+        // converter. The user can either fix the server stack or disable
+        // the toggle.
+        if ( ! self::avif_supported() ) {
+            add_action( 'admin_notices', array( $this, 'notice_avif_unsupported' ) );
+            return;
+        }
+
         // Auto-convert on upload (alongside WebP).
         if ( ! empty( $options['auto_convert'] ) ) {
             add_filter( 'wp_generate_attachment_metadata', array( $this, 'handle_new_upload' ), 11, 2 );
@@ -62,13 +73,50 @@ class MBR_WP_Performance_AVIF_Converter {
     }
 
     /**
+     * Render an admin notice on the plugin's own pages when AVIF is enabled
+     * in settings but the server has no working AVIF encoder.
+     */
+    public function notice_avif_unsupported() {
+        if ( ! function_exists( 'get_current_screen' ) ) {
+            return;
+        }
+        $screen = get_current_screen();
+        if ( ! $screen || false === strpos( $screen->id, 'mbr-wp-performance' ) ) {
+            return;
+        }
+        if ( ! current_user_can( 'manage_options' ) ) {
+            return;
+        }
+        echo '<div class="notice notice-warning"><p>';
+        echo esc_html__( 'MBR WP Performance: AVIF conversion is enabled, but this server has no working AVIF encoder. New uploads are not being converted to .avif and visitors are being served WebP (or the original) instead. See the AVIF section on the WebP tab for diagnostics — typically the server needs PHP 8.1+ with GD built against libavif, or Imagick built against libheif/libde265.', 'mbr-wp-performance' );
+        echo '</p></div>';
+    }
+
+    /**
      * Whether the server supports AVIF encoding at all.
+     *
+     * Detection notes:
+     *
+     * - GD: function_exists('imageavif') is NOT a reliable check. PHP 8.1+
+     *   declares the function symbol whether or not libgd was actually built
+     *   against libavif; on the (very common) shared-host configuration
+     *   where it wasn't, calling imageavif() just emits a warning and
+     *   returns false. gd_info()['AVIF Support'] reflects what libgd was
+     *   actually compiled with, so it's the only trustworthy GD signal
+     *   here — and it's the same pattern the WebP converter already uses
+     *   via gd_info()['WebP Support'].
+     *
+     * - Imagick: queryFormats() listing 'AVIF' is generally reliable, since
+     *   it reports formats ImageMagick can actually delegate to libheif.
      *
      * @return bool
      */
     public static function avif_supported() {
-        if ( function_exists( 'imageavif' ) ) {
-            return true;
+        if ( function_exists( 'gd_info' ) ) {
+            $info = @gd_info();
+            if ( is_array( $info ) && ! empty( $info['AVIF Support'] ) ) {
+                return true;
+            }
         }
         if ( class_exists( 'Imagick' ) ) {
             $formats = @\Imagick::queryFormats();
@@ -323,13 +371,18 @@ class MBR_WP_Performance_AVIF_Converter {
      * @return array
      */
     public static function get_diagnostics() {
+        $gd_avif = false;
+        if ( function_exists( 'gd_info' ) ) {
+            $info    = @gd_info();
+            $gd_avif = is_array( $info ) && ! empty( $info['AVIF Support'] );
+        }
         $imagick_avif = false;
         if ( class_exists( 'Imagick' ) ) {
             $formats      = @\Imagick::queryFormats();
             $imagick_avif = is_array( $formats ) && in_array( 'AVIF', $formats, true );
         }
         return array(
-            'gd_avif'      => function_exists( 'imageavif' ),
+            'gd_avif'      => $gd_avif,
             'imagick_avif' => $imagick_avif,
             'any_avif'     => self::avif_supported(),
         );

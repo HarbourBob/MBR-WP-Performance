@@ -4,7 +4,7 @@ Tags: performance, optimization, speed, cache, database, webp, image
 Requires at least: 5.8
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.13.6
+Stable tag: 1.13.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -185,6 +185,11 @@ Lazy Loading delays loading of images/videos until they're needed (saving bandwi
 It can. WordPress 7.0 added a core AI Client, the Abilities API and a Settings -> Connectors screen. They stay dormant until you connect an AI provider, so they don't slow a default site down — but if you'd rather the subsystem never loaded at all, tick "Disable AI Features (WordPress 7.0+)" on the Core tab. It uses WordPress's own wp_supports_ai kill switch and has no effect on WordPress 6.x.
 
 == Changelog ==
+
+= 1.13.7 =
+* Fix (AVIF false-positive detection): Server AVIF support was being detected via `function_exists('imageavif')`, which is unreliable. From PHP 8.1 onwards the `imageavif()` function is declared whether or not libgd was actually compiled against libavif; on the very common shared-host configuration where it wasn't, the function exists but calls fail silently at runtime, no `.avif` files are produced, and visitors are served WebP (or the original) regardless of how aggressively the user has toggled AVIF on. Detection now uses `gd_info()['AVIF Support']`, which reflects what libgd was actually built with — the same reliable pattern the plugin's WebP detection has always used via `gd_info()['WebP Support']`.
+* New: When AVIF is enabled in settings but the server can't actually encode AVIF, the plugin now (a) does NOT register the upload-conversion filter (so it won't trigger per-upload warnings), (b) shows an admin notice on its own admin pages explaining the mismatch, and (c) always renders the AVIF capability diagnostic on the WebP tab — both when supported (info notice with a quick confirmation) and when unsupported (warning notice with the GD/Imagick breakdown). Previously the diagnostic was only shown in the unsupported case, and the supported case showed nothing at all.
+* Note: existing `.avif` files on disk are still served. The fix only stops the plugin from quietly pretending conversion is happening when the server can't actually do it.
 
 = 1.13.6 =
 * Fix (UI contrast): Inline status messages rendered by AJAX handlers — visible on the Database panel and elsewhere — appeared with WordPress core's near-black `.notice` text colour on the plugin's dark-themed success/error/warning/info backgrounds, producing a low-contrast pill that was hard to read against the green tint. The plugin's `.notice-success`, `.notice-warning`, `.notice-error` and `.notice-info` rules now set `color: var(--mbr-text-primary)` (the same light text colour already used by the equivalent `.mbr-wp-performance-message.success/error` rules) and apply it to nested `<p>` elements too so it wins over any descendant rules WP core may inject. Same fix applied to the network-settings inline notice variants.

@@ -109,9 +109,20 @@ $avif_supported = ! empty( $avif_diag['any_avif'] );
         <?php esc_html_e( 'AVIF is typically 20-30% smaller than WebP at equivalent perceived quality. When both are enabled, the <picture> wrapper emits AVIF first, then WebP, then the JPEG/PNG fallback — browsers automatically pick the first format they support.', 'mbr-wp-performance' ); ?>
     </p>
 
-    <?php if ( ! $avif_supported ) : ?>
+    <?php if ( $avif_supported ) : ?>
+        <div class="notice notice-info inline" style="margin:0 0 16px;">
+            <p>
+                <strong><?php esc_html_e( 'Server AVIF support detected.', 'mbr-wp-performance' ); ?></strong>
+                <?php esc_html_e( 'New uploads will be converted to .avif alongside the WebP variant.', 'mbr-wp-performance' ); ?>
+            </p>
+            <p>
+                GD AVIF: <code><?php echo ! empty( $avif_diag['gd_avif'] ) ? '✓' : '✗'; ?></code> &nbsp;
+                Imagick AVIF: <code><?php echo ! empty( $avif_diag['imagick_avif'] ) ? '✓' : '✗'; ?></code>
+            </p>
+        </div>
+    <?php else : ?>
         <div class="notice notice-warning inline" style="margin:0 0 16px;">
-            <p><?php esc_html_e( 'Server-side AVIF encoding is not available. Requires PHP 8.1+ with GD compiled for AVIF, or Imagick 7.0.25+ with AVIF support. Enabling AVIF without one of these will silently skip conversion.', 'mbr-wp-performance' ); ?></p>
+            <p><?php esc_html_e( 'Server-side AVIF encoding is not available. Requires PHP 8.1+ with GD built against libavif (check phpinfo for gd_info()[\'AVIF Support\']), or Imagick built against libheif/libde265. The presence of imageavif() in PHP 8.1+ is not enough on its own — many shared hosts ship the function symbol without the underlying encoder, in which case calls fail silently and no .avif files are produced.', 'mbr-wp-performance' ); ?></p>
             <p>
                 GD AVIF: <code><?php echo ! empty( $avif_diag['gd_avif'] ) ? '✓' : '✗'; ?></code> &nbsp;
                 Imagick AVIF: <code><?php echo ! empty( $avif_diag['imagick_avif'] ) ? '✓' : '✗'; ?></code>
