@@ -1,11 +1,11 @@
 /**
- * MBR WP Performance Admin JavaScript
+ * MBR Performance Admin JavaScript
  */
 
 (function($) {
     'use strict';
 
-    const MBR_WP_Performance_Admin = {
+    const MBRPE_Admin = {
         
         /**
          * Initialize
@@ -19,7 +19,7 @@
          */
         bindEvents: function() {
             // Reset to defaults
-            $('.mbr-wp-performance-reset').on('click', this.resetSettings);
+            $('.mbr-performance-reset').on('click', this.resetSettings);
             
             // Database operations
             $('#clean-revisions').on('click', this.cleanRevisions);
@@ -40,7 +40,6 @@
             $('#get-db-info').on('click', this.getDatabaseInfo);
             
             // CSS operations
-            $('#generate-critical-css').on('click', this.generateCriticalCSS);
             $('#scan-css').on('click', this.scanCSS);
             $('#clear-scan-data').on('click', this.clearScanData);
             
@@ -83,7 +82,7 @@
          */
         showLoading: function($button) {
             $button.prop('disabled', true);
-            $button.after('<span class="mbr-wp-performance-loading"></span>');
+            $button.after('<span class="mbr-performance-loading"></span>');
         },
 
         /**
@@ -91,7 +90,7 @@
          */
         hideLoading: function($button) {
             $button.prop('disabled', false);
-            $button.next('.mbr-wp-performance-loading').remove();
+            $button.next('.mbr-performance-loading').remove();
         },
 
         /**
@@ -99,7 +98,7 @@
          */
         showMessage: function($container, message, type) {
             type = type || 'success';
-            $container.html('<div class="mbr-wp-performance-message ' + type + '">' + message + '</div>');
+            $container.html('<div class="mbr-performance-message ' + type + '">' + message + '</div>');
         },
 
         /**
@@ -108,7 +107,7 @@
         resetSettings: function(e) {
             e.preventDefault();
             
-            if (!confirm(mbrWpPerformance.i18n.confirmReset)) {
+            if (!confirm(mbrpeData.i18n.confirmReset)) {
                 return;
             }
             
@@ -131,18 +130,18 @@
                 return;
             }
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_clean_revisions',
-                nonce: mbrWpPerformance.nonce,
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_clean_revisions',
+                nonce: mbrpeData.nonce,
                 keep: $('#keep_revisions').val()
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -156,20 +155,20 @@
             const $status = $('#post-meta-stats');
             const $deleteButton = $('#delete-post-meta');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_scan_post_meta',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_scan_post_meta',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, 'Found: ' + response.data.count + ' orphaned entries', 'success');
+                    MBRPE_Admin.showMessage($status, 'Found: ' + response.data.count + ' orphaned entries', 'success');
                     if (response.data.count > 0) {
                         $deleteButton.prop('disabled', false);
                     }
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -186,18 +185,18 @@
                 return;
             }
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_delete_post_meta',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_delete_post_meta',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                     $button.prop('disabled', true);
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -211,20 +210,20 @@
             const $status = $('#comment-meta-stats');
             const $deleteButton = $('#delete-comment-meta');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_scan_comment_meta',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_scan_comment_meta',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, 'Found: ' + response.data.count + ' orphaned entries', 'success');
+                    MBRPE_Admin.showMessage($status, 'Found: ' + response.data.count + ' orphaned entries', 'success');
                     if (response.data.count > 0) {
                         $deleteButton.prop('disabled', false);
                     }
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -241,18 +240,18 @@
                 return;
             }
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_delete_comment_meta',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_delete_comment_meta',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                     $button.prop('disabled', true);
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -266,20 +265,20 @@
             const $status = $('#relationship-stats');
             const $deleteButton = $('#delete-relationships');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_scan_relationships',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_scan_relationships',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, 'Found: ' + response.data.count + ' orphaned entries', 'success');
+                    MBRPE_Admin.showMessage($status, 'Found: ' + response.data.count + ' orphaned entries', 'success');
                     if (response.data.count > 0) {
                         $deleteButton.prop('disabled', false);
                     }
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -296,18 +295,18 @@
                 return;
             }
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_delete_relationships',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_delete_relationships',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                     $button.prop('disabled', true);
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -321,20 +320,20 @@
             const $status = $('#term-meta-stats');
             const $deleteButton = $('#delete-term-meta');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_scan_term_meta',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_scan_term_meta',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, 'Found: ' + response.data.count + ' orphaned entries', 'success');
+                    MBRPE_Admin.showMessage($status, 'Found: ' + response.data.count + ' orphaned entries', 'success');
                     if (response.data.count > 0) {
                         $deleteButton.prop('disabled', false);
                     }
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -351,18 +350,18 @@
                 return;
             }
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_delete_term_meta',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_delete_term_meta',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                     $button.prop('disabled', true);
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -375,17 +374,17 @@
             const $button = $(this);
             const $status = $('#transient-stats');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_transient_stats',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_transient_stats',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -398,17 +397,17 @@
             const $button = $(this);
             const $status = $('#transient-stats');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_delete_expired_transients',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_delete_expired_transients',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -425,17 +424,17 @@
                 return;
             }
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_delete_all_transients',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_delete_all_transients',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -448,17 +447,17 @@
             const $button = $(this);
             const $status = $('#optimization-status');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_optimize_tables',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_optimize_tables',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -475,22 +474,22 @@
                 return;
             }
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             $status.html('');
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_convert_innodb',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_convert_innodb',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message || 'An error occurred', 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message || 'An error occurred', 'error');
                 }
             }).fail(function(xhr, status, error) {
-                MBR_WP_Performance_Admin.hideLoading($button);
-                MBR_WP_Performance_Admin.showMessage($status, 'AJAX Error: ' + error, 'error');
+                MBRPE_Admin.hideLoading($button);
+                MBRPE_Admin.showMessage($status, 'AJAX Error: ' + error, 'error');
                 console.error('Convert InnoDB error:', xhr.responseText);
             });
         },
@@ -503,17 +502,17 @@
             const $button = $(this);
             const $status = $('#repair-status');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_repair_tables',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_repair_tables',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -526,41 +525,17 @@
             const $button = $(this);
             const $status = $('#db-info');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_db_info',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_db_info',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
                     $status.html(response.data.html);
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
-                }
-            });
-        },
-
-        /**
-         * Generate critical CSS
-         */
-        generateCriticalCSS: function(e) {
-            e.preventDefault();
-            const $button = $(this);
-            const $status = $('#critical-css-status');
-            
-            MBR_WP_Performance_Admin.showLoading($button);
-            
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_generate_critical_css',
-                nonce: mbrWpPerformance.nonce
-            }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
-                if (response.success) {
-                    $('#critical_css').val(response.data.css);
-                    MBR_WP_Performance_Admin.showMessage($status, 'Critical CSS generated successfully', 'success');
-                } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -573,17 +548,17 @@
             const $button = $(this);
             const $status = $('#scan-status');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_scan_css',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_scan_css',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -596,17 +571,17 @@
             const $button = $(this);
             const $status = $('#scan-status');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_clear_scan_data',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_clear_scan_data',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -619,17 +594,17 @@
             const $button = $(this);
             const $status = $('#font-status');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_download_fonts',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_download_fonts',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -644,22 +619,22 @@
             const manualFonts = $('#manual_fonts').val();
             
             if (!manualFonts) {
-                MBR_WP_Performance_Admin.showMessage($status, 'Please enter fonts to download', 'error');
+                MBRPE_Admin.showMessage($status, 'Please enter fonts to download', 'error');
                 return;
             }
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_download_manual_fonts',
-                nonce: mbrWpPerformance.nonce,
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_download_manual_fonts',
+                nonce: mbrpeData.nonce,
                 manual_fonts: manualFonts
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -685,30 +660,30 @@
             const originalText = $button.text();
             $button.text('Clearing...').prop('disabled', true);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_clear_font_cache',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_clear_font_cache',
+                nonce: mbrpeData.nonce
             }, function(response) {
                 $button.text(originalText).prop('disabled', false);
                 
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message + ' Reloading page...', 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message + ' Reloading page...', 'success');
                     setTimeout(function() {
                         location.reload();
                     }, 1500);
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message || 'An error occurred', 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message || 'An error occurred', 'error');
                 }
             }).fail(function(xhr, status, error) {
                 $button.text(originalText).prop('disabled', false);
-                MBR_WP_Performance_Admin.showMessage($status, 'AJAX Error: ' + error, 'error');
+                MBRPE_Admin.showMessage($status, 'AJAX Error: ' + error, 'error');
             });
         }
     };
 
     // Initialize on document ready
     $(document).ready(function() {
-        MBR_WP_Performance_Admin.init();
+        MBRPE_Admin.init();
     });
 
 })(jQuery);

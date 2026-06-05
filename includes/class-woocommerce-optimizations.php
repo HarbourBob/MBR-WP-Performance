@@ -2,7 +2,7 @@
 /**
  * WooCommerce Optimizations
  *
- * @package MBR_WP_Performance
+ * @package MBRPE
  */
 
 // Exit if accessed directly
@@ -13,12 +13,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * WooCommerce Optimizations class
  */
-class MBR_WP_Performance_WooCommerce_Optimizations {
+class MBRPE_WooCommerce_Optimizations {
 
     /**
      * Single instance
      *
-     * @var MBR_WP_Performance_WooCommerce_Optimizations
+     * @var MBRPE_WooCommerce_Optimizations
      */
     private static $instance = null;
 
@@ -40,7 +40,7 @@ class MBR_WP_Performance_WooCommerce_Optimizations {
     /**
      * Get instance
      *
-     * @return MBR_WP_Performance_WooCommerce_Optimizations
+     * @return MBRPE_WooCommerce_Optimizations
      */
     public static function instance() {
         if ( is_null( self::$instance ) ) {
@@ -58,9 +58,9 @@ class MBR_WP_Performance_WooCommerce_Optimizations {
             return;
         }
 
-        $this->options      = mbr_wp_performance()->get_options( 'woocommerce' );
-        $this->legacy_core  = mbr_wp_performance()->get_options( 'core' );
-        $this->legacy_css   = mbr_wp_performance()->get_options( 'css' );
+        $this->options      = mbrpe()->get_options( 'woocommerce' );
+        $this->legacy_core  = mbrpe()->get_options( 'core' );
+        $this->legacy_css   = mbrpe()->get_options( 'css' );
 
         $this->init_optimizations();
     }
@@ -146,7 +146,7 @@ class MBR_WP_Performance_WooCommerce_Optimizations {
         // (The hook is scheduled in the main plugin file's activate() method but
         // previously had no listener; we attach here so the weekly job actually runs.)
         if ( $this->get_option( 'enable_scheduled_cleanup' ) ) {
-            add_action( 'mbr_wp_performance_database_cleanup', array( $this, 'run_scheduled_cleanup' ) );
+            add_action( 'mbrpe_database_cleanup', array( $this, 'run_scheduled_cleanup' ) );
         }
 
         // AJAX handlers for cleanup buttons are registered in class-admin.php.
@@ -296,7 +296,7 @@ class MBR_WP_Performance_WooCommerce_Optimizations {
     /**
      * Scheduled weekly cleanup callback.
      *
-     * Attached to the plugin's existing `mbr_wp_performance_database_cleanup`
+     * Attached to the plugin's existing `mbrpe_database_cleanup`
      * cron hook (scheduled weekly on activation). Only runs when the
      * "Enable weekly automated cleanup" option is on.
      *
@@ -305,7 +305,7 @@ class MBR_WP_Performance_WooCommerce_Optimizations {
      *  - Product/order/expired transients (via WC's own helpers)
      *  - Action Scheduler history pruning (respects the retention filter)
      *
-     * Writes a small log entry to the `mbr_wp_performance_wc_cleanup_log`
+     * Writes a small log entry to the `mbrpe_wc_cleanup_log`
      * option with the result of the last run for display in the admin.
      */
     public function run_scheduled_cleanup() {
@@ -319,7 +319,7 @@ class MBR_WP_Performance_WooCommerce_Optimizations {
         $as_deleted  = self::run_action_scheduler_cleanup();
 
         update_option(
-            'mbr_wp_performance_wc_cleanup_log',
+            'mbrpe_wc_cleanup_log',
             array(
                 'timestamp'            => time(),
                 'sessions_deleted'     => (int) $sessions,
@@ -336,7 +336,7 @@ class MBR_WP_Performance_WooCommerce_Optimizations {
      * @return array|null
      */
     public static function get_last_scheduled_cleanup_log() {
-        $log = get_option( 'mbr_wp_performance_wc_cleanup_log' );
+        $log = get_option( 'mbrpe_wc_cleanup_log' );
         return is_array( $log ) ? $log : null;
     }
 
@@ -366,7 +366,7 @@ class MBR_WP_Performance_WooCommerce_Optimizations {
             return array(
                 'severity' => 'warning',
                 'current'  => $setting,
-                'message'  => __( 'WooCommerce is set to "Geolocate" for the default customer location. This performs server-side IP lookups on every request and is incompatible with full-page caching — every visitor will bypass the cache. If you are using a page cache plugin, switch this to "Shop base address" or "Geolocate (with page cache support)" under WooCommerce → Settings → General.', 'mbr-wp-performance' ),
+                'message'  => __( 'WooCommerce is set to "Geolocate" for the default customer location. This performs server-side IP lookups on every request and is incompatible with full-page caching — every visitor will bypass the cache. If you are using a page cache plugin, switch this to "Shop base address" or "Geolocate (with page cache support)" under WooCommerce → Settings → General.', 'mbr-performance' ),
             );
         }
 
@@ -374,7 +374,7 @@ class MBR_WP_Performance_WooCommerce_Optimizations {
             return array(
                 'severity' => 'notice',
                 'current'  => $setting,
-                'message'  => __( 'WooCommerce is set to "Geolocate (with page cache support)". This appends a `?v=<timestamp>` query string to URLs, which some page cache plugins treat as a distinct URL — either bypassing the cache or creating a large number of cache variants. If caching is not behaving as expected, consider switching to "Shop base address" under WooCommerce → Settings → General, or confirm your cache plugin is configured to ignore the `v` query argument.', 'mbr-wp-performance' ),
+                'message'  => __( 'WooCommerce is set to "Geolocate (with page cache support)". This appends a `?v=<timestamp>` query string to URLs, which some page cache plugins treat as a distinct URL — either bypassing the cache or creating a large number of cache variants. If caching is not behaving as expected, consider switching to "Shop base address" under WooCommerce → Settings → General, or confirm your cache plugin is configured to ignore the `v` query argument.', 'mbr-performance' ),
             );
         }
 

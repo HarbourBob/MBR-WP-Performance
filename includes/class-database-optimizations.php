@@ -8,7 +8,7 @@
  * by AJAX handlers in class-admin.php — this class is solely the
  * scheduled-cleanup driver and option enforcer.
  *
- * @package MBR_WP_Performance
+ * @package MBRPE
  * @since   1.12.0
  */
 
@@ -17,12 +17,12 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class MBR_WP_Performance_Database_Optimizations {
+class MBRPE_Database_Optimizations {
 
     /**
      * Single instance.
      *
-     * @var MBR_WP_Performance_Database_Optimizations
+     * @var MBRPE_Database_Optimizations
      */
     private static $instance = null;
 
@@ -47,7 +47,7 @@ class MBR_WP_Performance_Database_Optimizations {
      * Constructor.
      */
     private function __construct() {
-        $this->options = mbr_wp_performance()->get_options( 'database' );
+        $this->options = mbrpe()->get_options( 'database' );
         $this->init_optimizations();
     }
 
@@ -66,7 +66,7 @@ class MBR_WP_Performance_Database_Optimizations {
         add_action( 'init', array( $this, 'reschedule_cleanup_event' ), 20 );
 
         // The actual cleanup runner.
-        add_action( 'mbr_wp_performance_database_cleanup', array( $this, 'run_scheduled_cleanup' ) );
+        add_action( 'mbrpe_database_cleanup', array( $this, 'run_scheduled_cleanup' ) );
     }
 
     /**
@@ -77,11 +77,11 @@ class MBR_WP_Performance_Database_Optimizations {
      */
     public function reschedule_cleanup_event() {
         $schedule = $this->get_option( 'cleanup_schedule', 'weekly' );
-        $next     = wp_next_scheduled( 'mbr_wp_performance_database_cleanup' );
+        $next     = wp_next_scheduled( 'mbrpe_database_cleanup' );
 
         if ( 'manual' === $schedule ) {
             if ( $next ) {
-                wp_unschedule_event( $next, 'mbr_wp_performance_database_cleanup' );
+                wp_unschedule_event( $next, 'mbrpe_database_cleanup' );
             }
             return;
         }
@@ -90,9 +90,9 @@ class MBR_WP_Performance_Database_Optimizations {
 
         // If scheduled but recurrence doesn't match, reschedule.
         if ( $next ) {
-            $event = wp_get_scheduled_event( 'mbr_wp_performance_database_cleanup' );
+            $event = wp_get_scheduled_event( 'mbrpe_database_cleanup' );
             if ( $event && isset( $event->schedule ) && $event->schedule !== $desired ) {
-                wp_unschedule_event( $next, 'mbr_wp_performance_database_cleanup' );
+                wp_unschedule_event( $next, 'mbrpe_database_cleanup' );
                 $next = false;
             }
         }
@@ -100,7 +100,7 @@ class MBR_WP_Performance_Database_Optimizations {
         if ( ! $next ) {
             // Schedule for 03:00 local time on the next occurrence.
             $first_run = strtotime( 'tomorrow 03:00:00', current_time( 'timestamp' ) );
-            wp_schedule_event( $first_run, $desired, 'mbr_wp_performance_database_cleanup' );
+            wp_schedule_event( $first_run, $desired, 'mbrpe_database_cleanup' );
         }
     }
 
@@ -147,7 +147,7 @@ class MBR_WP_Performance_Database_Optimizations {
         }
 
         $log['completed_at'] = current_time( 'mysql' );
-        update_option( 'mbr_wp_performance_db_last_cleanup', $log, false );
+        update_option( 'mbrpe_db_last_cleanup', $log, false );
     }
 
     /**
@@ -312,15 +312,16 @@ class MBR_WP_Performance_Database_Optimizations {
     private function trim_revisions( $keep ) {
         global $wpdb;
         // Get post IDs that have more than $keep revisions.
-        $sql = $wpdb->prepare(
-            "SELECT post_parent, COUNT(*) as c
-             FROM {$wpdb->posts}
-             WHERE post_type = 'revision'
-             GROUP BY post_parent
-             HAVING c > %d",
-            $keep
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT post_parent, COUNT(*) as c
+                 FROM {$wpdb->posts}
+                 WHERE post_type = 'revision'
+                 GROUP BY post_parent
+                 HAVING c > %d",
+                $keep
+            )
         );
-        $rows = $wpdb->get_results( $sql );
         if ( empty( $rows ) ) {
             return 0;
         }

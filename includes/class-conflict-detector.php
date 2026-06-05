@@ -2,7 +2,7 @@
 /**
  * Caching Plugin Conflict Detector
  *
- * MBR WP Performance is designed to play nicely alongside dedicated caching
+ * MBR Performance is designed to play nicely alongside dedicated caching
  * plugins (it deliberately does NOT do page caching). But several of its
  * optimisations (defer/delay JS, async CSS, browser-cache headers, gzip)
  * overlap with features in WP Rocket, W3 Total Cache, LiteSpeed Cache,
@@ -11,9 +11,9 @@
  * CSS, or PageSpeed scores that don't improve.
  *
  * This module detects known caching plugins and surfaces a single admin
- * notice listing which overlapping options to disable in MBR WP Performance.
+ * notice listing which overlapping options to disable in MBR Performance.
  *
- * @package MBR_WP_Performance
+ * @package MBRPE
  * @since   1.12.0
  */
 
@@ -22,12 +22,12 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class MBR_WP_Performance_Conflict_Detector {
+class MBRPE_Conflict_Detector {
 
     /**
      * Single instance.
      *
-     * @var MBR_WP_Performance_Conflict_Detector
+     * @var MBRPE_Conflict_Detector
      */
     private static $instance = null;
 
@@ -95,7 +95,6 @@ class MBR_WP_Performance_Conflict_Detector {
                 'overlaps'   => array(
                     'css.minify_css'                 => 'Minify CSS (LSCache: CSS Minify)',
                     'css.async_css'                  => 'Async CSS (LSCache: CSS Async Loading)',
-                    'css.inline_critical_css'        => 'Critical CSS (LSCache: Generate Critical CSS)',
                     'javascript.defer_javascript'    => 'Defer JS (LSCache: JS Defer)',
                     'javascript.delay_javascript'    => 'Delay JS (LSCache: JS Delayed Load)',
                     'javascript.minify_javascript'   => 'Minify JS (LSCache: JS Minify)',
@@ -110,7 +109,6 @@ class MBR_WP_Performance_Conflict_Detector {
                 'function'   => null,
                 'overlaps'   => array(
                     'css.async_css'                  => 'Async CSS (FlyingPress: Load CSS Async)',
-                    'css.inline_critical_css'        => 'Critical CSS (FlyingPress: Generate Critical CSS)',
                     'javascript.defer_javascript'    => 'Defer JS (FlyingPress: Defer JavaScript)',
                     'javascript.delay_javascript'    => 'Delay JS (FlyingPress: Delay JavaScript)',
                     'lazy_loading.video_facade'      => 'Video Facade (FlyingPress: Self-host YouTube Placeholder)',
@@ -145,7 +143,6 @@ class MBR_WP_Performance_Conflict_Detector {
                 'function'   => 'autoptimize',
                 'overlaps'   => array(
                     'css.minify_css'                 => 'Minify CSS (Autoptimize: Optimize CSS Code)',
-                    'css.inline_critical_css'        => 'Critical CSS (Autoptimize: Inline and Defer CSS)',
                     'javascript.defer_javascript'    => 'Defer JS (Autoptimize: Optimize JavaScript Code)',
                     'javascript.minify_javascript'   => 'Minify JS (Autoptimize)',
                 ),
@@ -197,7 +194,7 @@ class MBR_WP_Performance_Conflict_Detector {
         $hit = array();
         foreach ( $entry['overlaps'] as $opt_path => $label ) {
             list( $section, $key ) = explode( '.', $opt_path, 2 );
-            $opts = mbr_wp_performance()->get_options( $section );
+            $opts = mbrpe()->get_options( $section );
             if ( ! empty( $opts[ $key ] ) ) {
                 $hit[ $opt_path ] = $label;
             }
@@ -210,7 +207,7 @@ class MBR_WP_Performance_Conflict_Detector {
      */
     public function maybe_show_notice() {
         $screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-        if ( ! $screen || false === strpos( (string) $screen->id, 'mbr-wp-performance' ) ) {
+        if ( ! $screen || false === strpos( (string) $screen->id, 'mbr-performance' ) ) {
             return;
         }
 
@@ -232,8 +229,8 @@ class MBR_WP_Performance_Conflict_Detector {
             $list .= '</ul>';
             $messages[] = sprintf(
                 /* translators: %s = plugin label */
-                '<p><strong>' . esc_html__( '%s is active.', 'mbr-wp-performance' ) . '</strong> '
-                . esc_html__( 'The following MBR WP Performance options overlap with it — pick one or the other, not both:', 'mbr-wp-performance' )
+                '<p><strong>' . esc_html__( '%s is active.', 'mbr-performance' ) . '</strong> '
+                . esc_html__( 'The following MBR Performance options overlap with it — pick one or the other, not both:', 'mbr-performance' )
                 . '</p>%s',
                 esc_html( $entry['label'] ),
                 $list
@@ -244,6 +241,6 @@ class MBR_WP_Performance_Conflict_Detector {
             return;
         }
 
-        echo '<div class="notice notice-warning">' . implode( '', $messages ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+        echo '<div class="notice notice-warning">' . wp_kses_post( implode( '', $messages ) ) . '</div>';
     }
 }

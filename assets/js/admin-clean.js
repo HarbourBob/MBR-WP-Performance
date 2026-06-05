@@ -1,9 +1,9 @@
 /**
- * MBR WP Performance Admin JavaScript - Clean Rebuild
+ * MBR Performance Admin JavaScript - Clean Rebuild
  */
 
 console.log('==========================================');
-console.log('MBR WP Performance JS FILE IS LOADING...');
+console.log('MBR Performance JS FILE IS LOADING...');
 console.log('==========================================');
 
 (function($) {
@@ -11,15 +11,15 @@ console.log('==========================================');
     
     console.log('Inside IIFE - jQuery available:', typeof $ !== 'undefined');
 
-    const MBR_WP_Performance_Admin = {
+    const MBRPE_Admin = {
         
         /**
          * Initialize
          */
         init: function() {
-            console.log('MBR_WP_Performance_Admin.init() called');
+            console.log('MBRPE_Admin.init() called');
             this.bindEvents();
-            console.log('MBR_WP_Performance_Admin.init() complete');
+            console.log('MBRPE_Admin.init() complete');
         },
 
         /**
@@ -29,8 +29,8 @@ console.log('==========================================');
             var self = this;
             
             // CRITICAL: Prevent form submission while debug message is showing
-            $('.mbr-wp-performance-form').on('submit', function(e) {
-                if (window.mbrDebugActive) {
+            $('.mbr-performance-form').on('submit', function(e) {
+                if (window.mbrpeDebugActive) {
                     e.preventDefault();
                     e.stopPropagation();
                     alert('Cannot save settings while debug message is displayed. Please read the message first.');
@@ -39,7 +39,7 @@ console.log('==========================================');
             });
             
             // Reset to defaults
-            $('.mbr-wp-performance-reset').on('click', function(e) { self.resetSettings.call(this, e); });
+            $('.mbr-performance-reset').on('click', function(e) { self.resetSettings.call(this, e); });
             
             // Database operations
             $('#clean-revisions').on('click', function(e) { self.cleanRevisions.call(this, e); });
@@ -72,6 +72,9 @@ console.log('==========================================');
             $('#mbr-webp-clear-history').on('click', function(e) { self.webpClearHistory.call(this, e); });
             $('#mbr-webp-apply-bulk').on('click', function(e) { self.webpApplyBulk.call(this, e); });
             $('#mbr-webp-revert-all').on('click', function(e) { self.webpRevertAll.call(this, e); });
+            $('#mbr-avif-start-conversion').on('click', function(e) { self.avifStartConversion.call(this, e); });
+            $('#mbr-avif-clear-history').on('click', function(e) { self.avifClearHistory.call(this, e); });
+            $('#mbr-avif-revert-all').on('click', function(e) { self.avifRevertAll.call(this, e); });
             $('#mbr-webp-select-all').on('change', function() {
                 $('.mbr-webp-item-checkbox').prop('checked', $(this).prop('checked'));
             });
@@ -91,7 +94,7 @@ console.log('==========================================');
          */
         showLoading: function($button) {
             $button.prop('disabled', true);
-            $button.after('<span class="mbr-wp-performance-loading"></span>');
+            $button.after('<span class="mbr-performance-loading"></span>');
         },
 
         /**
@@ -99,7 +102,7 @@ console.log('==========================================');
          */
         hideLoading: function($button) {
             $button.prop('disabled', false);
-            $button.next('.mbr-wp-performance-loading').remove();
+            $button.next('.mbr-performance-loading').remove();
         },
 
         /**
@@ -116,26 +119,26 @@ console.log('==========================================');
          */
         resetSettings: function(e) {
             e.preventDefault();
-            if (!confirm(mbrWpPerformance.i18n.confirmReset)) {
+            if (!confirm(mbrpeData.i18n.confirmReset)) {
                 return;
             }
 
             var $button = $(this);
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
 
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_reset_settings',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_reset_settings',
+                nonce: mbrpeData.nonce
             }).done(function(response) {
                 if (response && response.success) {
                     // Reload so every tab reflects the freshly reset values.
                     window.location.reload();
                 } else {
-                    MBR_WP_Performance_Admin.hideLoading($button);
+                    MBRPE_Admin.hideLoading($button);
                     alert((response && response.data && response.data.message) || 'Reset failed.');
                 }
             }).fail(function() {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 alert('Reset failed.');
             });
         },
@@ -150,7 +153,7 @@ console.log('==========================================');
             console.log('STEP 2: preventDefault called');
             
             // SET FLAG TO PREVENT FORM SUBMISSION
-            window.mbrDebugActive = true;
+            window.mbrpeDebugActive = true;
             
             var $button = $(this);
             var $status = $('#clear-font-status');
@@ -158,7 +161,7 @@ console.log('==========================================');
             
             if (!confirm('Are you sure you want to delete ALL downloaded fonts and reset the configuration? This cannot be undone.')) {
                 console.log('STEP 4: User cancelled');
-                window.mbrDebugActive = false;
+                window.mbrpeDebugActive = false;
                 return;
             }
             console.log('STEP 5: User confirmed, proceeding...');
@@ -175,9 +178,9 @@ console.log('==========================================');
             $button.text('Clearing...').prop('disabled', true);
             console.log('STEP 7: Button updated, sending AJAX...');
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_clear_font_cache',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_clear_font_cache',
+                nonce: mbrpeData.nonce
             }, function(response) {
                 console.log('STEP 8: AJAX response received');
                 console.log('Response:', response);
@@ -191,12 +194,12 @@ console.log('==========================================');
                     console.log('=== END DEBUG ===');
                     
                     // Show in a BIG obvious div that can't be missed
-                    $status.html('<div style="background: #d4edda; border: 3px solid #28a745; padding: 30px; margin: 20px 0; font-size: 14px;"><strong style="color: green; font-size: 18px;">✓ CACHE CLEARED!</strong><br><br><div style="font-family: monospace; white-space: pre-wrap; background: white; padding: 15px; border: 1px solid #ccc;">' + response.data.message + '</div><br><br><strong style="color: red; font-size: 16px;">⚠️ READ THE MESSAGE ABOVE - DO NOT RELOAD YET!</strong><br><br><button type="button" onclick="window.mbrDebugActive=false; window.onbeforeunload=null; location.reload();" class="button button-primary" style="font-size: 16px; padding: 10px 20px;">I Have Read It - Reload Page Now</button></div>');
+                    $status.html('<div style="background: #d4edda; border: 3px solid #28a745; padding: 30px; margin: 20px 0; font-size: 14px;"><strong style="color: green; font-size: 18px;">✓ CACHE CLEARED!</strong><br><br><div style="font-family: monospace; white-space: pre-wrap; background: white; padding: 15px; border: 1px solid #ccc;">' + response.data.message + '</div><br><br><strong style="color: red; font-size: 16px;">⚠️ READ THE MESSAGE ABOVE - DO NOT RELOAD YET!</strong><br><br><button type="button" onclick="window.mbrpeDebugActive=false; window.onbeforeunload=null; location.reload();" class="button button-primary" style="font-size: 16px; padding: 10px 20px;">I Have Read It - Reload Page Now</button></div>');
                     
                     console.log('STEP 10: Message displayed, function complete');
                 } else {
                     console.error('STEP 9: Error response:', response.data.message);
-                    window.mbrDebugActive = false;
+                    window.mbrpeDebugActive = false;
                     $status.html('<div style="background: #f8d7da; border: 2px solid #dc3545; padding: 20px;"><strong>Error:</strong> ' + (response.data.message || 'An error occurred') + '</div>');
                 }
             }).fail(function(xhr, status, error) {
@@ -205,7 +208,7 @@ console.log('==========================================');
                 console.error('Error:', error);
                 console.error('XHR:', xhr);
                 
-                window.mbrDebugActive = false;
+                window.mbrpeDebugActive = false;
                 $button.text(originalText).prop('disabled', false);
                 $status.html('<div style="background: #f8d7da; border: 2px solid #dc3545; padding: 20px;"><strong>AJAX Error:</strong> ' + error + '</div>');
             });
@@ -223,22 +226,22 @@ console.log('==========================================');
             var manualFonts = $('#manual_fonts').val();
             
             if (!manualFonts) {
-                MBR_WP_Performance_Admin.showMessage($status, 'Please enter fonts to download', 'error');
+                MBRPE_Admin.showMessage($status, 'Please enter fonts to download', 'error');
                 return;
             }
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_download_manual_fonts',
-                nonce: mbrWpPerformance.nonce,
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_download_manual_fonts',
+                nonce: mbrpeData.nonce,
                 manual_fonts: manualFonts
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -255,18 +258,18 @@ console.log('==========================================');
                 return;
             }
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_clean_revisions',
-                nonce: mbrWpPerformance.nonce,
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_clean_revisions',
+                nonce: mbrpeData.nonce,
                 keep: $('#keep_revisions').val()
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -280,20 +283,20 @@ console.log('==========================================');
             var $status = $('#post-meta-stats');
             var $deleteButton = $('#delete-post-meta');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_scan_post_meta',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_scan_post_meta',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, 'Found: ' + response.data.count + ' orphaned entries', 'success');
+                    MBRPE_Admin.showMessage($status, 'Found: ' + response.data.count + ' orphaned entries', 'success');
                     if (response.data.count > 0) {
                         $deleteButton.prop('disabled', false);
                     }
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -310,18 +313,18 @@ console.log('==========================================');
                 return;
             }
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_delete_post_meta',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_delete_post_meta',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                     $button.prop('disabled', true);
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -335,20 +338,20 @@ console.log('==========================================');
             var $status = $('#comment-meta-stats');
             var $deleteButton = $('#delete-comment-meta');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_scan_comment_meta',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_scan_comment_meta',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, 'Found: ' + response.data.count + ' orphaned entries', 'success');
+                    MBRPE_Admin.showMessage($status, 'Found: ' + response.data.count + ' orphaned entries', 'success');
                     if (response.data.count > 0) {
                         $deleteButton.prop('disabled', false);
                     }
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -365,18 +368,18 @@ console.log('==========================================');
                 return;
             }
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_delete_comment_meta',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_delete_comment_meta',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                     $button.prop('disabled', true);
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -390,20 +393,20 @@ console.log('==========================================');
             var $status = $('#relationship-stats');
             var $deleteButton = $('#delete-relationships');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_scan_relationships',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_scan_relationships',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, 'Found: ' + response.data.count + ' orphaned entries', 'success');
+                    MBRPE_Admin.showMessage($status, 'Found: ' + response.data.count + ' orphaned entries', 'success');
                     if (response.data.count > 0) {
                         $deleteButton.prop('disabled', false);
                     }
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -420,18 +423,18 @@ console.log('==========================================');
                 return;
             }
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_delete_relationships',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_delete_relationships',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                     $button.prop('disabled', true);
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -445,20 +448,20 @@ console.log('==========================================');
             var $status = $('#term-meta-stats');
             var $deleteButton = $('#delete-term-meta');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_scan_term_meta',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_scan_term_meta',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, 'Found: ' + response.data.count + ' orphaned entries', 'success');
+                    MBRPE_Admin.showMessage($status, 'Found: ' + response.data.count + ' orphaned entries', 'success');
                     if (response.data.count > 0) {
                         $deleteButton.prop('disabled', false);
                     }
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -475,18 +478,18 @@ console.log('==========================================');
                 return;
             }
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_delete_term_meta',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_delete_term_meta',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                     $button.prop('disabled', true);
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -499,17 +502,17 @@ console.log('==========================================');
             var $button = $(this);
             var $status = $('#transient-stats');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_transient_stats',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_transient_stats',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -522,17 +525,17 @@ console.log('==========================================');
             var $button = $(this);
             var $status = $('#transient-stats');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_delete_expired_transients',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_delete_expired_transients',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -549,17 +552,17 @@ console.log('==========================================');
                 return;
             }
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_delete_all_transients',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_delete_all_transients',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -572,17 +575,17 @@ console.log('==========================================');
             var $button = $(this);
             var $status = $('#optimization-status');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_optimize_tables',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_optimize_tables',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -599,22 +602,22 @@ console.log('==========================================');
                 return;
             }
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             $status.html('');
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_convert_innodb',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_convert_innodb',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message || 'An error occurred', 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message || 'An error occurred', 'error');
                 }
             }).fail(function(xhr, status, error) {
-                MBR_WP_Performance_Admin.hideLoading($button);
-                MBR_WP_Performance_Admin.showMessage($status, 'AJAX Error: ' + error, 'error');
+                MBRPE_Admin.hideLoading($button);
+                MBRPE_Admin.showMessage($status, 'AJAX Error: ' + error, 'error');
             });
         },
 
@@ -626,17 +629,17 @@ console.log('==========================================');
             var $button = $(this);
             var $status = $('#repair-status');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_repair_tables',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_repair_tables',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -649,17 +652,17 @@ console.log('==========================================');
             var $button = $(this);
             var $status = $('#db-info');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_db_info',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_db_info',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
                     $status.html(response.data.html);
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -672,17 +675,17 @@ console.log('==========================================');
             var $button = $(this);
             var $status = $('#scan-status');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_scan_css',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_scan_css',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
                     $status.html(response.data.html);
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -695,17 +698,17 @@ console.log('==========================================');
             var $button = $(this);
             var $status = $('#scan-status');
             
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
             
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_clear_scan_data',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_clear_scan_data',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -733,9 +736,9 @@ console.log('==========================================');
             $status.text('Finding images to convert…');
             $progress.show();
 
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_webp_get_images',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_webp_get_images',
+                nonce: mbrpeData.nonce
             }, function(response) {
                 if (!response || !response.success || !Array.isArray(response.data)) {
                     $status.text('Failed to list images.');
@@ -769,32 +772,33 @@ console.log('==========================================');
                         return;
                     }
                     var imagePath = allImages[idx];
-                    $.post(mbrWpPerformance.ajaxUrl, {
-                        action: 'mbr_wp_performance_webp_process_image',
-                        nonce: mbrWpPerformance.nonce,
+                    $.post(mbrpeData.ajaxUrl, {
+                        action: 'mbrpe_webp_process_image',
+                        nonce: mbrpeData.nonce,
                         image_path: imagePath
                     })
                     .done(function(resp) {
                         if (resp && resp.success) {
                             var d = resp.data || {};
                             var filename = (d.original_path || imagePath).split('/').pop();
-                            var fullUrl  = mbrWpPerformance.uploadUrl + '/' + (d.original_path || imagePath);
+                            var fullUrl  = mbrpeData.uploadUrl + '/' + (d.original_path || imagePath);
                             var row = '<tr>' +
                                 '<th scope="row" class="check-column"><input type="checkbox" class="mbr-webp-item-checkbox" value="' + imagePath + '"></th>' +
                                 '<td><a href="' + fullUrl + '" target="_blank">' + filename + '</a></td>' +
                                 '<td>' + (d.original_size || '') + '</td>' +
                                 '<td>' + (d.webp_size || '') + '</td>' +
+                                '<td>—</td>' +
                                 '<td>' + (d.compression || '') + '</td>' +
                                 '</tr>';
                             $list.prepend(row);
                             $status.text('Converted: ' + (d.original_path || imagePath));
                         } else {
                             var msg = (resp && resp.data) ? resp.data : 'Unknown error';
-                            $list.prepend('<tr><th scope="row" class="check-column"></th><td colspan="4" style="color: var(--mbr-danger);">Failed: ' + imagePath + ' — ' + msg + '</td></tr>');
+                            $list.prepend('<tr><th scope="row" class="check-column"></th><td colspan="5" style="color: var(--mbr-danger);">Failed: ' + imagePath + ' — ' + msg + '</td></tr>');
                         }
                     })
                     .fail(function() {
-                        $list.prepend('<tr><th scope="row" class="check-column"></th><td colspan="4" style="color: var(--mbr-danger);">AJAX error processing ' + imagePath + '</td></tr>');
+                        $list.prepend('<tr><th scope="row" class="check-column"></th><td colspan="5" style="color: var(--mbr-danger);">AJAX error processing ' + imagePath + '</td></tr>');
                     })
                     .always(function() {
                         idx++;
@@ -827,14 +831,14 @@ console.log('==========================================');
             $('#mbr-webp-start-conversion, #mbr-webp-apply-bulk').prop('disabled', true);
             $status.text('Clearing history…');
 
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_webp_clear_history',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_webp_clear_history',
+                nonce: mbrpeData.nonce
             })
             .done(function(response) {
                 if (response && response.success) {
                     $status.text(response.data || 'History cleared.');
-                    $('#mbr-webp-history-list').html('<tr><td colspan="5">No images converted yet.</td></tr>');
+                    $('#mbr-webp-history-list').html('<tr><td colspan="6">No images converted yet.</td></tr>');
                 } else {
                     $status.text('Failed to clear history.');
                 }
@@ -870,9 +874,9 @@ console.log('==========================================');
 
             var $status = $('#mbr-webp-status');
 
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_webp_bulk_delete',
-                nonce: mbrWpPerformance.nonce,
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_webp_bulk_delete',
+                nonce: mbrpeData.nonce,
                 items: items
             })
             .done(function(response) {
@@ -881,7 +885,7 @@ console.log('==========================================');
                     // Remove the rows from the table.
                     $('.mbr-webp-item-checkbox:checked').closest('tr').remove();
                     if ($('#mbr-webp-history-list tr').length === 0) {
-                        $('#mbr-webp-history-list').html('<tr><td colspan="5">No images converted yet.</td></tr>');
+                        $('#mbr-webp-history-list').html('<tr><td colspan="6">No images converted yet.</td></tr>');
                     }
                 } else {
                     $status.text(response.data || 'Bulk action failed.');
@@ -908,14 +912,14 @@ console.log('==========================================');
             $('#mbr-webp-start-conversion, #mbr-webp-clear-history, #mbr-webp-apply-bulk').prop('disabled', true);
             $status.text('Deleting WebP files and clearing history…');
 
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_webp_revert_all',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_webp_revert_all',
+                nonce: mbrpeData.nonce
             })
             .done(function(response) {
                 if (response && response.success) {
                     $status.text(response.data || 'Revert complete.');
-                    $('#mbr-webp-history-list').html('<tr><td colspan="5">No images converted yet.</td></tr>');
+                    $('#mbr-webp-history-list').html('<tr><td colspan="6">No images converted yet.</td></tr>');
                 } else {
                     var msg = (response && response.data && response.data.message) ? response.data.message : 'Revert failed.';
                     $status.text(msg);
@@ -927,6 +931,187 @@ console.log('==========================================');
             .always(function() {
                 $btn.prop('disabled', false).text('Revert All WebP Files');
                 $('#mbr-webp-start-conversion, #mbr-webp-clear-history, #mbr-webp-apply-bulk').prop('disabled', false);
+            });
+        },
+
+        /* ================================================================
+         * AVIF Bulk Converter
+         *
+         * Parallel to the WebP bulk converter above. The PHP side gates
+         * registration on the server actually supporting AVIF, so these
+         * handlers won't even be reachable on hosts where AVIF encoding
+         * isn't available. The avif_process_image AJAX response includes
+         * webp_size when the image already has a recorded WebP variant,
+         * so each live-prepended row shows complete data rather than a
+         * second AVIF-only row that would visually duplicate the WebP one.
+         * ================================================================ */
+
+        avifStartConversion: function(e) {
+            e.preventDefault();
+            var $startBtn = $('#mbr-avif-start-conversion');
+            var $clearBtn = $('#mbr-avif-clear-history');
+            var $revertBtn = $('#mbr-avif-revert-all');
+            var $progress = $('#mbr-avif-progress-container');
+            var $bar      = $('#mbr-avif-progress-bar');
+            var $status   = $('#mbr-avif-status');
+            var $list     = $('#mbr-webp-history-list');
+
+            $startBtn.prop('disabled', true).text('Processing…');
+            $clearBtn.prop('disabled', true);
+            $revertBtn.prop('disabled', true);
+            $status.text('Finding images to convert…');
+            $progress.show();
+
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_avif_get_images',
+                nonce: mbrpeData.nonce
+            }, function(response) {
+                if (!response || !response.success || !Array.isArray(response.data)) {
+                    var errMsg = (response && response.data) ? response.data : 'Failed to list images.';
+                    $status.text(errMsg);
+                    $startBtn.prop('disabled', false).text('Start AVIF Conversion');
+                    $clearBtn.prop('disabled', false);
+                    $revertBtn.prop('disabled', false);
+                    return;
+                }
+
+                var allImages = response.data;
+                if (allImages.length === 0) {
+                    $status.text('No unconverted images found — every JPG/PNG already has an .avif sibling.');
+                    $startBtn.prop('disabled', false).text('Start AVIF Conversion');
+                    $clearBtn.prop('disabled', false);
+                    $revertBtn.prop('disabled', false);
+                    return;
+                }
+
+                var idx = 0;
+                function updateProgress() {
+                    var pct = Math.round((idx / allImages.length) * 100);
+                    $bar.css('width', pct + '%').text(pct + '%');
+                }
+                function processNext() {
+                    if (idx >= allImages.length) {
+                        $status.text('Done — ' + allImages.length + ' image(s) processed.');
+                        updateProgress();
+                        $startBtn.prop('disabled', false).text('Start AVIF Conversion');
+                        $clearBtn.prop('disabled', false);
+                        $revertBtn.prop('disabled', false);
+                        return;
+                    }
+                    var imagePath = allImages[idx];
+                    $.post(mbrpeData.ajaxUrl, {
+                        action: 'mbrpe_avif_process_image',
+                        nonce: mbrpeData.nonce,
+                        image_path: imagePath
+                    })
+                    .done(function(resp) {
+                        if (resp && resp.success) {
+                            var d = resp.data || {};
+                            var filename = (d.original_path || imagePath).split('/').pop();
+                            var fullUrl  = mbrpeData.uploadUrl + '/' + (d.original_path || imagePath);
+                            var row = '<tr>' +
+                                '<th scope="row" class="check-column"><input type="checkbox" class="mbr-webp-item-checkbox" value="' + imagePath + '"></th>' +
+                                '<td><a href="' + fullUrl + '" target="_blank">' + filename + '</a></td>' +
+                                '<td>' + (d.original_size || '') + '</td>' +
+                                '<td>' + (d.webp_size || '—') + '</td>' +
+                                '<td>' + (d.avif_size || '') + '</td>' +
+                                '<td>' + (d.compression || '') + '</td>' +
+                                '</tr>';
+                            $list.prepend(row);
+                            $status.text('Converted: ' + (d.original_path || imagePath));
+                        } else {
+                            var msg = (resp && resp.data) ? resp.data : 'Unknown error';
+                            $list.prepend('<tr><th scope="row" class="check-column"></th><td colspan="5" style="color: var(--mbr-danger);">Failed: ' + imagePath + ' — ' + msg + '</td></tr>');
+                        }
+                    })
+                    .fail(function() {
+                        $list.prepend('<tr><th scope="row" class="check-column"></th><td colspan="5" style="color: var(--mbr-danger);">AJAX error processing ' + imagePath + '</td></tr>');
+                    })
+                    .always(function() {
+                        idx++;
+                        updateProgress();
+                        processNext();
+                    });
+                }
+                updateProgress();
+                processNext();
+            }).fail(function() {
+                $status.text('AJAX failed while listing images.');
+                $startBtn.prop('disabled', false).text('Start AVIF Conversion');
+                $clearBtn.prop('disabled', false);
+                $revertBtn.prop('disabled', false);
+            });
+        },
+
+        avifClearHistory: function(e) {
+            e.preventDefault();
+            if (!confirm('Clear all AVIF conversion history records? AVIF files on disk are not affected — use "Revert All AVIF Files" if you want to delete those.')) {
+                return;
+            }
+            var $btn    = $('#mbr-avif-clear-history');
+            var $status = $('#mbr-avif-status');
+
+            $btn.prop('disabled', true).text('Clearing…');
+            $('#mbr-avif-start-conversion, #mbr-avif-revert-all').prop('disabled', true);
+            $status.text('Clearing AVIF history…');
+
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_avif_clear_history',
+                nonce: mbrpeData.nonce
+            })
+            .done(function(response) {
+                if (response && response.success) {
+                    $status.text((response.data && response.data.message) || 'AVIF history cleared.');
+                    // Reload so the merged history table rebuilds against
+                    // current options — no point hand-patching DOM here.
+                    setTimeout(function(){ location.reload(); }, 600);
+                } else {
+                    var msg = (response && response.data && response.data.message) ? response.data.message : 'Clear failed.';
+                    $status.text(msg);
+                    $btn.prop('disabled', false).text('Clear AVIF History');
+                    $('#mbr-avif-start-conversion, #mbr-avif-revert-all').prop('disabled', false);
+                }
+            })
+            .fail(function() {
+                $status.text('AJAX failed.');
+                $btn.prop('disabled', false).text('Clear AVIF History');
+                $('#mbr-avif-start-conversion, #mbr-avif-revert-all').prop('disabled', false);
+            });
+        },
+
+        avifRevertAll: function(e) {
+            e.preventDefault();
+            if (!confirm('This will DELETE every .avif file created by this plugin and clear AVIF history.\n\nOriginals and WebP variants are not touched.\n\nThis cannot be undone. Continue?')) {
+                return;
+            }
+            var $btn    = $('#mbr-avif-revert-all');
+            var $status = $('#mbr-avif-status');
+
+            $btn.prop('disabled', true).text('Reverting…');
+            $('#mbr-avif-start-conversion, #mbr-avif-clear-history').prop('disabled', true);
+            $status.text('Deleting AVIF files and clearing history…');
+
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_avif_revert_all',
+                nonce: mbrpeData.nonce
+            })
+            .done(function(response) {
+                if (response && response.success) {
+                    $status.text(response.data || 'Revert complete.');
+                    // Reload so the merged history table reflects only
+                    // remaining WebP entries (if any).
+                    setTimeout(function(){ location.reload(); }, 800);
+                } else {
+                    var msg = (response && response.data && response.data.message) ? response.data.message : 'Revert failed.';
+                    $status.text(msg);
+                    $btn.prop('disabled', false).text('Revert All AVIF Files');
+                    $('#mbr-avif-start-conversion, #mbr-avif-clear-history').prop('disabled', false);
+                }
+            })
+            .fail(function() {
+                $status.text('AJAX failed during revert.');
+                $btn.prop('disabled', false).text('Revert All AVIF Files');
+                $('#mbr-avif-start-conversion, #mbr-avif-clear-history').prop('disabled', false);
             });
         },
 
@@ -947,9 +1132,9 @@ console.log('==========================================');
             $startBtn.prop('disabled', true);
             $status.text('Scanning Media Library — this may take a moment on large libraries…');
 
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_image_dimensions_scan',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_image_dimensions_scan',
+                nonce: mbrpeData.nonce
             })
             .done(function(response) {
                 if (!response || !response.success || !response.data) {
@@ -1038,9 +1223,9 @@ console.log('==========================================');
                 }
 
                 var id = ids[idx];
-                $.post(mbrWpPerformance.ajaxUrl, {
-                    action: 'mbr_wp_performance_image_dimensions_resize',
-                    nonce: mbrWpPerformance.nonce,
+                $.post(mbrpeData.ajaxUrl, {
+                    action: 'mbrpe_image_dimensions_resize',
+                    nonce: mbrpeData.nonce,
                     attachment_id: id
                 })
                 .done(function(resp) {
@@ -1105,17 +1290,17 @@ console.log('==========================================');
             var $button = $(this);
             var $status = $('#wc-session-stats');
 
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
 
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_wc_clear_sessions',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_wc_clear_sessions',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -1128,17 +1313,17 @@ console.log('==========================================');
             var $button = $(this);
             var $status = $('#wc-transient-stats');
 
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
 
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_wc_clear_transients',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_wc_clear_transients',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         },
@@ -1155,17 +1340,17 @@ console.log('==========================================');
                 return;
             }
 
-            MBR_WP_Performance_Admin.showLoading($button);
+            MBRPE_Admin.showLoading($button);
 
-            $.post(mbrWpPerformance.ajaxUrl, {
-                action: 'mbr_wp_performance_wc_cleanup_as',
-                nonce: mbrWpPerformance.nonce
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_wc_cleanup_as',
+                nonce: mbrpeData.nonce
             }, function(response) {
-                MBR_WP_Performance_Admin.hideLoading($button);
+                MBRPE_Admin.hideLoading($button);
                 if (response.success) {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'success');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
-                    MBR_WP_Performance_Admin.showMessage($status, response.data.message, 'error');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
             });
         }
@@ -1175,7 +1360,7 @@ console.log('==========================================');
     console.log('Registering document.ready handler...');
     $(document).ready(function() {
         console.log('DOCUMENT READY FIRED!');
-        MBR_WP_Performance_Admin.init();
+        MBRPE_Admin.init();
         console.log('After init call');
     });
     
@@ -1184,5 +1369,5 @@ console.log('==========================================');
 })(jQuery);
 
 console.log('==========================================');
-console.log('MBR WP Performance JS FILE LOADED!');
+console.log('MBR Performance JS FILE LOADED!');
 console.log('==========================================');

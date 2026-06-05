@@ -13,7 +13,7 @@
  * On Nginx, .htaccess is ignored; the admin tab surfaces an info notice and
  * shows the equivalent server config snippet to copy.
  *
- * @package MBR_WP_Performance
+ * @package MBRPE
  * @since   1.12.0
  */
 
@@ -22,12 +22,12 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class MBR_WP_Performance_Server_Headers {
+class MBRPE_Server_Headers {
 
     /**
      * Single instance.
      *
-     * @var MBR_WP_Performance_Server_Headers
+     * @var MBRPE_Server_Headers
      */
     private static $instance = null;
 
@@ -52,10 +52,10 @@ class MBR_WP_Performance_Server_Headers {
      * Constructor.
      */
     private function __construct() {
-        $this->options = mbr_wp_performance()->get_options( 'server_headers' );
+        $this->options = mbrpe()->get_options( 'server_headers' );
 
         // React to option changes — re-write rules on save.
-        add_action( 'update_option_mbr_wp_performance_options', array( $this, 'on_options_updated' ), 10, 2 );
+        add_action( 'update_option_mbrpe_options', array( $this, 'on_options_updated' ), 10, 2 );
 
         // Re-apply on init in case the file got cleared by another tool.
         add_action( 'admin_init', array( $this, 'ensure_rules' ) );
@@ -67,7 +67,7 @@ class MBR_WP_Performance_Server_Headers {
      * @return string 'apache' | 'litespeed' | 'nginx' | 'iis' | 'other'
      */
     public static function detect_server() {
-        $sig = isset( $_SERVER['SERVER_SOFTWARE'] ) ? strtolower( (string) $_SERVER['SERVER_SOFTWARE'] ) : '';
+        $sig = isset( $_SERVER['SERVER_SOFTWARE'] ) ? strtolower( sanitize_text_field( wp_unslash( $_SERVER['SERVER_SOFTWARE'] ) ) ) : '';
         if ( false !== strpos( $sig, 'litespeed' ) ) {
             return 'litespeed';
         }
@@ -90,7 +90,7 @@ class MBR_WP_Performance_Server_Headers {
      * @param mixed $new
      */
     public function on_options_updated( $old, $new ) {
-        $this->options = mbr_wp_performance()->get_options( 'server_headers' );
+        $this->options = mbrpe()->get_options( 'server_headers' );
         $this->ensure_rules();
     }
 
@@ -217,13 +217,12 @@ class MBR_WP_Performance_Server_Headers {
      * @return string
      */
     public static function nginx_snippet() {
-        return <<<NGINX
-# Cache headers
-location ~* \.(jpe?g|png|gif|webp|avif|svg|ico|woff2?|ttf|otf|eot|mp4|webm)\$ {
+        return '# Cache headers
+location ~* \.(jpe?g|png|gif|webp|avif|svg|ico|woff2?|ttf|otf|eot|mp4|webm)$ {
     expires 1y;
     add_header Cache-Control "public, immutable";
 }
-location ~* \.(css|js)\$ {
+location ~* \.(css|js)$ {
     expires 30d;
     add_header Cache-Control "public";
 }
@@ -232,7 +231,6 @@ location ~* \.(css|js)\$ {
 gzip on;
 gzip_vary on;
 gzip_types text/plain text/css text/xml application/json application/javascript
-           application/xml+rss application/atom+xml image/svg+xml font/woff font/woff2;
-NGINX;
+           application/xml+rss application/atom+xml image/svg+xml font/woff font/woff2;';
     }
 }

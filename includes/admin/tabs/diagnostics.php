@@ -2,7 +2,7 @@
 /**
  * Diagnostics tab — autoload audit, cron viewer, plugin conflicts
  *
- * @package MBR_WP_Performance
+ * @package MBRPE
  * @since   1.12.0
  */
 
@@ -10,29 +10,29 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-$autoload_total      = MBR_WP_Performance_Autoload_Audit::total_autoloaded_size();
-$autoload_count      = MBR_WP_Performance_Autoload_Audit::total_autoloaded_count();
-$autoload_top        = MBR_WP_Performance_Autoload_Audit::top_autoloaded( 30 );
-$cron_events         = MBR_WP_Performance_Cron_Viewer::get_events();
-$cron_orphaned_count = count( MBR_WP_Performance_Cron_Viewer::get_orphaned() );
-$cron_disabled       = MBR_WP_Performance_Cron_Viewer::wp_cron_disabled();
-$conflicts           = MBR_WP_Performance_Conflict_Detector::get_active_conflicts();
+$autoload_total      = MBRPE_Autoload_Audit::total_autoloaded_size();
+$autoload_count      = MBRPE_Autoload_Audit::total_autoloaded_count();
+$autoload_top        = MBRPE_Autoload_Audit::top_autoloaded( 30 );
+$cron_events         = MBRPE_Cron_Viewer::get_events();
+$cron_orphaned_count = count( MBRPE_Cron_Viewer::get_orphaned() );
+$cron_disabled       = MBRPE_Cron_Viewer::wp_cron_disabled();
+$conflicts           = MBRPE_Conflict_Detector::get_active_conflicts();
 ?>
-<div class="mbr-wp-performance-tab-content">
+<div class="mbr-performance-tab-content">
 
-    <div class="mbr-wp-performance-section">
-        <h2><?php esc_html_e( 'Caching Plugin Conflicts', 'mbr-wp-performance' ); ?></h2>
+    <div class="mbr-performance-section">
+        <h2><?php esc_html_e( 'Caching Plugin Conflicts', 'mbr-performance' ); ?></h2>
         <?php if ( empty( $conflicts ) ) : ?>
-            <p><?php esc_html_e( 'No known caching plugins detected. Good to go.', 'mbr-wp-performance' ); ?></p>
+            <p><?php esc_html_e( 'No known caching plugins detected. Good to go.', 'mbr-performance' ); ?></p>
         <?php else : ?>
             <?php foreach ( $conflicts as $entry ) :
-                $hits = MBR_WP_Performance_Conflict_Detector::active_overlaps( $entry );
+                $hits = MBRPE_Conflict_Detector::active_overlaps( $entry );
             ?>
-                <h3><?php echo esc_html( $entry['label'] ); ?> <?php esc_html_e( 'is active', 'mbr-wp-performance' ); ?></h3>
+                <h3><?php echo esc_html( $entry['label'] ); ?> <?php esc_html_e( 'is active', 'mbr-performance' ); ?></h3>
                 <?php if ( empty( $hits ) ) : ?>
-                    <p class="description"><?php esc_html_e( 'No overlapping settings enabled in MBR WP Performance. You\'re fine.', 'mbr-wp-performance' ); ?></p>
+                    <p class="description"><?php esc_html_e( 'No overlapping settings enabled in MBR Performance. You\'re fine.', 'mbr-performance' ); ?></p>
                 <?php else : ?>
-                    <p><?php esc_html_e( 'The following options overlap with this plugin. Disable them either here or in the other plugin — not both:', 'mbr-wp-performance' ); ?></p>
+                    <p><?php esc_html_e( 'The following options overlap with this plugin. Disable them either here or in the other plugin — not both:', 'mbr-performance' ); ?></p>
                     <ul style="list-style:disc;margin-left:1.5em;">
                     <?php foreach ( $hits as $label ) : ?>
                         <li><?php echo esc_html( $label ); ?></li>
@@ -43,13 +43,13 @@ $conflicts           = MBR_WP_Performance_Conflict_Detector::get_active_conflict
         <?php endif; ?>
     </div>
 
-    <div class="mbr-wp-performance-section">
-        <h2><?php esc_html_e( 'Autoloaded Options Audit', 'mbr-wp-performance' ); ?></h2>
+    <div class="mbr-performance-section">
+        <h2><?php esc_html_e( 'Autoloaded Options Audit', 'mbr-performance' ); ?></h2>
         <p class="description">
             <?php
-            /* translators: 1 = byte size, 2 = count */
             printf(
-                esc_html__( 'Total autoloaded: %1$s across %2$d options. Anything over 1MB is worth reviewing — every autoloaded option is read on every page load.', 'mbr-wp-performance' ),
+                /* translators: 1 = byte size, 2 = count */
+                esc_html__( 'Total autoloaded: %1$s across %2$d options. Anything over 1MB is worth reviewing — every autoloaded option is read on every page load.', 'mbr-performance' ),
                 '<strong>' . esc_html( size_format( $autoload_total ) ) . '</strong>',
                 (int) $autoload_count
             );
@@ -59,10 +59,10 @@ $conflicts           = MBR_WP_Performance_Conflict_Detector::get_active_conflict
         <table class="widefat striped" style="max-width:900px;">
             <thead>
                 <tr>
-                    <th><?php esc_html_e( 'Option Name', 'mbr-wp-performance' ); ?></th>
-                    <th><?php esc_html_e( 'Size', 'mbr-wp-performance' ); ?></th>
-                    <th><?php esc_html_e( 'Notes', 'mbr-wp-performance' ); ?></th>
-                    <th><?php esc_html_e( 'Action', 'mbr-wp-performance' ); ?></th>
+                    <th><?php esc_html_e( 'Option Name', 'mbr-performance' ); ?></th>
+                    <th><?php esc_html_e( 'Size', 'mbr-performance' ); ?></th>
+                    <th><?php esc_html_e( 'Notes', 'mbr-performance' ); ?></th>
+                    <th><?php esc_html_e( 'Action', 'mbr-performance' ); ?></th>
                 </tr>
             </thead>
             <tbody id="mbr-autoload-tbody">
@@ -72,14 +72,14 @@ $conflicts           = MBR_WP_Performance_Conflict_Detector::get_active_conflict
                     <td><?php echo esc_html( $row->size_h ); ?></td>
                     <td>
                         <?php if ( $row->is_protected ) : ?>
-                            <em><?php esc_html_e( 'Core (protected)', 'mbr-wp-performance' ); ?></em>
+                            <em><?php esc_html_e( 'Core (protected)', 'mbr-performance' ); ?></em>
                         <?php elseif ( $row->is_transient ) : ?>
-                            <em><?php esc_html_e( 'Transient (should not autoload)', 'mbr-wp-performance' ); ?></em>
+                            <em><?php esc_html_e( 'Transient (should not autoload)', 'mbr-performance' ); ?></em>
                         <?php endif; ?>
                     </td>
                     <td>
                         <?php if ( ! $row->is_protected ) : ?>
-                            <button type="button" class="button button-small mbr-autoload-toggle"><?php esc_html_e( 'Disable autoload', 'mbr-wp-performance' ); ?></button>
+                            <button type="button" class="button button-small mbr-autoload-toggle"><?php esc_html_e( 'Disable autoload', 'mbr-performance' ); ?></button>
                         <?php else : ?>
                             <span class="description">&mdash;</span>
                         <?php endif; ?>
@@ -90,27 +90,27 @@ $conflicts           = MBR_WP_Performance_Conflict_Detector::get_active_conflict
         </table>
     </div>
 
-    <div class="mbr-wp-performance-section">
-        <h2><?php esc_html_e( 'WP-Cron Viewer', 'mbr-wp-performance' ); ?></h2>
+    <div class="mbr-performance-section">
+        <h2><?php esc_html_e( 'WP-Cron Viewer', 'mbr-performance' ); ?></h2>
 
         <?php if ( $cron_disabled ) : ?>
-            <p><strong><?php esc_html_e( 'WP-Cron is disabled.', 'mbr-wp-performance' ); ?></strong> <?php esc_html_e( 'Good — you\'re running real cron.', 'mbr-wp-performance' ); ?></p>
+            <p><strong><?php esc_html_e( 'WP-Cron is disabled.', 'mbr-performance' ); ?></strong> <?php esc_html_e( 'Good — you\'re running real cron.', 'mbr-performance' ); ?></p>
         <?php else : ?>
             <p>
-                <?php esc_html_e( 'WP-Cron currently runs on every page hit. For high-traffic sites or low-traffic sites with delayed events, replacing it with a real system cron is faster and more reliable.', 'mbr-wp-performance' ); ?>
+                <?php esc_html_e( 'WP-Cron currently runs on every page hit. For high-traffic sites or low-traffic sites with delayed events, replacing it with a real system cron is faster and more reliable.', 'mbr-performance' ); ?>
             </p>
-            <p><?php esc_html_e( 'Step 1: add this to wp-config.php:', 'mbr-wp-performance' ); ?></p>
+            <p><?php esc_html_e( 'Step 1: add this to wp-config.php:', 'mbr-performance' ); ?></p>
             <pre style="background:#f6f7f7;padding:.6em .8em;border-left:3px solid #c3c4c7;"><code>define( 'DISABLE_WP_CRON', true );</code></pre>
-            <p><?php esc_html_e( 'Step 2: add a system crontab line:', 'mbr-wp-performance' ); ?></p>
-            <pre style="background:#f6f7f7;padding:.6em .8em;border-left:3px solid #c3c4c7;"><code><?php echo esc_html( MBR_WP_Performance_Cron_Viewer::real_cron_snippet() ); ?></code></pre>
+            <p><?php esc_html_e( 'Step 2: add a system crontab line:', 'mbr-performance' ); ?></p>
+            <pre style="background:#f6f7f7;padding:.6em .8em;border-left:3px solid #c3c4c7;"><code><?php echo esc_html( MBRPE_Cron_Viewer::real_cron_snippet() ); ?></code></pre>
         <?php endif; ?>
 
         <p class="description" style="margin-top:1em;">
             <?php
-            /* translators: %d = orphaned event count */
             printf(
-                esc_html__( '%d events scheduled. Events marked "orphaned" have no PHP callback registered — usually left over from deactivated plugins and safe to remove.', 'mbr-wp-performance' ),
-                $cron_orphaned_count
+                /* translators: %d = orphaned event count */
+                esc_html__( '%d events scheduled. Events marked "orphaned" have no PHP callback registered — usually left over from deactivated plugins and safe to remove.', 'mbr-performance' ),
+                (int) $cron_orphaned_count
             );
             ?>
         </p>
@@ -118,11 +118,11 @@ $conflicts           = MBR_WP_Performance_Conflict_Detector::get_active_conflict
         <table class="widefat striped" style="max-width:1000px;">
             <thead>
                 <tr>
-                    <th><?php esc_html_e( 'Hook', 'mbr-wp-performance' ); ?></th>
-                    <th><?php esc_html_e( 'Next Run', 'mbr-wp-performance' ); ?></th>
-                    <th><?php esc_html_e( 'Schedule', 'mbr-wp-performance' ); ?></th>
-                    <th><?php esc_html_e( 'Callback?', 'mbr-wp-performance' ); ?></th>
-                    <th><?php esc_html_e( 'Action', 'mbr-wp-performance' ); ?></th>
+                    <th><?php esc_html_e( 'Hook', 'mbr-performance' ); ?></th>
+                    <th><?php esc_html_e( 'Next Run', 'mbr-performance' ); ?></th>
+                    <th><?php esc_html_e( 'Schedule', 'mbr-performance' ); ?></th>
+                    <th><?php esc_html_e( 'Callback?', 'mbr-performance' ); ?></th>
+                    <th><?php esc_html_e( 'Action', 'mbr-performance' ); ?></th>
                 </tr>
             </thead>
             <tbody>
@@ -134,7 +134,7 @@ $conflicts           = MBR_WP_Performance_Conflict_Detector::get_active_conflict
                     <td><?php echo $event['has_callback'] ? '✓' : '<span style="color:#d63638;">orphan</span>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></td>
                     <td>
                         <?php if ( ! $event['has_callback'] ) : ?>
-                            <button type="button" class="button button-small mbr-cron-unschedule"><?php esc_html_e( 'Delete', 'mbr-wp-performance' ); ?></button>
+                            <button type="button" class="button button-small mbr-cron-unschedule"><?php esc_html_e( 'Delete', 'mbr-performance' ); ?></button>
                         <?php else : ?>
                             <span class="description">&mdash;</span>
                         <?php endif; ?>
@@ -147,16 +147,18 @@ $conflicts           = MBR_WP_Performance_Conflict_Detector::get_active_conflict
 
 </div>
 
-<script>
+<?php
+ob_start();
+?>
 (function(){
-    var nonce='<?php echo esc_js( wp_create_nonce( 'mbr_wp_performance_nonce' ) ); ?>';
+    var nonce=mbrpeData.nonce;
 
     function post(action,data,cb){
         var fd=new FormData();
         fd.append('action',action);
         fd.append('nonce',nonce);
         Object.keys(data).forEach(function(k){ fd.append(k,data[k]); });
-        fetch(ajaxurl,{method:'POST',body:fd,credentials:'same-origin'})
+        fetch(mbrpeData.ajaxUrl,{method:'POST',body:fd,credentials:'same-origin'})
             .then(function(r){return r.json();})
             .then(function(j){ cb(j); })
             .catch(function(){ cb({success:false}); });
@@ -167,14 +169,14 @@ $conflicts           = MBR_WP_Performance_Conflict_Detector::get_active_conflict
             var row=btn.closest('tr');
             var name=row.dataset.name;
             btn.disabled=true;
-            btn.textContent='<?php echo esc_js( __( 'Working…', 'mbr-wp-performance' ) ); ?>';
-            post('mbr_wp_performance_autoload_toggle',{option_name:name,autoload:''},function(j){
+            btn.textContent='<?php echo esc_js( __( 'Working…', 'mbr-performance' ) ); ?>';
+            post('mbrpe_autoload_toggle',{option_name:name,autoload:''},function(j){
                 if(j.success){
-                    btn.textContent='<?php echo esc_js( __( 'Disabled', 'mbr-wp-performance' ) ); ?>';
+                    btn.textContent='<?php echo esc_js( __( 'Disabled', 'mbr-performance' ) ); ?>';
                     row.style.opacity='.5';
                 } else {
                     btn.disabled=false;
-                    btn.textContent='<?php echo esc_js( __( 'Failed', 'mbr-wp-performance' ) ); ?>';
+                    btn.textContent='<?php echo esc_js( __( 'Failed', 'mbr-performance' ) ); ?>';
                 }
             });
         });
@@ -184,16 +186,18 @@ $conflicts           = MBR_WP_Performance_Conflict_Detector::get_active_conflict
         btn.addEventListener('click',function(){
             var row=btn.closest('tr');
             btn.disabled=true;
-            btn.textContent='<?php echo esc_js( __( 'Working…', 'mbr-wp-performance' ) ); ?>';
-            post('mbr_wp_performance_cron_unschedule',{hook:row.dataset.hook,timestamp:row.dataset.timestamp,args:row.dataset.args},function(j){
+            btn.textContent='<?php echo esc_js( __( 'Working…', 'mbr-performance' ) ); ?>';
+            post('mbrpe_cron_unschedule',{hook:row.dataset.hook,timestamp:row.dataset.timestamp,args:row.dataset.args},function(j){
                 if(j.success){
                     row.parentNode.removeChild(row);
                 } else {
                     btn.disabled=false;
-                    btn.textContent='<?php echo esc_js( __( 'Failed', 'mbr-wp-performance' ) ); ?>';
+                    btn.textContent='<?php echo esc_js( __( 'Failed', 'mbr-performance' ) ); ?>';
                 }
             });
         });
     });
 })();
-</script>
+<?php
+$mbr_diag_js = ob_get_clean();
+wp_add_inline_script( 'mbr-performance-admin', $mbr_diag_js );

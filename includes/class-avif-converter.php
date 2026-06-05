@@ -17,7 +17,7 @@
  * Requires PHP 8.1+ with GD compiled with AVIF support, OR Imagick 7.0.25+.
  * Falls back gracefully when AVIF encoding isn't available.
  *
- * @package MBR_WP_Performance
+ * @package MBRPE
  * @since   1.12.0
  */
 
@@ -26,12 +26,12 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class MBR_WP_Performance_AVIF_Converter {
+class MBRPE_AVIF_Converter {
 
     /**
      * Single instance.
      *
-     * @var MBR_WP_Performance_AVIF_Converter
+     * @var MBRPE_AVIF_Converter
      */
     private static $instance = null;
 
@@ -49,7 +49,7 @@ class MBR_WP_Performance_AVIF_Converter {
      * Constructor.
      */
     private function __construct() {
-        $options = mbr_wp_performance()->get_options( 'webp' );
+        $options = mbrpe()->get_options( 'webp' );
 
         if ( empty( $options['avif_enabled'] ) ) {
             return;
@@ -81,14 +81,14 @@ class MBR_WP_Performance_AVIF_Converter {
             return;
         }
         $screen = get_current_screen();
-        if ( ! $screen || false === strpos( $screen->id, 'mbr-wp-performance' ) ) {
+        if ( ! $screen || false === strpos( $screen->id, 'mbr-performance' ) ) {
             return;
         }
         if ( ! current_user_can( 'manage_options' ) ) {
             return;
         }
         echo '<div class="notice notice-warning"><p>';
-        echo esc_html__( 'MBR WP Performance: AVIF conversion is enabled, but this server has no working AVIF encoder. New uploads are not being converted to .avif and visitors are being served WebP (or the original) instead. See the AVIF section on the WebP tab for diagnostics — typically the server needs PHP 8.1+ with GD built against libavif, or Imagick built against libheif/libde265.', 'mbr-wp-performance' );
+        echo esc_html__( 'MBR Performance: AVIF conversion is enabled, but this server has no working AVIF encoder. New uploads are not being converted to .avif and visitors are being served WebP (or the original) instead. See the AVIF section on the WebP tab for diagnostics — typically the server needs PHP 8.1+ with GD built against libavif, or Imagick built against libheif/libde265.', 'mbr-performance' );
         echo '</p></div>';
     }
 
@@ -138,7 +138,7 @@ class MBR_WP_Performance_AVIF_Converter {
             return false;
         }
 
-        $options = mbr_wp_performance()->get_options( 'webp' );
+        $options = mbrpe()->get_options( 'webp' );
         $quality = isset( $options['avif_quality'] ) ? (int) $options['avif_quality'] : 60;
         if ( $quality < 1 || $quality > 100 ) {
             $quality = 60;
@@ -224,8 +224,9 @@ class MBR_WP_Performance_AVIF_Converter {
      * @return array
      */
     public function handle_new_upload( $metadata, $attachment_id ) {
-        $upload_dir = wp_upload_dir();
-        $to_convert = array();
+        $upload_dir       = wp_upload_dir();
+        $converted_images = get_option( 'mbrpe_avif_converted_images', array() );
+        $to_convert       = array();
 
         if ( isset( $metadata['file'] ) ) {
             $main = $upload_dir['basedir'] . '/' . $metadata['file'];
@@ -246,9 +247,18 @@ class MBR_WP_Performance_AVIF_Converter {
         }
 
         foreach ( array_unique( $to_convert ) as $full_path ) {
-            $this->convert_single_image( $full_path );
+            $result = $this->convert_single_image( $full_path );
+            if ( $result && isset( $result['status'] ) && 'success' === $result['status'] ) {
+                $converted_images[] = array(
+                    'original_path' => str_replace( $upload_dir['basedir'] . '/', '', $result['original_path'] ),
+                    'avif_path'     => str_replace( $upload_dir['basedir'] . '/', '', $result['avif_path'] ),
+                    'original_size' => $result['original_size'],
+                    'avif_size'     => $result['avif_size'],
+                );
+            }
         }
 
+        update_option( 'mbrpe_avif_converted_images', $converted_images );
         return $metadata;
     }
 
@@ -256,10 +266,10 @@ class MBR_WP_Performance_AVIF_Converter {
      * Register an AVIF file path.
      */
     public function register_avif_file( $relative ) {
-        $registry = get_option( 'mbr_avif_registry', array() );
+        $registry = get_option( 'mbrpe_avif_registry', array() );
         if ( ! in_array( $relative, $registry, true ) ) {
             $registry[] = $relative;
-            update_option( 'mbr_avif_registry', $registry );
+            update_option( 'mbrpe_avif_registry', $registry );
         }
     }
 
@@ -393,7 +403,7 @@ class MBR_WP_Performance_AVIF_Converter {
      */
     public static function cleanup_on_deactivation() {
         $upload_dir = wp_upload_dir();
-        $registry   = get_option( 'mbr_avif_registry', array() );
+        $registry   = get_option( 'mbrpe_avif_registry', array() );
         if ( ! empty( $registry ) && is_array( $registry ) ) {
             foreach ( $registry as $rel ) {
                 $full = $upload_dir['basedir'] . '/' . $rel;
@@ -403,6 +413,7 @@ class MBR_WP_Performance_AVIF_Converter {
             }
         }
         self::remove_htaccess_rules();
-        delete_option( 'mbr_avif_registry' );
+        delete_option( 'mbrpe_avif_registry' );
+        delete_option( 'mbrpe_avif_converted_images' );
     }
 }

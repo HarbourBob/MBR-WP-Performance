@@ -13,7 +13,7 @@
  *      front-end <img> tags so browsers can reserve layout space and avoid
  *      Cumulative Layout Shift (CLS).
  *
- * @package MBR_WP_Performance
+ * @package MBRPE
  * @since   1.7.0
  */
 
@@ -25,12 +25,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Image Dimensions class
  */
-class MBR_WP_Performance_Image_Dimensions {
+class MBRPE_Image_Dimensions {
 
     /**
      * Single instance.
      *
-     * @var MBR_WP_Performance_Image_Dimensions
+     * @var MBRPE_Image_Dimensions
      */
     private static $instance = null;
 
@@ -61,7 +61,7 @@ class MBR_WP_Performance_Image_Dimensions {
     /**
      * Get instance.
      *
-     * @return MBR_WP_Performance_Image_Dimensions
+     * @return MBRPE_Image_Dimensions
      */
     public static function instance() {
         if ( is_null( self::$instance ) ) {
@@ -111,7 +111,7 @@ class MBR_WP_Performance_Image_Dimensions {
      * @return array
      */
     private function get_options() {
-        $all = mbr_wp_performance()->get_options();
+        $all = mbrpe()->get_options();
 
         if ( is_array( $all ) && isset( $all['image_dimensions'] ) && is_array( $all['image_dimensions'] ) ) {
             return $all['image_dimensions'];
@@ -294,9 +294,24 @@ class MBR_WP_Performance_Image_Dimensions {
             return wp_normalize_path( WP_CONTENT_DIR . $rel );
         }
 
-        // Site-relative paths (no host).
+        // Site-relative paths (no host): resolve against the uploads/content
+        // URL paths first (robust on subdirectory installs), then fall back
+        // to the site root with its base path stripped.
         if ( empty( $parsed['host'] ) && 0 === strpos( $parsed['path'], '/' ) ) {
-            return wp_normalize_path( ABSPATH . ltrim( $parsed['path'], '/' ) );
+            $req_path = $parsed['path'];
+            $up_path  = isset( $uploads['baseurl'] ) ? (string) wp_parse_url( $uploads['baseurl'], PHP_URL_PATH ) : '';
+            if ( '' !== $up_path && 0 === strpos( $req_path, $up_path ) ) {
+                return wp_normalize_path( $uploads['basedir'] . substr( $req_path, strlen( $up_path ) ) );
+            }
+            $content_path = (string) wp_parse_url( $content_url, PHP_URL_PATH );
+            if ( '' !== $content_path && 0 === strpos( $req_path, $content_path ) ) {
+                return wp_normalize_path( WP_CONTENT_DIR . substr( $req_path, strlen( $content_path ) ) );
+            }
+            $home_path = (string) wp_parse_url( home_url(), PHP_URL_PATH );
+            if ( '' !== $home_path && '/' !== $home_path && 0 === strpos( $req_path, $home_path ) ) {
+                $req_path = substr( $req_path, strlen( $home_path ) );
+            }
+            return wp_normalize_path( ABSPATH . ltrim( $req_path, '/' ) );
         }
 
         return false;
@@ -478,26 +493,26 @@ class MBR_WP_Performance_Image_Dimensions {
     public static function bulk_resize_attachment( $attachment_id, $max_dim ) {
         $attachment_id = absint( $attachment_id );
         if ( ! $attachment_id ) {
-            return new WP_Error( 'invalid_id', __( 'Invalid attachment ID.', 'mbr-wp-performance' ) );
+            return new WP_Error( 'invalid_id', __( 'Invalid attachment ID.', 'mbr-performance' ) );
         }
 
         $max_dim = max( self::MIN_MAX_DIMENSION, min( self::MAX_MAX_DIMENSION, absint( $max_dim ) ) );
         if ( ! $max_dim ) {
-            return new WP_Error( 'invalid_max', __( 'Invalid maximum dimension.', 'mbr-wp-performance' ) );
+            return new WP_Error( 'invalid_max', __( 'Invalid maximum dimension.', 'mbr-performance' ) );
         }
 
         $mime = get_post_mime_type( $attachment_id );
         if ( ! in_array( $mime, array( 'image/jpeg', 'image/png' ), true ) ) {
-            return new WP_Error( 'unsupported_type', __( 'Only JPEG and PNG images can be resized.', 'mbr-wp-performance' ) );
+            return new WP_Error( 'unsupported_type', __( 'Only JPEG and PNG images can be resized.', 'mbr-performance' ) );
         }
 
         $file = get_attached_file( $attachment_id );
         if ( ! $file || ! file_exists( $file ) ) {
-            return new WP_Error( 'file_missing', __( 'Image file not found on disk.', 'mbr-wp-performance' ) );
+            return new WP_Error( 'file_missing', __( 'Image file not found on disk.', 'mbr-performance' ) );
         }
 
-        if ( ! is_writable( $file ) ) {
-            return new WP_Error( 'file_not_writable', __( 'Image file is not writable.', 'mbr-wp-performance' ) );
+        if ( ! wp_is_writable( $file ) ) {
+            return new WP_Error( 'file_not_writable', __( 'Image file is not writable.', 'mbr-performance' ) );
         }
 
         // Resolve current dimensions.
@@ -514,14 +529,14 @@ class MBR_WP_Performance_Image_Dimensions {
         }
 
         if ( ! $current_w || ! $current_h ) {
-            return new WP_Error( 'no_dimensions', __( 'Unable to determine image dimensions.', 'mbr-wp-performance' ) );
+            return new WP_Error( 'no_dimensions', __( 'Unable to determine image dimensions.', 'mbr-performance' ) );
         }
 
         // Already within limits — skip cleanly.
         if ( $current_w <= $max_dim && $current_h <= $max_dim ) {
             return array(
                 'status'          => 'skipped',
-                'reason'          => __( 'Already within the configured maximum.', 'mbr-wp-performance' ),
+                'reason'          => __( 'Already within the configured maximum.', 'mbr-performance' ),
                 'id'              => $attachment_id,
                 'filename'        => basename( $file ),
                 'original_width'  => $current_w,
@@ -618,7 +633,7 @@ class MBR_WP_Performance_Image_Dimensions {
 
         $upload_dir   = wp_upload_dir();
         $basedir_trim = trailingslashit( wp_normalize_path( $upload_dir['basedir'] ) );
-        $registry     = get_option( 'mbr_webp_registry', array() );
+        $registry     = get_option( 'mbrpe_webp_registry', array() );
         $registry     = is_array( $registry ) ? $registry : array();
         $to_remove    = array();
         $deleted      = 0;
@@ -643,7 +658,7 @@ class MBR_WP_Performance_Image_Dimensions {
 
         if ( ! empty( $to_remove ) ) {
             $registry = array_values( array_diff( $registry, $to_remove ) );
-            update_option( 'mbr_webp_registry', $registry );
+            update_option( 'mbrpe_webp_registry', $registry );
         }
 
         return $deleted;

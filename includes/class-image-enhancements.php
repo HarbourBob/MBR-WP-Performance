@@ -15,7 +15,7 @@
  *     IPTC, XMP, embedded thumbnails) is removed at upload time. Privacy win
  *     and typically a 5-30% size reduction with zero quality loss.
  *
- * @package MBR_WP_Performance
+ * @package MBRPE
  * @since   1.12.0
  */
 
@@ -24,12 +24,12 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class MBR_WP_Performance_Image_Enhancements {
+class MBRPE_Image_Enhancements {
 
     /**
      * Single instance.
      *
-     * @var MBR_WP_Performance_Image_Enhancements
+     * @var MBRPE_Image_Enhancements
      */
     private static $instance = null;
 
@@ -47,7 +47,7 @@ class MBR_WP_Performance_Image_Enhancements {
      * Constructor.
      */
     private function __construct() {
-        $opts = mbr_wp_performance()->get_options( 'image_dimensions' );
+        $opts = mbrpe()->get_options( 'image_dimensions' );
 
         if ( ! empty( $opts['decoding_async'] ) && ! is_admin() ) {
             add_filter( 'the_content',           array( $this, 'add_decoding_attr' ), 99 );
@@ -115,7 +115,7 @@ class MBR_WP_Performance_Image_Enhancements {
             return $upload;
         }
         $path = $upload['file'];
-        if ( ! is_readable( $path ) || ! is_writable( $path ) ) {
+        if ( ! is_readable( $path ) || ! wp_is_writable( $path ) ) {
             return $upload;
         }
 

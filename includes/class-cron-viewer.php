@@ -7,7 +7,7 @@
  * by deactivated plugins) and provides guidance for disabling WP-Cron in
  * favour of a real system cron job.
  *
- * @package MBR_WP_Performance
+ * @package MBRPE
  * @since   1.12.0
  */
 
@@ -16,12 +16,12 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class MBR_WP_Performance_Cron_Viewer {
+class MBRPE_Cron_Viewer {
 
     /**
      * Single instance.
      *
-     * @var MBR_WP_Performance_Cron_Viewer
+     * @var MBRPE_Cron_Viewer
      */
     private static $instance = null;
 

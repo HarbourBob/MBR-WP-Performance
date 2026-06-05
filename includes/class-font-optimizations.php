@@ -2,7 +2,7 @@
 /**
  * Font Optimizations
  *
- * @package MBR_WP_Performance
+ * @package MBRPE
  */
 
 // Exit if accessed directly
@@ -10,7 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class MBR_WP_Performance_Font_Optimizations {
+class MBRPE_Font_Optimizations {
     private static $instance = null;
     private $options = array();
 
@@ -22,7 +22,7 @@ class MBR_WP_Performance_Font_Optimizations {
     }
 
     private function __construct() {
-        $this->options = mbr_wp_performance()->get_options( 'fonts' );
+        $this->options = mbrpe()->get_options( 'fonts' );
         $this->init_optimizations();
     }
 
@@ -35,14 +35,11 @@ class MBR_WP_Performance_Font_Optimizations {
             }
             
             // Load local fonts in head
-            add_action( 'wp_head', array( $this, 'load_local_fonts' ), 5 );
+            add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_local_fonts' ), 5 );
             
             // Remove Google Fonts
             add_action( 'wp_enqueue_scripts', array( $this, 'replace_google_fonts' ), 999 );
             add_filter( 'style_loader_tag', array( $this, 'filter_google_font_links' ), 10, 4 );
-            
-            // Also remove Google Fonts from HTML output
-            add_action( 'template_redirect', array( $this, 'buffer_start' ) );
         }
         
         // Preload fonts (custom URLs)
@@ -54,9 +51,6 @@ class MBR_WP_Performance_Font_Optimizations {
         if ( $this->get_option( 'disable_google_fonts' ) ) {
             add_action( 'wp_enqueue_scripts', array( $this, 'disable_google_fonts' ), 999 );
             add_filter( 'style_loader_tag', array( $this, 'remove_google_font_links' ), 10, 4 );
-            
-            // Also remove Google Fonts from HTML output
-            add_action( 'template_redirect', array( $this, 'buffer_start' ) );
             
             // Block at script/style source level
             add_filter( 'style_loader_src', array( $this, 'block_google_font_src' ), 10, 2 );
@@ -96,17 +90,17 @@ class MBR_WP_Performance_Font_Optimizations {
      * Preload local fonts
      */
     public function preload_local_fonts() {
-        $local_fonts = get_option( 'mbr_wp_performance_local_fonts', array() );
-        $fonts_dir = get_option( 'mbr_wp_performance_fonts_dir' );
+        $local_fonts = get_option( 'mbrpe_local_fonts', array() );
+        $fonts_dir = get_option( 'mbrpe_fonts_dir' );
         
         if ( empty( $local_fonts ) || empty( $fonts_dir ) ) {
             return;
         }
         
         $upload_dir = wp_upload_dir();
-        $fonts_url = $upload_dir['baseurl'] . '/mbr-wp-performance-fonts';
+        $fonts_url = $upload_dir['baseurl'] . '/mbr-performance-fonts';
         
-        echo "\n<!-- MBR WP Performance: Preloading Local Fonts -->\n";
+        echo "\n<!-- MBR Performance: Preloading Local Fonts -->\n";
         
         $preloaded = 0;
         
@@ -140,114 +134,54 @@ class MBR_WP_Performance_Font_Optimizations {
             }
         }
         
-        echo "<!-- Preloaded " . $preloaded . " font files -->\n\n";
+        echo "<!-- Preloaded " . (int) $preloaded . " font files -->\n\n";
     }
     
     /**
-     * Load local fonts - main method
+     * Enqueue self-hosted local fonts as inline CSS.
+     *
+     * The per-variant CSS files produced by the self-hosting feature are
+     * concatenated and attached via wp_add_inline_style() on a registered
+     * (src-less) handle, rather than echoed inside a raw <style> tag. This
+     * keeps the CSS inline (no extra request) while going through the proper
+     * stylesheet API, so no manual output escaping is required.
      */
-    public function load_local_fonts() {
-        // Debug: Check if option is enabled
-        $option_enabled = $this->get_option( 'self_host_google_fonts' );
-        
-        $local_fonts = get_option( 'mbr_wp_performance_local_fonts', array() );
-        $fonts_dir = get_option( 'mbr_wp_performance_fonts_dir' );
-        
-        echo "\n<!-- MBR WP Performance Debug -->\n";
-        echo "<!-- Self-host enabled: " . ( $option_enabled ? 'YES' : 'NO' ) . " -->\n";
-        echo "<!-- Local fonts count: " . count( $local_fonts ) . " -->\n";
-        echo "<!-- Fonts dir: " . esc_html( $fonts_dir ? $fonts_dir : 'NOT SET' ) . " -->\n";
-        
+    public function enqueue_local_fonts() {
+        $local_fonts = get_option( 'mbrpe_local_fonts', array() );
+        $fonts_dir   = get_option( 'mbrpe_fonts_dir' );
+
         if ( empty( $local_fonts ) || empty( $fonts_dir ) ) {
-            echo "<!-- MBR WP Performance: No local fonts configured -->\n\n";
             return;
         }
-        
-        $upload_dir = wp_upload_dir();
-        
-        echo "<!-- MBR WP Performance: Loading Local Fonts -->\n";
-        
-        $loaded_count = 0;
-        $missing_count = 0;
-        
+
+        $css = '';
         foreach ( $local_fonts as $family => $variants ) {
             if ( ! is_array( $variants ) ) {
                 $variants = array( $variants );
             }
-            
-            echo "<!-- Processing font: " . esc_html( $family ) . " -->\n";
-            
             foreach ( $variants as $variant ) {
                 $css_filename = sanitize_file_name( $family . '-' . $variant . '.css' );
-                $css_path = $fonts_dir . '/' . $css_filename;
-                
-                echo "<!-- Looking for: " . esc_html( $css_path ) . " -->\n";
-                
-                if ( file_exists( $css_path ) ) {
-                    // Read and output the CSS inline
-                    $css_content = file_get_contents( $css_path );
-                    
-                    if ( ! empty( $css_content ) ) {
-                        echo "<style id='mbr-local-font-" . esc_attr( sanitize_title( $family . '-' . $variant ) ) . "' type='text/css'>\n";
-                        echo "/* " . esc_html( $family ) . " - " . esc_html( $variant ) . " */\n";
-                        echo $css_content;
-                        echo "\n</style>\n";
-                        $loaded_count++;
-                        echo "<!-- Loaded: " . esc_html( $css_filename ) . " -->\n";
-                    }
-                } else {
-                    echo "<!-- MISSING: " . esc_html( $css_filename ) . " -->\n";
-                    $missing_count++;
+                $css_path     = $fonts_dir . '/' . $css_filename;
+                if ( ! file_exists( $css_path ) ) {
+                    continue;
+                }
+                $css_content = file_get_contents( $css_path );
+                if ( ! empty( $css_content ) ) {
+                    $label = preg_replace( '/[^A-Za-z0-9 _.\-]/', '', $family . ' - ' . $variant );
+                    $css  .= '/* ' . $label . " */\n" . $css_content . "\n";
                 }
             }
         }
-        
-        echo "<!-- MBR WP Performance: Loaded " . $loaded_count . " fonts, " . $missing_count . " missing -->\n\n";
-    }
-    
-    /**
-     * Start output buffer
-     */
-    public function buffer_start() {
-        ob_start( array( $this, 'remove_google_fonts_from_html' ) );
-    }
-    
-    /**
-     * Remove Google Fonts from HTML output
-     */
-    public function remove_google_fonts_from_html( $html ) {
-        // Remove <link> tags to Google Fonts CSS (googleapis.com)
-        $html = preg_replace( '/<link[^>]*href=["\'][^"\']*fonts\.googleapis\.com[^"\']*["\'][^>]*>/i', '', $html );
-        
-        // Remove <link> tags to Google Font files (gstatic.com)
-        $html = preg_replace( '/<link[^>]*href=["\'][^"\']*fonts\.gstatic\.com[^"\']*["\'][^>]*>/i', '', $html );
-        
-        // Remove @import statements for Google Fonts (both domains)
-        $html = preg_replace( '/@import\s+url\(["\']?[^"\']*fonts\.googleapis\.com[^"\']*["\']?\);?/i', '', $html );
-        $html = preg_replace( '/@import\s+url\(["\']?[^"\']*fonts\.gstatic\.com[^"\']*["\']?\);?/i', '', $html );
-        
-        // Remove preconnect to Google Fonts (both domains)
-        $html = preg_replace( '/<link[^>]*rel=["\']preconnect["\'][^>]*fonts\.googleapis\.com[^>]*>/i', '', $html );
-        $html = preg_replace( '/<link[^>]*fonts\.googleapis\.com[^>]*rel=["\']preconnect["\'][^>]*>/i', '', $html );
-        $html = preg_replace( '/<link[^>]*rel=["\']preconnect["\'][^>]*fonts\.gstatic\.com[^>]*>/i', '', $html );
-        $html = preg_replace( '/<link[^>]*fonts\.gstatic\.com[^>]*rel=["\']preconnect["\'][^>]*>/i', '', $html );
-        
-        // Remove dns-prefetch to Google Fonts (both domains)
-        $html = preg_replace( '/<link[^>]*rel=["\']dns-prefetch["\'][^>]*fonts\.googleapis\.com[^>]*>/i', '', $html );
-        $html = preg_replace( '/<link[^>]*fonts\.googleapis\.com[^>]*rel=["\']dns-prefetch["\'][^>]*>/i', '', $html );
-        $html = preg_replace( '/<link[^>]*rel=["\']dns-prefetch["\'][^>]*fonts\.gstatic\.com[^>]*>/i', '', $html );
-        $html = preg_replace( '/<link[^>]*fonts\.gstatic\.com[^>]*rel=["\']dns-prefetch["\'][^>]*>/i', '', $html );
-        
-        // Remove any inline style blocks that contain Google Fonts
-        $html = preg_replace( '/<style[^>]*>.*?@import[^;]*fonts\.googleapis\.com[^;]*;.*?<\/style>/si', '', $html );
-        $html = preg_replace( '/<style[^>]*>.*?@import[^;]*fonts\.gstatic\.com[^;]*;.*?<\/style>/si', '', $html );
-        
-        // Remove font-face declarations that reference gstatic
-        $html = preg_replace( '/@font-face\s*\{[^}]*fonts\.gstatic\.com[^}]*\}/si', '', $html );
-        
-        return $html;
-    }
 
+        if ( '' === $css ) {
+            return;
+        }
+
+        wp_register_style( 'mbr-performance-local-fonts', false, array(), MBRPE_VERSION );
+        wp_enqueue_style( 'mbr-performance-local-fonts' );
+        wp_add_inline_style( 'mbr-performance-local-fonts', wp_strip_all_tags( $css ) );
+    }
+    
     /**
      * Get option value
      */
@@ -284,7 +218,7 @@ class MBR_WP_Performance_Font_Optimizations {
         // Just remove Google Fonts - local fonts are loaded via load_local_fonts()
         if ( ! empty( $wp_styles->registered ) ) {
             foreach ( $wp_styles->registered as $handle => $style ) {
-                // Block both googleapis.com (CSS) and gstatic.com (font files)
+                // Remove enqueued remote Google Fonts (stylesheet and font files)
                 if ( strpos( $style->src, 'fonts.googleapis.com' ) !== false || 
                      strpos( $style->src, 'fonts.gstatic.com' ) !== false ) {
                     wp_dequeue_style( $handle );
@@ -298,7 +232,7 @@ class MBR_WP_Performance_Font_Optimizations {
      * Filter Google Font link tags
      */
     public function filter_google_font_links( $tag, $handle, $href, $media ) {
-        // Block both googleapis.com and gstatic.com
+        // Remove enqueued remote Google Fonts (stylesheet and font files)
         if ( strpos( $href, 'fonts.googleapis.com' ) !== false || 
              strpos( $href, 'fonts.gstatic.com' ) !== false ) {
             return ''; // Remove the tag
@@ -310,7 +244,7 @@ class MBR_WP_Performance_Font_Optimizations {
      * Remove Google Font links
      */
     public function remove_google_font_links( $tag, $handle, $href, $media ) {
-        // Block both googleapis.com and gstatic.com
+        // Remove enqueued remote Google Fonts (stylesheet and font files)
         if ( strpos( $href, 'fonts.googleapis.com' ) !== false || 
              strpos( $href, 'fonts.gstatic.com' ) !== false ) {
             return '';
@@ -326,7 +260,7 @@ class MBR_WP_Performance_Font_Optimizations {
         
         if ( ! empty( $wp_styles->registered ) ) {
             foreach ( $wp_styles->registered as $handle => $style ) {
-                // Block both googleapis.com and gstatic.com
+                // Remove enqueued remote Google Fonts (stylesheet and font files)
                 if ( strpos( $style->src, 'fonts.googleapis.com' ) !== false || 
                      strpos( $style->src, 'fonts.gstatic.com' ) !== false ) {
                     wp_dequeue_style( $handle );

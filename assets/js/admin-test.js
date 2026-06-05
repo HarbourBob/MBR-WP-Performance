@@ -1,5 +1,5 @@
 /**
- * MBR WP Performance Admin JavaScript - TEST VERSION
+ * MBR Performance Admin JavaScript - TEST VERSION
  */
 
 console.log('TEST VERSION LOADED');
@@ -45,9 +45,9 @@ jQuery(document).ready(function($) {
         
         $button.text('Clearing...').prop('disabled', true);
         
-        $.post(mbrWpPerformance.ajaxUrl, {
-            action: 'mbr_wp_performance_clear_font_cache',
-            nonce: mbrWpPerformance.nonce
+        $.post(mbrpeData.ajaxUrl, {
+            action: 'mbrpe_clear_font_cache',
+            nonce: mbrpeData.nonce
         }, function(response) {
             console.log('TEST: Response received', response);
             $button.text(originalText).prop('disabled', false);

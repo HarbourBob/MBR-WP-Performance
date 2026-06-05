@@ -5,7 +5,7 @@
  * Converts JPG, JPEG, and PNG images to WebP format.
  * Integrated from the standalone MBR WebP Converter plugin.
  *
- * @package MBR_WP_Performance
+ * @package MBRPE
  * @since   1.6.0
  */
 
@@ -17,19 +17,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * WebP Converter class
  */
-class MBR_WP_Performance_WebP_Converter {
+class MBRPE_WebP_Converter {
 
     /**
      * Single instance
      *
-     * @var MBR_WP_Performance_WebP_Converter
+     * @var MBRPE_WebP_Converter
      */
     private static $instance = null;
 
     /**
      * Get instance
      *
-     * @return MBR_WP_Performance_WebP_Converter
+     * @return MBRPE_WebP_Converter
      */
     public static function instance() {
         if ( is_null( self::$instance ) ) {
@@ -42,7 +42,7 @@ class MBR_WP_Performance_WebP_Converter {
      * Constructor
      */
     private function __construct() {
-        $options = mbr_wp_performance()->get_options( 'webp' );
+        $options = mbrpe()->get_options( 'webp' );
 
         // Auto-convert on upload.
         if ( ! empty( $options['auto_convert'] ) ) {
@@ -88,7 +88,7 @@ class MBR_WP_Performance_WebP_Converter {
             return false;
         }
 
-        $options           = mbr_wp_performance()->get_options( 'webp' );
+        $options           = mbrpe()->get_options( 'webp' );
         $compression_level = isset( $options['compression_level'] ) ? intval( $options['compression_level'] ) : 75;
 
         $image     = null;
@@ -155,7 +155,7 @@ class MBR_WP_Performance_WebP_Converter {
      */
     public function handle_new_upload( $metadata, $attachment_id ) {
         $upload_dir       = wp_upload_dir();
-        $converted_images = get_option( 'mbr_webp_converted_images', array() );
+        $converted_images = get_option( 'mbrpe_webp_converted_images', array() );
         $files_to_convert = array();
 
         // Main file.
@@ -190,7 +190,7 @@ class MBR_WP_Performance_WebP_Converter {
             }
         }
 
-        update_option( 'mbr_webp_converted_images', $converted_images );
+        update_option( 'mbrpe_webp_converted_images', $converted_images );
         return $metadata;
     }
 
@@ -204,10 +204,10 @@ class MBR_WP_Performance_WebP_Converter {
      * @param string $webp_relative_path Relative path from uploads dir.
      */
     public function register_webp_file( $webp_relative_path ) {
-        $registry = get_option( 'mbr_webp_registry', array() );
+        $registry = get_option( 'mbrpe_webp_registry', array() );
         if ( ! in_array( $webp_relative_path, $registry, true ) ) {
             $registry[] = $webp_relative_path;
-            update_option( 'mbr_webp_registry', $registry );
+            update_option( 'mbrpe_webp_registry', $registry );
         }
     }
 
@@ -217,26 +217,26 @@ class MBR_WP_Performance_WebP_Converter {
      * @return array
      */
     public function get_webp_registry() {
-        return get_option( 'mbr_webp_registry', array() );
+        return get_option( 'mbrpe_webp_registry', array() );
     }
 
     /**
      * Clear the WebP file registry.
      */
     public function clear_webp_registry() {
-        delete_option( 'mbr_webp_registry' );
+        delete_option( 'mbrpe_webp_registry' );
     }
 
     /**
      * Populate registry from conversion history (one-time migration).
      */
     public function populate_registry_from_history() {
-        if ( get_option( 'mbr_webp_registry_migrated', false ) ) {
+        if ( get_option( 'mbrpe_webp_registry_migrated', false ) ) {
             return;
         }
 
-        $registry         = get_option( 'mbr_webp_registry', array() );
-        $converted_images = get_option( 'mbr_webp_converted_images', array() );
+        $registry         = get_option( 'mbrpe_webp_registry', array() );
+        $converted_images = get_option( 'mbrpe_webp_converted_images', array() );
 
         // Also migrate from the old standalone plugin option.
         if ( empty( $converted_images ) ) {
@@ -249,10 +249,10 @@ class MBR_WP_Performance_WebP_Converter {
                     $registry[] = $image['webp_path'];
                 }
             }
-            update_option( 'mbr_webp_registry', $registry );
+            update_option( 'mbrpe_webp_registry', $registry );
         }
 
-        update_option( 'mbr_webp_registry_migrated', true );
+        update_option( 'mbrpe_webp_registry_migrated', true );
     }
 
     /* ======================================================================
@@ -399,10 +399,10 @@ class MBR_WP_Performance_WebP_Converter {
         // Look up AVIF variants when the AVIF converter is loaded and enabled.
         $avif_src    = false;
         $avif_srcset = '';
-        $opts        = mbr_wp_performance()->get_options( 'webp' );
-        if ( ! empty( $opts['avif_enabled'] ) && class_exists( 'MBR_WP_Performance_AVIF_Converter' ) ) {
-            $avif_src    = MBR_WP_Performance_AVIF_Converter::avif_variant_for_url( $src );
-            $avif_srcset = MBR_WP_Performance_AVIF_Converter::build_avif_srcset( $srcset );
+        $opts        = mbrpe()->get_options( 'webp' );
+        if ( ! empty( $opts['avif_enabled'] ) && class_exists( 'MBRPE_AVIF_Converter' ) ) {
+            $avif_src    = MBRPE_AVIF_Converter::avif_variant_for_url( $src );
+            $avif_srcset = MBRPE_AVIF_Converter::build_avif_srcset( $srcset );
         }
 
         if ( ! $webp_src && ! $webp_srcset && ! $avif_src && ! $avif_srcset ) {
@@ -567,7 +567,7 @@ class MBR_WP_Performance_WebP_Converter {
      */
     public static function cleanup_on_deactivation() {
         $upload_dir   = wp_upload_dir();
-        $webp_registry = get_option( 'mbr_webp_registry', array() );
+        $webp_registry = get_option( 'mbrpe_webp_registry', array() );
 
         if ( ! empty( $webp_registry ) && is_array( $webp_registry ) ) {
             foreach ( $webp_registry as $webp_relative_path ) {
@@ -582,9 +582,9 @@ class MBR_WP_Performance_WebP_Converter {
         self::remove_htaccess_rules();
 
         // Clear plugin data.
-        delete_option( 'mbr_webp_converted_images' );
-        delete_option( 'mbr_webp_registry_migrated' );
-        delete_option( 'mbr_webp_registry' );
+        delete_option( 'mbrpe_webp_converted_images' );
+        delete_option( 'mbrpe_webp_registry_migrated' );
+        delete_option( 'mbrpe_webp_registry' );
 
         // Clear Elementor cache if active.
         if ( class_exists( '\Elementor\Plugin' ) ) {

@@ -9,7 +9,7 @@
  * editor (Elementor, Beaver, Divi, Oxygen, Bricks, WPBakery) to avoid
  * breaking edit-mode tooling.
  *
- * @package MBR_WP_Performance
+ * @package MBRPE
  * @since   1.12.0
  */
 
@@ -18,12 +18,12 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class MBR_WP_Performance_JavaScript_Optimizations {
+class MBRPE_JavaScript_Optimizations {
 
     /**
      * Single instance.
      *
-     * @var MBR_WP_Performance_JavaScript_Optimizations
+     * @var MBRPE_JavaScript_Optimizations
      */
     private static $instance = null;
 
@@ -37,7 +37,7 @@ class MBR_WP_Performance_JavaScript_Optimizations {
     /**
      * Get instance.
      *
-     * @return MBR_WP_Performance_JavaScript_Optimizations
+     * @return MBRPE_JavaScript_Optimizations
      */
     public static function instance() {
         if ( is_null( self::$instance ) ) {
@@ -50,7 +50,7 @@ class MBR_WP_Performance_JavaScript_Optimizations {
      * Constructor.
      */
     private function __construct() {
-        $this->options = mbr_wp_performance()->get_options( 'javascript' );
+        $this->options = mbrpe()->get_options( 'javascript' );
         $this->init_optimizations();
     }
 
@@ -171,18 +171,12 @@ class MBR_WP_Performance_JavaScript_Optimizations {
             add_action( 'admin_notices', array( $this, 'notice_combine_unavailable' ) );
         }
 
-        if ( $this->get_option( 'disable_concatenation' ) ) {
-            if ( ! defined( 'CONCATENATE_SCRIPTS' ) ) {
-                define( 'CONCATENATE_SCRIPTS', false );
-            }
-        }
-
         if ( $this->get_option( 'remove_script_versions' ) ) {
             add_filter( 'script_loader_src', array( $this, 'remove_script_version' ), 10, 1 );
         }
 
         if ( $this->get_option( 'delay_javascript' ) ) {
-            add_action( 'wp_print_footer_scripts', array( $this, 'output_delay_runtime' ), 5 );
+            add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_delay_runtime' ) );
         }
     }
 
@@ -212,7 +206,7 @@ class MBR_WP_Performance_JavaScript_Optimizations {
             $delay_list = $this->get_exclusion_list( 'delay_scripts' );
             if ( $this->is_excluded( $handle, $src, $delay_list ) ) {
                 $tag = preg_replace( '/\stype=["\'][^"\']*["\']/i', '', $tag );
-                $tag = str_replace( '<script ', '<script type="mbr-delayed" data-mbr-src="' . esc_attr( $src ) . '" ', $tag );
+                $tag = str_replace( '<script ', '<script type="mbr-delayed" data-mbr-src="' . esc_attr( $src ) . '" ', $tag ); // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Rewrites the tag of a script already enqueued via wp_enqueue_script(); this script_loader_tag filter only transforms existing markup and cannot enqueue.
                 $tag = preg_replace( '/\ssrc=["\'][^"\']+["\']/i', '', $tag );
                 return $tag;
             }
@@ -316,7 +310,7 @@ class MBR_WP_Performance_JavaScript_Optimizations {
      * On first user interaction (or after the configured timeout) the runtime
      * swaps every <script type="mbr-delayed"> back to a real script element.
      */
-    public function output_delay_runtime() {
+    public function enqueue_delay_runtime() {
         if ( $this->should_skip() ) {
             return;
         }
@@ -325,8 +319,8 @@ class MBR_WP_Performance_JavaScript_Optimizations {
             $timeout = 0;
         }
         $timeout_ms = $timeout * 1000;
+        ob_start();
         ?>
-        <script id="mbr-wp-performance-delay-runtime">
         (function(){
             var fired=false;
             function loadAll(){
@@ -348,12 +342,14 @@ class MBR_WP_Performance_JavaScript_Optimizations {
             }
             var ev=['mousemove','touchstart','keydown','scroll','wheel','click'];
             ev.forEach(function(e){ window.addEventListener(e,loadAll,{once:true,passive:true}); });
-            <?php if ( $timeout_ms > 0 ) : ?>
-            setTimeout(loadAll,<?php echo (int) $timeout_ms; ?>);
-            <?php endif; ?>
+__MBR_TIMEOUT__
         })();
-        </script>
         <?php
+        $runtime = ob_get_clean();
+        $runtime = str_replace( '__MBR_TIMEOUT__', $timeout_ms > 0 ? 'setTimeout(loadAll,' . absint( $timeout_ms ) . ');' : '', $runtime );
+        wp_register_script( 'mbr-performance-delay', false, array(), MBRPE_VERSION, true );
+        wp_enqueue_script( 'mbr-performance-delay' );
+        wp_add_inline_script( 'mbr-performance-delay', $runtime );
     }
 
     /**
@@ -361,11 +357,11 @@ class MBR_WP_Performance_JavaScript_Optimizations {
      */
     public function notice_combine_unavailable() {
         $screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-        if ( ! $screen || false === strpos( (string) $screen->id, 'mbr-wp-performance' ) ) {
+        if ( ! $screen || false === strpos( (string) $screen->id, 'mbr-performance' ) ) {
             return;
         }
         echo '<div class="notice notice-warning"><p>'
-            . esc_html__( 'Combine JavaScript is not yet implemented in this release. The toggle is preserved for forward compatibility but has no effect. Use Defer, Delay or Move-to-Footer instead.', 'mbr-wp-performance' )
+            . esc_html__( 'Combine JavaScript is not yet implemented in this release. The toggle is preserved for forward compatibility but has no effect. Use Defer, Delay or Move-to-Footer instead.', 'mbr-performance' )
             . '</p></div>';
     }
 }

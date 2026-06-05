@@ -4,7 +4,7 @@
  *
  * Implements the backend logic for the CSS tab toggles.
  *
- * @package MBR_WP_Performance
+ * @package MBRPE
  * @since   1.12.0
  */
 
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class MBR_WP_Performance_CSS_Optimizations {
+class MBRPE_CSS_Optimizations {
 
     /**
      * Number of stylesheets to keep render-blocking when async_css is enabled
@@ -41,7 +41,7 @@ class MBR_WP_Performance_CSS_Optimizations {
     /**
      * Single instance.
      *
-     * @var MBR_WP_Performance_CSS_Optimizations
+     * @var MBRPE_CSS_Optimizations
      */
     private static $instance = null;
 
@@ -55,7 +55,7 @@ class MBR_WP_Performance_CSS_Optimizations {
     /**
      * Get instance.
      *
-     * @return MBR_WP_Performance_CSS_Optimizations
+     * @return MBRPE_CSS_Optimizations
      */
     public static function instance() {
         if ( is_null( self::$instance ) ) {
@@ -68,7 +68,7 @@ class MBR_WP_Performance_CSS_Optimizations {
      * Constructor.
      */
     private function __construct() {
-        $this->options = mbr_wp_performance()->get_options( 'css' );
+        $this->options = mbrpe()->get_options( 'css' );
         $this->init_optimizations();
     }
 
@@ -130,24 +130,6 @@ class MBR_WP_Performance_CSS_Optimizations {
     }
 
     /**
-     * Is a critical-CSS bridge in place?
-     *
-     * "Bridge" means: the user has enabled inline_critical_css AND has
-     * populated the critical_css textarea with actual content. Only in that
-     * state is it safe to async every stylesheet without the page briefly
-     * painting unstyled. The async_stylesheet() interlock consults this.
-     *
-     * @return bool
-     */
-    private function has_critical_css_bridge() {
-        if ( ! $this->get_option( 'inline_critical_css' ) ) {
-            return false;
-        }
-        $critical = $this->get_option( 'critical_css', '' );
-        return is_string( $critical ) && '' !== trim( $critical );
-    }
-
-    /**
      * Should CSS rewriting be suppressed for the current request?
      *
      * @return bool
@@ -181,15 +163,10 @@ class MBR_WP_Performance_CSS_Optimizations {
      * Initialise enabled optimisations.
      */
     private function init_optimizations() {
-        // Inline critical CSS in <head>, then async the rest.
-        if ( $this->get_option( 'inline_critical_css' ) ) {
-            add_action( 'wp_head', array( $this, 'output_critical_css' ), 1 );
-        }
-
         // Async non-critical stylesheets via the preload+onload pattern.
         if ( $this->get_option( 'async_css' ) ) {
             add_filter( 'style_loader_tag', array( $this, 'async_stylesheet' ), 99, 4 );
-            add_action( 'wp_head', array( $this, 'output_loadcss_polyfill' ), 99 );
+            add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_loadcss_polyfill' ) );
         }
 
         // Minify inline CSS (style tags only — external files are typically minified).
@@ -224,30 +201,6 @@ class MBR_WP_Performance_CSS_Optimizations {
     }
 
     /**
-     * Output the saved critical CSS inline at the top of <head>.
-     *
-     * Both the auto-generator (in class-admin.php) and the user-editable
-     * textarea write to options[css][critical_css]. We emit that here, well
-     * before any <link rel="stylesheet"> tags, so above-the-fold styling
-     * paints immediately even when the full stylesheets are async-loaded.
-     */
-    public function output_critical_css() {
-        if ( $this->should_skip() ) {
-            return;
-        }
-        $css = $this->get_option( 'critical_css', '' );
-        // Backwards-compatibility: emit any legacy generator output that may
-        // still be stored under the old key on sites upgraded mid-cycle.
-        if ( ! is_string( $css ) || '' === trim( $css ) ) {
-            $css = $this->get_option( 'critical_css_content', '' );
-        }
-        if ( ! is_string( $css ) || '' === trim( $css ) ) {
-            return;
-        }
-        echo "<style id=\"mbr-wp-performance-critical-css\">\n" . $css . "\n</style>\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-    }
-
-    /**
      * Convert a <link rel="stylesheet"> into a preload+onload async load.
      *
      * Uses the standard pattern:
@@ -267,8 +220,8 @@ class MBR_WP_Performance_CSS_Optimizations {
         if ( '' === $href ) {
             return $tag;
         }
-        // Don't async the critical CSS we just inlined, or admin-bar styles.
-        $always_skip = array( 'mbr-wp-performance-critical-css', 'admin-bar', 'dashicons' );
+        // Don't async admin-bar or dashicons styles.
+        $always_skip = array( 'admin-bar', 'dashicons' );
         if ( in_array( $handle, $always_skip, true ) ) {
             return $tag;
         }
@@ -283,24 +236,16 @@ class MBR_WP_Performance_CSS_Optimizations {
 
         // Safety interlock.
         //
-        // If there is no critical-CSS bridge in place (Inline Critical CSS on
-        // AND Critical CSS Code populated), async-loading every stylesheet
-        // causes a Flash of Unstyled Content while the preloaded links
-        // resolve. Most users misread that paint window as "the layout is
-        // broken" and either disable async_css or, worse, assume the plugin
-        // has reset their settings.
-        //
-        // We keep the first ASYNC_SAFETY_THRESHOLD eligible stylesheets
-        // render-blocking so the page always has real CSS at first paint, and
-        // async the remainder for partial benefit. The counter is only
-        // incremented for stylesheets that would otherwise be async'd — so
-        // excluded handles, print stylesheets and the inlined critical-CSS
-        // tag don't burn the budget.
-        if ( ! $this->has_critical_css_bridge() ) {
-            $this->async_count++;
-            if ( $this->async_count <= self::ASYNC_SAFETY_THRESHOLD ) {
-                return $tag;
-            }
+        // Async-loading every stylesheet causes a Flash of Unstyled Content
+        // while the preloaded links resolve. We keep the first
+        // ASYNC_SAFETY_THRESHOLD eligible stylesheets render-blocking so the
+        // page always has real CSS at first paint, and async the remainder for
+        // partial benefit. The counter is only incremented for stylesheets
+        // that would otherwise be async'd — so excluded handles and print
+        // stylesheets don't burn the budget.
+        $this->async_count++;
+        if ( $this->async_count <= self::ASYNC_SAFETY_THRESHOLD ) {
+            return $tag;
         }
 
         $media_attr = $media ? esc_attr( $media ) : 'all';
@@ -311,6 +256,7 @@ class MBR_WP_Performance_CSS_Optimizations {
             $media_attr
         );
         $noscript = sprintf(
+            // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedStylesheet -- noscript fallback for a stylesheet already enqueued via wp_enqueue_style(); this style_loader_tag filter only rewrites its tag, and a noscript fallback cannot be enqueued.
             '<noscript><link rel="stylesheet" href="%1$s" media="%2$s"></noscript>',
             esc_url( $href ),
             $media_attr
@@ -325,12 +271,12 @@ class MBR_WP_Performance_CSS_Optimizations {
      * Modern Chrome/Firefox/Safari/Edge all support this natively; the polyfill
      * is small and only activates where needed.
      */
-    public function output_loadcss_polyfill() {
+    public function enqueue_loadcss_polyfill() {
         if ( $this->should_skip() ) {
             return;
         }
+        ob_start();
         ?>
-        <script id="mbr-wp-performance-loadcss-polyfill">
         /*! loadCSS rel=preload polyfill. [c]2017 Filament Group, Inc. MIT */
         (function(w){"use strict";if(!w.loadCSS){w.loadCSS=function(){}}
         var rp=loadCSS.relpreload={};rp.support=(function(){var ret;try{ret=w.document.createElement("link").relList.supports("preload")}catch(e){ret=!1}
@@ -339,8 +285,11 @@ class MBR_WP_Performance_CSS_Optimizations {
         if(link.addEventListener){link.addEventListener("load",enableStylesheet)}else if(link.attachEvent){link.attachEvent("onload",enableStylesheet)}
         setTimeout(function(){link.rel="stylesheet";link.media="only x"});setTimeout(enableStylesheet,3000)};rp.poly=function(){if(rp.support()){return}
         var links=w.document.getElementsByTagName("link");for(var i=0;i<links.length;i++){var link=links[i];if(link.rel==="preload"&&link.getAttribute("as")==="style"&&!link.getAttribute("data-loadcss")){link.setAttribute("data-loadcss",!0);rp.bindMediaToggle(link)}}};if(!rp.support()){rp.poly();var run=w.setInterval(rp.poly,500);if(w.addEventListener){w.addEventListener("load",function(){rp.poly();w.clearInterval(run)})}else if(w.attachEvent){w.attachEvent("onload",function(){rp.poly();w.clearInterval(run)})}}})(this);
-        </script>
         <?php
+        $polyfill = ob_get_clean();
+        wp_register_script( 'mbr-performance-loadcss', false, array(), MBRPE_VERSION );
+        wp_enqueue_script( 'mbr-performance-loadcss' );
+        wp_add_inline_script( 'mbr-performance-loadcss', $polyfill );
     }
 
     /**
@@ -403,11 +352,11 @@ class MBR_WP_Performance_CSS_Optimizations {
      */
     public function notice_combine_unavailable() {
         $screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-        if ( ! $screen || false === strpos( (string) $screen->id, 'mbr-wp-performance' ) ) {
+        if ( ! $screen || false === strpos( (string) $screen->id, 'mbr-performance' ) ) {
             return;
         }
         echo '<div class="notice notice-warning"><p>'
-            . esc_html__( 'Combine CSS is not yet implemented in this release. The toggle is preserved for forward compatibility but has no effect. Async CSS and Inline Critical CSS together give similar benefits without the risk.', 'mbr-wp-performance' )
+            . esc_html__( 'Combine CSS is not yet implemented in this release. The toggle is preserved for forward compatibility but has no effect. Async CSS gives similar benefits without the risk.', 'mbr-performance' )
             . '</p></div>';
     }
 
@@ -416,11 +365,11 @@ class MBR_WP_Performance_CSS_Optimizations {
      */
     public function notice_remove_unused_unavailable() {
         $screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-        if ( ! $screen || false === strpos( (string) $screen->id, 'mbr-wp-performance' ) ) {
+        if ( ! $screen || false === strpos( (string) $screen->id, 'mbr-performance' ) ) {
             return;
         }
         echo '<div class="notice notice-warning"><p>'
-            . esc_html__( 'Remove Unused CSS is not yet implemented in this release. For per-page asset control, see the MBR Advanced Asset Manager plugin.', 'mbr-wp-performance' )
+            . esc_html__( 'Remove Unused CSS is not yet implemented in this release. For per-page asset control, see the MBR Advanced Asset Manager plugin.', 'mbr-performance' )
             . '</p></div>';
     }
 }

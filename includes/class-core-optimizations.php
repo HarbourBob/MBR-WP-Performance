@@ -2,7 +2,7 @@
 /**
  * Core Optimizations
  *
- * @package MBR_WP_Performance
+ * @package MBRPE
  */
 
 // Exit if accessed directly
@@ -13,12 +13,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Core Optimizations class
  */
-class MBR_WP_Performance_Core_Optimizations {
+class MBRPE_Core_Optimizations {
 
     /**
      * Single instance
      *
-     * @var MBR_WP_Performance_Core_Optimizations
+     * @var MBRPE_Core_Optimizations
      */
     private static $instance = null;
 
@@ -32,7 +32,7 @@ class MBR_WP_Performance_Core_Optimizations {
     /**
      * Get instance
      *
-     * @return MBR_WP_Performance_Core_Optimizations
+     * @return MBRPE_Core_Optimizations
      */
     public static function instance() {
         if ( is_null( self::$instance ) ) {
@@ -45,7 +45,7 @@ class MBR_WP_Performance_Core_Optimizations {
      * Constructor
      */
     private function __construct() {
-        $this->options = mbr_wp_performance()->get_options( 'core' );
+        $this->options = mbrpe()->get_options( 'core' );
         $this->init_optimizations();
     }
 
@@ -309,7 +309,7 @@ class MBR_WP_Performance_Core_Optimizations {
     private function remove_global_styles() {
         // Skip silently on block / FSE themes — removing global styles would
         // break the front end. function_exists() check is for very old WP
-        // versions that predate wp_is_block_theme() (added in WP 6.1).
+        // versions that predate wp_is_block_theme() (added in WP 5.9.0).
         if ( function_exists( 'wp_is_block_theme' ) && wp_is_block_theme() ) {
             return;
         }
@@ -386,7 +386,7 @@ class MBR_WP_Performance_Core_Optimizations {
      */
     public function disable_feed() {
         wp_die(
-            esc_html__( 'No feed available, please visit our homepage.', 'mbr-wp-performance' ),
+            esc_html__( 'No feed available, please visit our homepage.', 'mbr-performance' ),
             '',
             array( 'response' => 410 )
         );
@@ -423,7 +423,7 @@ class MBR_WP_Performance_Core_Optimizations {
                 if ( ! is_user_logged_in() || ! current_user_can( 'manage_options' ) ) {
                     return new WP_Error(
                         'rest_disabled',
-                        __( 'REST API disabled for non-administrators.', 'mbr-wp-performance' ),
+                        __( 'REST API disabled for non-administrators.', 'mbr-performance' ),
                         array( 'status' => 401 )
                     );
                 }
@@ -440,7 +440,7 @@ class MBR_WP_Performance_Core_Optimizations {
                 if ( ! is_user_logged_in() ) {
                     return new WP_Error(
                         'rest_disabled',
-                        __( 'REST API disabled for logged-out users.', 'mbr-wp-performance' ),
+                        __( 'REST API disabled for logged-out users.', 'mbr-performance' ),
                         array( 'status' => 401 )
                     );
                 }
@@ -653,32 +653,64 @@ class MBR_WP_Performance_Core_Optimizations {
     }
 
     /**
-     * Limit post revisions
+     * Limit post revisions.
      *
-     * @param string $limit
+     * Uses the wp_revisions_to_keep filter rather than defining the global
+     * WP_POST_REVISIONS constant. The filter is applied at revision-save time
+     * and is scoped to this request, so the setting takes effect without
+     * forcing a site-wide constant (which, by the time plugins run on init,
+     * core has already defined in wp_functionality_constants() anyway).
+     *
+     * @param string $limit 'disable' or a numeric string.
      */
     private function limit_post_revisions( $limit ) {
         if ( 'disable' === $limit ) {
-            if ( ! defined( 'WP_POST_REVISIONS' ) ) {
-                define( 'WP_POST_REVISIONS', false );
-            }
-        } else {
-            $num = absint( $limit );
-            if ( ! defined( 'WP_POST_REVISIONS' ) && $num > 0 ) {
-                define( 'WP_POST_REVISIONS', $num );
-            }
+            add_filter( 'wp_revisions_to_keep', '__return_zero', 99 );
+            return;
+        }
+        $num = absint( $limit );
+        if ( $num > 0 ) {
+            add_filter(
+                'wp_revisions_to_keep',
+                static function () use ( $num ) {
+                    return $num;
+                },
+                99
+            );
         }
     }
 
     /**
-     * Set autosave interval
+     * Apply a custom autosave interval.
      *
-     * @param int $interval
+     * AUTOSAVE_INTERVAL is a core constant that core has already defined (in
+     * wp_functionality_constants(), before init) by the time this plugin runs,
+     * so it cannot be changed from here. Instead we re-localise core's
+     * 'autosave' script with the desired interval — a change scoped to a single
+     * admin script rather than a site-wide constant. We hook admin_print_scripts
+     * at a late priority so our localisation lands after core's just-in-time one
+     * and therefore wins.
+     *
+     * @param int $interval Seconds.
      */
     private function set_autosave_interval( $interval ) {
-        if ( ! defined( 'AUTOSAVE_INTERVAL' ) ) {
-            define( 'AUTOSAVE_INTERVAL', absint( $interval ) );
-        }
+        $interval = absint( $interval );
+        add_action(
+            'admin_print_scripts',
+            static function () use ( $interval ) {
+                if ( wp_script_is( 'autosave', 'registered' ) ) {
+                    wp_localize_script(
+                        'autosave',
+                        'autosaveL10n',
+                        array(
+                            'autosaveInterval' => $interval,
+                            'blog_id'          => get_current_blog_id(),
+                        )
+                    );
+                }
+            },
+            100
+        );
     }
 
     /**
@@ -736,13 +768,11 @@ class MBR_WP_Performance_Core_Optimizations {
                 $type = 'script';
             }
             
-            $crossorigin = ( 'font' === $type ) ? ' crossorigin="anonymous"' : '';
-            
             printf(
                 '<link rel="preload" href="%s" as="%s"%s>' . "\n",
                 esc_url( $url ),
                 esc_attr( $type ),
-                $crossorigin
+                ( 'font' === $type ) ? ' crossorigin="anonymous"' : ''
             );
         }
     }

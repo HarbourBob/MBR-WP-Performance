@@ -15,7 +15,7 @@
  * Privacy note: when enabled, no requests are made to youtube.com or vimeo.com
  * until the user clicks play (other than the static thumbnail image fetch).
  *
- * @package MBR_WP_Performance
+ * @package MBRPE
  * @since   1.12.0
  */
 
@@ -24,12 +24,12 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class MBR_WP_Performance_Video_Facade {
+class MBRPE_Video_Facade {
 
     /**
      * Single instance.
      *
-     * @var MBR_WP_Performance_Video_Facade
+     * @var MBRPE_Video_Facade
      */
     private static $instance = null;
 
@@ -54,7 +54,7 @@ class MBR_WP_Performance_Video_Facade {
      * Constructor.
      */
     private function __construct() {
-        $this->options = mbr_wp_performance()->get_options( 'lazy_loading' );
+        $this->options = mbrpe()->get_options( 'lazy_loading' );
 
         if ( empty( $this->options['video_facade'] ) ) {
             return;
@@ -69,7 +69,7 @@ class MBR_WP_Performance_Video_Facade {
         add_filter( 'render_block', array( $this, 'replace_block_iframes' ), 99, 2 );
 
         // Output the runtime + styles once per page.
-        add_action( 'wp_footer', array( $this, 'output_runtime' ), 5 );
+        add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_runtime' ) );
     }
 
     /**
@@ -150,7 +150,7 @@ class MBR_WP_Performance_Video_Facade {
             . '</div>',
             esc_attr( $video_id ),
             esc_attr( $original_src ),
-            esc_attr__( 'Play video', 'mbr-wp-performance' ),
+            esc_attr__( 'Play video', 'mbr-performance' ),
             esc_url( $thumb )
         );
     }
@@ -174,16 +174,20 @@ class MBR_WP_Performance_Video_Facade {
             . '</div>',
             esc_attr( $video_id ),
             esc_attr( $original_src ),
-            esc_attr__( 'Play video', 'mbr-wp-performance' )
+            esc_attr__( 'Play video', 'mbr-performance' )
         );
     }
 
     /**
-     * Output runtime + minimal styles.
+     * Enqueue the facade runtime + styles once per page.
+     *
+     * CSS and JS are attached to src-less registered handles via
+     * wp_add_inline_style() / wp_add_inline_script() instead of being echoed
+     * as raw <style>/<script> tags, so they go through the enqueue API.
      */
-    public function output_runtime() {
+    public function enqueue_runtime() {
+        ob_start();
         ?>
-        <style id="mbr-video-facade-style">
         .mbr-video-facade{position:relative;width:100%;aspect-ratio:16/9;background:#000;cursor:pointer;overflow:hidden;border-radius:8px;display:block}
         .mbr-video-facade__thumb{width:100%;height:100%;object-fit:cover;display:block;border:0}
         .mbr-video-facade__thumb--vimeo{background:linear-gradient(135deg,#1ab7ea 0%,#0d2436 100%)}
@@ -192,8 +196,11 @@ class MBR_WP_Performance_Video_Facade {
         .mbr-video-facade__play::before{content:"";position:absolute;top:50%;left:50%;transform:translate(-40%,-50%);width:0;height:0;border-style:solid;border-width:10px 0 10px 18px;border-color:transparent transparent transparent #fff}
         .mbr-video-facade--vimeo .mbr-video-facade__play:hover,.mbr-video-facade--vimeo:hover .mbr-video-facade__play{background:#1ab7ea}
         .mbr-video-facade iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
-        </style>
-        <script id="mbr-video-facade-runtime">
+        <?php
+        $css = ob_get_clean();
+
+        ob_start();
+        ?>
         (function(){
             function activate(el){
                 var provider=el.dataset.provider;
@@ -245,7 +252,16 @@ class MBR_WP_Performance_Video_Facade {
                 }
             });
         })();
-        </script>
         <?php
+        $js = ob_get_clean();
+
+        wp_register_style( 'mbr-video-facade', false, array(), MBRPE_VERSION );
+        wp_enqueue_style( 'mbr-video-facade' );
+        wp_add_inline_style( 'mbr-video-facade', $css );
+
+        wp_register_script( 'mbr-video-facade', false, array(), MBRPE_VERSION, true );
+        wp_enqueue_script( 'mbr-video-facade' );
+        wp_add_inline_script( 'mbr-video-facade', $js );
     }
+
 }

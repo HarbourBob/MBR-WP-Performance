@@ -10,7 +10,7 @@
  * The AJAX side runs from class-admin.php; this class provides the
  * underlying queries and the toggle operation.
  *
- * @package MBR_WP_Performance
+ * @package MBRPE
  * @since   1.12.0
  */
 
@@ -19,12 +19,12 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-class MBR_WP_Performance_Autoload_Audit {
+class MBRPE_Autoload_Audit {
 
     /**
      * Single instance.
      *
-     * @var MBR_WP_Performance_Autoload_Audit
+     * @var MBRPE_Autoload_Audit
      */
     private static $instance = null;
 
@@ -61,7 +61,7 @@ class MBR_WP_Performance_Autoload_Audit {
         // Exclude the plugin's own options — the docblock promises this, and
         // they're small, legitimately autoloaded, and not something we want to
         // invite the user to disable via our own tool.
-        $own_prefix = $wpdb->esc_like( 'mbr_wp_performance_' ) . '%';
+        $own_prefix = $wpdb->esc_like( 'mbrpe_' ) . '%';
 
         $rows = $wpdb->get_results(
             $wpdb->prepare(

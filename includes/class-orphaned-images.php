@@ -21,11 +21,11 @@
  * table with a purge_after timestamp, allowing restoration within the window.
  * A daily cron job purges files past their restore window.
  *
- * Class name retained as MBR_WP_Performance_Orphaned_Images for backward
+ * Class name retained as MBRPE_Orphaned_Images for backward
  * compatibility with v1.10.0 — renaming for purely cosmetic reasons would be
  * a tax with no functional gain.
  *
- * @package MBR_WP_Performance
+ * @package MBRPE
  * @since   1.10.0
  */
 
@@ -37,12 +37,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Orphaned Images class
  */
-class MBR_WP_Performance_Orphaned_Images {
+class MBRPE_Orphaned_Images {
 
     /**
      * Single instance
      *
-     * @var MBR_WP_Performance_Orphaned_Images
+     * @var MBRPE_Orphaned_Images
      */
     private static $instance = null;
 
@@ -130,7 +130,7 @@ class MBR_WP_Performance_Orphaned_Images {
      * @return string[]
      */
     public static function get_enabled_types() {
-        $opts = mbr_wp_performance()->get_options( 'orphaned_images' );
+        $opts = mbrpe()->get_options( 'orphaned_images' );
         if ( ! is_array( $opts ) || ! isset( $opts['enabled_types'] ) || ! is_array( $opts['enabled_types'] ) ) {
             return array( 'images' );
         }
@@ -225,7 +225,7 @@ class MBR_WP_Performance_Orphaned_Images {
     /**
      * Get instance
      *
-     * @return MBR_WP_Performance_Orphaned_Images
+     * @return MBRPE_Orphaned_Images
      */
     public static function instance() {
         if ( is_null( self::$instance ) ) {
@@ -239,10 +239,10 @@ class MBR_WP_Performance_Orphaned_Images {
      * deletion handlers are AJAX-only (registered in class-admin.php).
      */
     private function __construct() {
-        $this->options = mbr_wp_performance()->get_options( 'orphaned_images' );
+        $this->options = mbrpe()->get_options( 'orphaned_images' );
 
         // Daily purge of staged-for-deletion rows past their restore window.
-        add_action( 'mbr_wp_performance_orphan_purge', array( __CLASS__, 'cron_purge_expired' ) );
+        add_action( 'mbrpe_orphan_purge', array( __CLASS__, 'cron_purge_expired' ) );
     }
 
     /* ===================================================================
@@ -298,7 +298,7 @@ class MBR_WP_Performance_Orphaned_Images {
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         dbDelta( $sql );
 
-        update_option( 'mbr_wp_performance_orphan_db_version', self::DB_VERSION );
+        update_option( 'mbrpe_orphan_db_version', self::DB_VERSION );
     }
 
     /**
@@ -309,7 +309,7 @@ class MBR_WP_Performance_Orphaned_Images {
         $table = self::table_name();
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         $wpdb->query( "DROP TABLE IF EXISTS {$table}" );
-        delete_option( 'mbr_wp_performance_orphan_db_version' );
+        delete_option( 'mbrpe_orphan_db_version' );
     }
 
     /* ===================================================================
@@ -325,7 +325,7 @@ class MBR_WP_Performance_Orphaned_Images {
         $table = self::table_name();
         $wpdb->delete( $table, array( 'status' => self::STATUS_CANDIDATE ), array( '%s' ) );
 
-        delete_option( 'mbr_wp_performance_orphan_scan_state' );
+        delete_option( 'mbrpe_orphan_scan_state' );
     }
 
     /**
@@ -344,7 +344,7 @@ class MBR_WP_Performance_Orphaned_Images {
             'started_at'  => 0,
             'finished_at' => 0,
         );
-        $state = get_option( 'mbr_wp_performance_orphan_scan_state', $default );
+        $state = get_option( 'mbrpe_orphan_scan_state', $default );
         return is_array( $state ) ? array_merge( $default, $state ) : $default;
     }
 
@@ -356,7 +356,7 @@ class MBR_WP_Performance_Orphaned_Images {
     public static function update_scan_state( $state ) {
         $current = self::get_scan_state();
         $merged  = array_merge( $current, $state );
-        update_option( 'mbr_wp_performance_orphan_scan_state', $merged, false );
+        update_option( 'mbrpe_orphan_scan_state', $merged, false );
     }
 
     /**
@@ -535,7 +535,7 @@ class MBR_WP_Performance_Orphaned_Images {
                    AND post_status NOT IN ('trash','auto-draft')",
                 $parents_to_check
             );
-            $live_parents = array_map( 'intval', (array) $wpdb->get_col( $sql ) );
+            $live_parents = array_map( 'intval', (array) $wpdb->get_col( $sql ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql is built via $wpdb->prepare() directly above with %d placeholders.
         }
 
         // ----- Check 2: featured image references (_thumbnail_id) -----
@@ -547,7 +547,7 @@ class MBR_WP_Performance_Orphaned_Images {
                AND meta_value IN ({$placeholders})",
             $batch_ids
         );
-        $referenced_thumb = array_map( 'intval', (array) $wpdb->get_col( $thumb_sql ) );
+        $referenced_thumb = array_map( 'intval', (array) $wpdb->get_col( $thumb_sql ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $thumb_sql is built via $wpdb->prepare() directly above with %d placeholders.
 
         // ----- Check 3: post_content references (per-attachment LIKE) -----
         // We do these one at a time because a multi-OR LIKE on post_content
@@ -574,14 +574,14 @@ class MBR_WP_Performance_Orphaned_Images {
                 $args[]  = $p;
             }
 
-            $sql = "SELECT ID FROM {$wpdb->posts}
+            $content_sql = "SELECT ID FROM {$wpdb->posts}
                     WHERE post_status NOT IN ('trash','auto-draft','inherit')
                       AND post_type NOT IN ('revision','attachment')
                       AND (" . implode( ' OR ', $where ) . ')
                     LIMIT 1';
 
-            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-            $hit = $wpdb->get_var( $wpdb->prepare( $sql, $args ) );
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- Query template is literal SQL with %s placeholders only; values passed through prepare().
+            $hit = $wpdb->get_var( $wpdb->prepare( $content_sql, $args ) );
             if ( $hit ) {
                 $content_referenced[] = $id;
             }
@@ -596,14 +596,14 @@ class MBR_WP_Performance_Orphaned_Images {
         foreach ( $batch_ids as $id ) {
             // Skip _thumbnail_id meta_key — already covered. Look for the ID
             // appearing as a value or substring of a value in any other meta.
-            $sql = $wpdb->prepare(
+            $meta_sql = $wpdb->prepare(
                 "SELECT post_id FROM {$wpdb->postmeta}
                  WHERE meta_key != '_thumbnail_id'
                    AND meta_value LIKE %s
                  LIMIT 1",
                 '%' . $wpdb->esc_like( (string) $id ) . '%'
             );
-            $hit = $wpdb->get_var( $sql );
+            $hit = $wpdb->get_var( $meta_sql ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $meta_sql is built via $wpdb->prepare() directly above with a %s placeholder.
             if ( $hit ) {
                 $meta_referenced[] = $id;
             }
@@ -886,7 +886,7 @@ class MBR_WP_Performance_Orphaned_Images {
      * @return int[]
      */
     public static function get_excluded_ids() {
-        $opts = mbr_wp_performance()->get_options( 'orphaned_images' );
+        $opts = mbrpe()->get_options( 'orphaned_images' );
         if ( ! is_array( $opts ) || empty( $opts['excluded_ids'] ) ) {
             return array();
         }
@@ -900,7 +900,7 @@ class MBR_WP_Performance_Orphaned_Images {
      * @return int
      */
     public static function get_restore_days() {
-        $opts = mbr_wp_performance()->get_options( 'orphaned_images' );
+        $opts = mbrpe()->get_options( 'orphaned_images' );
         if ( ! is_array( $opts ) || ! isset( $opts['restore_days'] ) ) {
             return self::DEFAULT_RESTORE_DAYS;
         }
@@ -923,7 +923,7 @@ class MBR_WP_Performance_Orphaned_Images {
             return;
         }
 
-        $opts                          = get_option( 'mbr_wp_performance_options', array() );
+        $opts                          = get_option( 'mbrpe_options', array() );
         $opts['orphaned_images']       = isset( $opts['orphaned_images'] ) && is_array( $opts['orphaned_images'] )
             ? $opts['orphaned_images']
             : array();
@@ -936,7 +936,7 @@ class MBR_WP_Performance_Orphaned_Images {
         if ( ! in_array( $attachment_id, $current, true ) ) {
             $current[] = $attachment_id;
             $opts['orphaned_images']['excluded_ids'] = array_values( array_unique( $current ) );
-            update_option( 'mbr_wp_performance_options', $opts );
+            update_option( 'mbrpe_options', $opts );
         }
 
         $wpdb->delete(
@@ -966,7 +966,7 @@ class MBR_WP_Performance_Orphaned_Images {
         global $wpdb;
         $attachment_id = (int) $attachment_id;
         if ( $attachment_id <= 0 ) {
-            return new WP_Error( 'invalid_id', __( 'Invalid attachment ID.', 'mbr-wp-performance' ) );
+            return new WP_Error( 'invalid_id', __( 'Invalid attachment ID.', 'mbr-performance' ) );
         }
 
         $table = self::table_name();
@@ -984,7 +984,7 @@ class MBR_WP_Performance_Orphaned_Images {
         if ( ! $row ) {
             return new WP_Error(
                 'not_candidate',
-                __( 'Attachment is no longer a deletion candidate. Re-scan and try again.', 'mbr-wp-performance' )
+                __( 'Attachment is no longer a deletion candidate. Re-scan and try again.', 'mbr-performance' )
             );
         }
 
@@ -999,7 +999,7 @@ class MBR_WP_Performance_Orphaned_Images {
             );
             return new WP_Error(
                 'no_longer_orphan',
-                __( 'Attachment is now in use elsewhere — deletion blocked. Run a fresh scan.', 'mbr-wp-performance' )
+                __( 'Attachment is now in use elsewhere — deletion blocked. Run a fresh scan.', 'mbr-performance' )
             );
         }
 
@@ -1125,7 +1125,7 @@ class MBR_WP_Performance_Orphaned_Images {
                            AND (" . implode( ' OR ', $where ) . ')
                          LIMIT 1';
 
-                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQL.NotPrepared -- Query template is literal SQL with %s placeholders only; values passed through prepare().
                 $hit = $wpdb->get_var( $wpdb->prepare( $sql, $patterns ) );
                 if ( $hit ) {
                     return false;
@@ -1206,14 +1206,14 @@ class MBR_WP_Performance_Orphaned_Images {
         );
 
         if ( ! $row ) {
-            return new WP_Error( 'not_found', __( 'Staged record not found.', 'mbr-wp-performance' ) );
+            return new WP_Error( 'not_found', __( 'Staged record not found.', 'mbr-performance' ) );
         }
 
         $post_data = $row['attachment_post'] ? json_decode( $row['attachment_post'], true ) : null;
         $meta_data = $row['attachment_meta'] ? json_decode( $row['attachment_meta'], true ) : array();
 
         if ( ! $post_data || ! is_array( $post_data ) ) {
-            return new WP_Error( 'corrupt_record', __( 'Staged record is missing post data.', 'mbr-wp-performance' ) );
+            return new WP_Error( 'corrupt_record', __( 'Staged record is missing post data.', 'mbr-performance' ) );
         }
 
         // Re-insert the post with its original ID where possible.
@@ -1252,7 +1252,7 @@ class MBR_WP_Performance_Orphaned_Images {
             'original_id'          => (int) $row['attachment_id'],
             'file_path'            => $row['file_path'],
             'file_bytes_recovered' => false, // Always false — files are gone.
-            'message'              => __( 'Attachment record restored. The image file itself was deleted and must be re-uploaded.', 'mbr-wp-performance' ),
+            'message'              => __( 'Attachment record restored. The image file itself was deleted and must be re-uploaded.', 'mbr-performance' ),
         );
     }
 

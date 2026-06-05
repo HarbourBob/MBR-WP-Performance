@@ -1,8 +1,8 @@
-/* global jQuery, mbrWpPerformance, mbrOrphanedImages */
+/* global jQuery, mbrpeData, mbrpeOrphanedImages */
 (function($) {
     'use strict';
 
-    var i18n = (mbrOrphanedImages && mbrOrphanedImages.i18n) ? mbrOrphanedImages.i18n : {};
+    var i18n = (mbrpeOrphanedImages && mbrpeOrphanedImages.i18n) ? mbrpeOrphanedImages.i18n : {};
 
     var state = {
         scanning: false,
@@ -18,9 +18,9 @@
     // -----------------------------------------------------------------
 
     function ajax(action, data) {
-        return $.post(mbrWpPerformance.ajaxUrl, $.extend({
-            action: 'mbr_wp_performance_orphan_' + action,
-            nonce: mbrWpPerformance.nonce
+        return $.post(mbrpeData.ajaxUrl, $.extend({
+            action: 'mbrpe_orphan_' + action,
+            nonce: mbrpeData.nonce
         }, data || {}));
     }
 

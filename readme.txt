@@ -1,10 +1,10 @@
-=== MBR WP Performance ===
-Contributors: Made by Robert
+=== MBR Performance ===
+Contributors: robinmorgan2059
 Tags: performance, optimization, speed, cache, database, webp, image
-Requires at least: 5.8
+Requires at least: 5.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.13.7
+Stable tag: 1.15.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -12,7 +12,7 @@ Comprehensive WordPress performance optimization plugin with controls for core f
 
 == Description ==
 
-MBR WP Performance is a powerful, all-in-one performance optimization plugin that gives you complete control over your WordPress site's performance.
+MBR Performance is a powerful, all-in-one performance optimization plugin that gives you complete control over your WordPress site's performance.
 
 = Features =
 
@@ -34,7 +34,6 @@ MBR WP Performance is a powerful, all-in-one performance optimization plugin tha
 * Remove script versions
 
 **CSS Optimization**
-* Critical CSS inlining with auto-generator
 * Async CSS loading
 * Minify and combine CSS files
 * CSS scanner for unused styles
@@ -145,9 +144,9 @@ MBR WP Performance is a powerful, all-in-one performance optimization plugin tha
 
 == Installation ==
 
-1. Upload the `mbr-wp-performance` folder to the `/wp-content/plugins/` directory
+1. Upload the `mbr-performance` folder to the `/wp-content/plugins/` directory
 2. Activate the plugin through the 'Plugins' menu in WordPress
-3. Access settings via 'WP Performance' in the WordPress admin toolbar
+3. Access settings via 'MBR Performance' in the WordPress admin toolbar
 4. Configure features one tab at a time
 
 == Frequently Asked Questions ==
@@ -170,11 +169,11 @@ Yes, the plugin is fully compatible with Elementor, Beaver Builder, Divi, Oxygen
 
 = Does this work with WordPress Multisite? =
 
-Yes! From v1.5.0 onwards the plugin fully supports WordPress Multisite networks. You can network-activate the plugin and manage default settings from the Network Admin (Settings > WP Performance). You can push those defaults to all sites at once, import settings from any existing site, and choose whether individual site admins are allowed to override the network defaults.
+Yes! From v1.5.0 onwards the plugin fully supports WordPress Multisite networks. You can network-activate the plugin and manage default settings from the Network Admin (Settings > MBR Performance). You can push those defaults to all sites at once, import settings from any existing site, and choose whether individual site admins are allowed to override the network defaults.
 
 = How do I access the settings? =
 
-Click 'WP Performance' in the WordPress admin toolbar at the top of the screen. You can also access individual tabs from the dropdown menu.
+Click 'MBR Performance' in the WordPress admin toolbar at the top of the screen. You can also access individual tabs from the dropdown menu.
 
 = What's the difference between Lazy Loading and Preloading? =
 
@@ -184,7 +183,57 @@ Lazy Loading delays loading of images/videos until they're needed (saving bandwi
 
 It can. WordPress 7.0 added a core AI Client, the Abilities API and a Settings -> Connectors screen. They stay dormant until you connect an AI provider, so they don't slow a default site down — but if you'd rather the subsystem never loaded at all, tick "Disable AI Features (WordPress 7.0+)" on the Core tab. It uses WordPress's own wp_supports_ai kill switch and has no effect on WordPress 6.x.
 
+== External services ==
+
+This plugin can connect to the third-party services listed below. Each is optional and is only contacted when you enable the relevant feature; with these features off, the plugin makes no external requests.
+
+= Google Fonts (Self-host Google Fonts feature) =
+
+When you enable "Self-host Google Fonts" and download a font from the Fonts tab, your server contacts the Google Fonts API at fonts.googleapis.com to retrieve the font's stylesheet, and Google's font CDN at fonts.gstatic.com to download the font files. The files are then stored on your own server and served locally, so your visitors' browsers do not contact Google. The request is made by your server only at the moment you trigger a download in the admin area. It sends the requested font family name(s) and the information present in any standard HTTP request (such as your server's IP address and user agent); no website-visitor data is sent.
+
+This service is provided by Google. Google Terms of Service: https://policies.google.com/terms — Google Privacy Policy: https://policies.google.com/privacy — Google Fonts privacy details: https://developers.google.com/fonts/faq/privacy
+
+= YouTube (Video facade feature) =
+
+When the video facade is enabled and a page contains an embedded YouTube video, the plugin shows a lightweight placeholder instead of the full embed. To display a preview image, the visitor's browser loads the video's thumbnail from YouTube's image server at i.ytimg.com. The full YouTube player, and any YouTube cookies, are loaded only if the visitor clicks to play. The thumbnail request is made by the visitor's browser and includes the visitor's IP address and the YouTube video ID.
+
+This service is provided by Google/YouTube. YouTube Terms of Service: https://www.youtube.com/t/terms — Google Privacy Policy: https://policies.google.com/privacy
+
+= Vimeo (Video facade feature) =
+
+When the video facade is enabled and a page contains an embedded Vimeo video, the plugin shows a lightweight placeholder instead of the full embed. To display a preview image, the visitor's browser requests the video's public metadata from Vimeo's API at vimeo.com/api/v2/video/{id}.json, which returns the thumbnail URL. The full Vimeo player is loaded only if the visitor clicks to play. The request is made by the visitor's browser and includes the visitor's IP address and the Vimeo video ID.
+
+This service is provided by Vimeo. Vimeo Terms of Service: https://vimeo.com/terms — Vimeo Privacy Policy: https://vimeo.com/privacy
+
 == Changelog ==
+
+= 1.15.0 =
+* Changed: every internal identifier now uses the unified `mbrpe` prefix (classes, constants, options, hooks, AJAX actions and script objects) to meet the WordPress.org four-character prefix requirement and avoid collisions.
+* Added: a one-time, automatic migration that moves existing settings, font caches and WebP/AVIF conversion registries to the new option names on upgrade — no reconfiguration needed.
+* Hardening: review-compliance pass — additional input sanitisation ($_SERVER and decoded AJAX payloads), late output escaping (wp_kses_post / esc_js), explicit prepared-SQL placeholders, and more robust URL-to-path resolution for subdirectory installs.
+
+= 1.14.1 =
+* Fixed: inline admin script strings are now escaped at the point of output (esc_js) for full WordPress.Security.EscapeOutput compliance. No functional change.
+* Internal: removed all heredoc/nowdoc syntax (disallowed by Plugin Check); inline scripts now build their content via local, immediately-closed output buffers.
+
+= 1.14.0 =
+This release prepares the plugin for the WordPress.org plugin directory and includes several feature removals — please read the Upgrade Notice before updating.
+* Renamed: the plugin is now "MBR Performance" with the slug `mbr-performance` (previously "MBR WP Performance" / `mbr-wp-performance`). Your saved settings are preserved — the stored option keys are unchanged.
+* Removed: the Critical CSS field. Async CSS loading continues to work on its own.
+* Removed: the Third-Party tab that self-hosted Google Analytics, Google Tag Manager and Facebook Pixel. Filter-based removal of enqueued Google Fonts is unaffected.
+* Removed: HTML minification. The saving is marginal once gzip/brotli compression is in play, and it was a recurring source of edge-case layout breakage.
+* Removed: the "Disable Concatenation" toggle (admin-only; it had no effect on front-end performance).
+* Changed: limiting post revisions now uses the `wp_revisions_to_keep` filter rather than defining the global `WP_POST_REVISIONS` constant at runtime. As a result the setting now takes effect reliably, which the constant approach did not.
+* Changed: the autosave-interval setting now re-localises the core autosave script instead of defining `AUTOSAVE_INTERVAL`, so the longer-interval options take effect.
+* Internal: every inline `<script>`/`<style>` block is now registered through `wp_enqueue_*` / `wp_add_inline_*`; removed `load_plugin_textdomain()` (not required on WordPress 4.6+); added an "External services" section to this readme documenting the Google Fonts, YouTube and Vimeo connections.
+
+= 1.13.9 =
+* Fix (UI): The "Compression" column header on the Conversion History table was set to 110px wide, which is just narrow enough that the word wraps onto a second line at the standard wp-list-table header font weight. Bumped to 140px so the label sits cleanly on one line.
+
+= 1.13.8 =
+* New: Bulk AVIF converter. The WebP tab now has an AVIF Bulk Converter section alongside the existing WebP one (Start AVIF Conversion, Clear AVIF History, Revert All AVIF Files), and only renders when the server has a real AVIF encoder available — so it can't be enabled to no effect on hosts that lack libavif/libheif. Mirrors the WebP converter's architecture: per-image AJAX with progress bar, history option (`mbr_avif_converted_images`) parallel to the WebP one, and a registry-driven Revert All that deletes every .avif this plugin created without touching originals or WebP variants.
+* New: An "AVIF Size" column has been added to the Conversion History table, alongside the existing WebP Size column. The table now merges records from both `mbr_webp_converted_images` and `mbr_avif_converted_images` keyed by original path, so each image appears as a single row with whichever format data exists (a dash shown where a format hasn't been generated for that image). The Compression column now reports the savings against whichever recorded format is smallest — AVIF when present, since it's typically 20–30% smaller than WebP at equivalent perceived quality, otherwise WebP.
+* New: Auto-convert on upload now also writes to the AVIF history option, so newly-uploaded images appear in the table alongside bulk-converted ones. Previously the auto-upload AVIF path only populated the file registry; the size data wasn't kept anywhere.
 
 = 1.13.7 =
 * Fix (AVIF false-positive detection): Server AVIF support was being detected via `function_exists('imageavif')`, which is unreliable. From PHP 8.1 onwards the `imageavif()` function is declared whether or not libgd was actually compiled against libavif; on the very common shared-host configuration where it wasn't, the function exists but calls fail silently at runtime, no `.avif` files are produced, and visitors are served WebP (or the original) regardless of how aggressively the user has toggled AVIF on. Detection now uses `gd_info()['AVIF Support']`, which reflects what libgd was actually built with — the same reliable pattern the plugin's WebP detection has always used via `gd_info()['WebP Support']`.
@@ -192,7 +241,7 @@ It can. WordPress 7.0 added a core AI Client, the Abilities API and a Settings -
 * Note: existing `.avif` files on disk are still served. The fix only stops the plugin from quietly pretending conversion is happening when the server can't actually do it.
 
 = 1.13.6 =
-* Fix (UI contrast): Inline status messages rendered by AJAX handlers — visible on the Database panel and elsewhere — appeared with WordPress core's near-black `.notice` text colour on the plugin's dark-themed success/error/warning/info backgrounds, producing a low-contrast pill that was hard to read against the green tint. The plugin's `.notice-success`, `.notice-warning`, `.notice-error` and `.notice-info` rules now set `color: var(--mbr-text-primary)` (the same light text colour already used by the equivalent `.mbr-wp-performance-message.success/error` rules) and apply it to nested `<p>` elements too so it wins over any descendant rules WP core may inject. Same fix applied to the network-settings inline notice variants.
+* Fix (UI contrast): Inline status messages rendered by AJAX handlers — visible on the Database panel and elsewhere — appeared with WordPress core's near-black `.notice` text colour on the plugin's dark-themed success/error/warning/info backgrounds, producing a low-contrast pill that was hard to read against the green tint. The plugin's `.notice-success`, `.notice-warning`, `.notice-error` and `.notice-info` rules now set `color: var(--mbr-text-primary)` (the same light text colour already used by the equivalent `.mbr-performance-message.success/error` rules) and apply it to nested `<p>` elements too so it wins over any descendant rules WP core may inject. Same fix applied to the network-settings inline notice variants.
 
 = 1.13.5 =
 * Fix (the actual root cause of the "CSS toggles revert" bug): Three font-related fields on the Fonts tab — Optimize Google Fonts, Font Display Strategy (duplicate), and Disable Elementor Google Fonts — had their form inputs scoped to `mbr_wp_performance_options[css][...]` instead of `[fonts][...]`. Submitting the Fonts tab therefore POSTed a partial `css` section, and the CSS sanitiser — doing exactly what a section sanitiser should do — replaced the entire stored `css` section with the partial input, setting every CSS boolean not present in the form to `false` and dropping the textareas. This is what users were observing as "the CSS settings all return to default (switched off) without warning" after some unknown period of time: the unknown period was the time between saving the CSS tab and saving the Fonts tab. The earlier v1.13.4 async-CSS safety interlock papered over the visual symptom (no FOUC even when toggles got wiped); this release fixes the cause.
@@ -210,7 +259,7 @@ It can. WordPress 7.0 added a core AI Client, the Abilities API and a Settings -
 = 1.13.3 =
 * Fix (Critical CSS): The "Auto-Generate Critical CSS" button stored its output under an internal key (`[css][critical_css_content]`) that was not in the CSS sanitiser's whitelist, so the sanitiser stripped it on every save. Generated CSS only survived at all because the admin JS also drops it into the editable textarea, which does persist. The generator now writes straight to the canonical `[css][critical_css]` field, so its output persists immediately and the frontend emits it without depending on that fallback. No action needed on upgrade; if you previously generated critical CSS and saved, it is already in the right field.
 * Fix (Reset to Defaults): The "Reset to Defaults" button did nothing. It navigated to `?...&reset=1`, but no handler ever read that parameter. It now runs a proper nonce- and capability-checked POST request that resets every section to its defaults and reloads the page. (Implemented as POST rather than a GET link so it can't be triggered by a crawler, prefetch, or a stray bookmark.)
-* Fix (Autoload Audit): The Diagnostics → Autoloaded Options audit claimed in code to exclude the plugin's own options but the query didn't, so MBR WP Performance's own options could appear in the list and be offered for autoload-disabling. The query now excludes the `mbr_wp_performance_` namespace as documented.
+* Fix (Autoload Audit): The Diagnostics → Autoloaded Options audit claimed in code to exclude the plugin's own options but the query didn't, so MBR Performance's own options could appear in the list and be offered for autoload-disabling. The query now excludes the `mbr_wp_performance_` namespace as documented.
 * Housekeeping: First-install defaults and the new reset routine now share a single `default_options()` definition rather than duplicating the structure.
 
 = 1.13.2 =
@@ -239,7 +288,7 @@ This release folds in three bug fixes that were made against the 1.12.x line (1.
 
 * Feature: AVIF image conversion alongside WebP. New `<picture>` wrapper emits AVIF first, then WebP, then the JPEG/PNG fallback — browsers automatically pick the first format they support. AVIF is typically 20-30% smaller than WebP at equivalent perceived quality. Requires PHP 8.1+ with GD AVIF, or Imagick 7.0.25+. Falls back gracefully where unsupported; new tab section in WebP tab includes server capability diagnostics.
 
-* Feature: Self-hosted third-party scripts. New "Third-Party" tab with per-script toggles for Google Analytics (gtag.js), Google Tag Manager (gtm.js), legacy Google Analytics (analytics.js), and Facebook Pixel (fbevents.js). Scripts are downloaded daily to /wp-content/uploads/mbr-wp-performance/third-party/ and outbound <script src=> URLs are rewritten via output buffer. Removes the PSI "Reduce the impact of third-party code" warning and stops first-paint requests to googletagmanager.com / connect.facebook.net.
+* Feature: Self-hosted third-party scripts. New "Third-Party" tab with per-script toggles for Google Analytics (gtag.js), Google Tag Manager (gtm.js), legacy Google Analytics (analytics.js), and Facebook Pixel (fbevents.js). Scripts are downloaded daily to /wp-content/uploads/mbr-performance/third-party/ and outbound <script src=> URLs are rewritten via output buffer. Removes the PSI "Reduce the impact of third-party code" warning and stops first-paint requests to googletagmanager.com / connect.facebook.net.
 
 * Feature: YouTube and Vimeo facade pattern. Replaces embedded video iframes with a static thumbnail and play button; the real iframe is only loaded on click. Saves ~1.4MB of YouTube JS on initial page load and stops YouTube cookies being set until user interaction. Vimeo thumbnails are hydrated lazily via the public v2 API behind an IntersectionObserver. Keyboard accessible (Enter/Space). Toggle on Lazy Loading tab.
 
@@ -360,7 +409,7 @@ This release folds in three bug fixes that were made against the 1.12.x line (1.
 
 = 1.5.0 =
 * Feature: Full WordPress Multisite network support
-* Feature: Network Admin settings page (Settings > WP Performance)
+* Feature: Network Admin settings page (Settings > MBR Performance)
 * Feature: Network-wide default settings with one-click push to all sites
 * Feature: Import settings from any site as the network defaults
 * Feature: Per-site override toggle — super admins can lock or unlock site customisation
@@ -394,6 +443,9 @@ This release folds in three bug fixes that were made against the 1.12.x line (1.
 * Database optimization
 
 == Upgrade Notice ==
+
+= 1.14.0 =
+The plugin is renamed to "MBR Performance" (slug `mbr-performance`); your settings carry over. This release removes the Critical CSS field, the Third-Party self-hosting tab, HTML minification and the Disable Concatenation toggle. Because the plugin folder name changes, if you installed via direct download you should deactivate and delete the old "MBR WP Performance" copy after installing this one.
 
 = 1.13.0 =
 Adds a Core-tab toggle to switch off the new WordPress 7.0 AI subsystem (AI Client, Abilities API and Connectors) using core's native kill switch. Off by default, so nothing changes on upgrade unless you enable it. Harmless on WordPress 6.x. Marks the plugin tested up to WordPress 7.0.

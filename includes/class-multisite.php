@@ -5,7 +5,7 @@
  * Handles network-wide activation, settings propagation,
  * per-site overrides, and the Network Admin settings page.
  *
- * @package MBR_WP_Performance
+ * @package MBRPE
  * @since   1.5.0
  */
 
@@ -17,19 +17,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Multisite class
  */
-class MBR_WP_Performance_Multisite {
+class MBRPE_Multisite {
 
     /**
      * Single instance.
      *
-     * @var MBR_WP_Performance_Multisite
+     * @var MBRPE_Multisite
      */
     private static $instance = null;
 
     /**
      * Get instance.
      *
-     * @return MBR_WP_Performance_Multisite
+     * @return MBRPE_Multisite
      */
     public static function instance() {
         if ( is_null( self::$instance ) ) {
@@ -56,8 +56,8 @@ class MBR_WP_Performance_Multisite {
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_network_admin_assets' ) );
 
         // Network admin AJAX handlers.
-        add_action( 'wp_ajax_mbr_wp_performance_save_network_settings', array( $this, 'ajax_save_network_settings' ) );
-        add_action( 'wp_ajax_mbr_wp_performance_push_to_sites', array( $this, 'ajax_push_to_sites' ) );
+        add_action( 'wp_ajax_mbrpe_save_network_settings', array( $this, 'ajax_save_network_settings' ) );
+        add_action( 'wp_ajax_mbrpe_push_to_sites', array( $this, 'ajax_push_to_sites' ) );
 
         // Toolbar link in network admin.
         add_action( 'admin_bar_menu', array( $this, 'add_network_toolbar_menu' ), 100 );
@@ -73,10 +73,10 @@ class MBR_WP_Performance_Multisite {
     public function add_network_admin_menu() {
         add_submenu_page(
             'settings.php',
-            __( 'WP Performance – Network', 'mbr-wp-performance' ),
-            __( 'WP Performance', 'mbr-wp-performance' ),
+            __( 'MBR Performance – Network', 'mbr-performance' ),
+            __( 'MBR Performance', 'mbr-performance' ),
             'manage_network_options',
-            'mbr-wp-performance-network',
+            'mbr-performance-network',
             array( $this, 'render_network_settings_page' )
         );
     }
@@ -92,11 +92,11 @@ class MBR_WP_Performance_Multisite {
         }
 
         $wp_admin_bar->add_node( array(
-            'id'    => 'mbr-wp-performance-network',
-            'title' => '<span class="ab-icon dashicons-performance"></span><span class="ab-label">' . __( 'WP Performance (Network)', 'mbr-wp-performance' ) . '</span>',
-            'href'  => network_admin_url( 'settings.php?page=mbr-wp-performance-network' ),
+            'id'    => 'mbr-performance-network',
+            'title' => '<span class="ab-icon dashicons-performance"></span><span class="ab-label">' . __( 'MBR Performance (Network)', 'mbr-performance' ) . '</span>',
+            'href'  => network_admin_url( 'settings.php?page=mbr-performance-network' ),
             'meta'  => array(
-                'title' => __( 'WP Performance Network Settings', 'mbr-wp-performance' ),
+                'title' => __( 'MBR Performance Network Settings', 'mbr-performance' ),
             ),
         ) );
     }
@@ -111,35 +111,35 @@ class MBR_WP_Performance_Multisite {
      * @param string $hook Current admin page hook.
      */
     public function enqueue_network_admin_assets( $hook ) {
-        if ( strpos( $hook, 'mbr-wp-performance-network' ) === false ) {
+        if ( strpos( $hook, 'mbr-performance-network' ) === false ) {
             return;
         }
 
         wp_enqueue_style(
-            'mbr-wp-performance-admin',
-            MBR_WP_PERFORMANCE_PLUGIN_URL . 'assets/css/admin.css',
+            'mbr-performance-admin',
+            MBRPE_PLUGIN_URL . 'assets/css/admin.css',
             array(),
-            MBR_WP_PERFORMANCE_VERSION
+            MBRPE_VERSION
         );
 
         wp_enqueue_script(
-            'mbr-wp-performance-network-admin',
-            MBR_WP_PERFORMANCE_PLUGIN_URL . 'assets/js/admin-clean.js',
+            'mbr-performance-network-admin',
+            MBRPE_PLUGIN_URL . 'assets/js/admin-clean.js',
             array( 'jquery' ),
-            MBR_WP_PERFORMANCE_VERSION,
+            MBRPE_VERSION,
             true
         );
 
         wp_localize_script(
-            'mbr-wp-performance-network-admin',
-            'mbrWpPerformance',
+            'mbr-performance-network-admin',
+            'mbrpeData',
             array(
                 'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-                'nonce'   => wp_create_nonce( 'mbr_wp_performance_nonce' ),
+                'nonce'   => wp_create_nonce( 'mbrpe_nonce' ),
                 'i18n'    => array(
-                    'saveSuccess'  => __( 'Network settings saved successfully.', 'mbr-wp-performance' ),
-                    'saveError'    => __( 'Error saving settings. Please try again.', 'mbr-wp-performance' ),
-                    'confirmReset' => __( 'Are you sure you want to reset all network settings to defaults?', 'mbr-wp-performance' ),
+                    'saveSuccess'  => __( 'Network settings saved successfully.', 'mbr-performance' ),
+                    'saveError'    => __( 'Error saving settings. Please try again.', 'mbr-performance' ),
+                    'confirmReset' => __( 'Are you sure you want to reset all network settings to defaults?', 'mbr-performance' ),
                 ),
             )
         );
@@ -154,16 +154,16 @@ class MBR_WP_Performance_Multisite {
      */
     public function render_network_settings_page() {
         if ( ! current_user_can( 'manage_network_options' ) ) {
-            wp_die( esc_html__( 'You do not have permission to access this page.', 'mbr-wp-performance' ) );
+            wp_die( esc_html__( 'You do not have permission to access this page.', 'mbr-performance' ) );
         }
 
         $network_options = self::get_network_options();
         $sites           = get_sites( array( 'number' => 0 ) );
         ?>
-        <div class="wrap mbr-wp-performance-wrap">
-            <h1><?php esc_html_e( 'WP Performance – Network Settings', 'mbr-wp-performance' ); ?></h1>
+        <div class="wrap mbr-performance-wrap">
+            <h1><?php esc_html_e( 'MBR Performance – Network Settings', 'mbr-performance' ); ?></h1>
 
-            <?php require_once MBR_WP_PERFORMANCE_PLUGIN_DIR . 'includes/admin/tabs/network.php'; ?>
+            <?php require_once MBRPE_PLUGIN_DIR . 'includes/admin/tabs/network.php'; ?>
         </div>
         <?php
     }
@@ -176,35 +176,35 @@ class MBR_WP_Performance_Multisite {
      * Save network-wide default settings.
      */
     public function ajax_save_network_settings() {
-        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+        check_ajax_referer( 'mbrpe_nonce', 'nonce' );
 
         if ( ! current_user_can( 'manage_network_options' ) ) {
-            wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'mbr-wp-performance' ) ) );
+            wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'mbr-performance' ) ) );
         }
 
         $options = isset( $_POST['options'] ) ? $_POST['options'] : array();
 
         // Sanitize using the same method as per-site settings.
-        $admin     = MBR_WP_Performance_Admin::instance();
+        $admin     = MBRPE_Admin::instance();
         $sanitized = $admin->sanitize_options( $options );
 
         // Network-level flag: allow per-site overrides.
         $allow_overrides = isset( $_POST['allow_site_overrides'] ) ? (bool) $_POST['allow_site_overrides'] : true;
 
-        update_site_option( 'mbr_wp_performance_network_options', $sanitized );
-        update_site_option( 'mbr_wp_performance_allow_site_overrides', $allow_overrides );
+        update_site_option( 'mbrpe_network_options', $sanitized );
+        update_site_option( 'mbrpe_allow_site_overrides', $allow_overrides );
 
-        wp_send_json_success( array( 'message' => __( 'Network settings saved successfully.', 'mbr-wp-performance' ) ) );
+        wp_send_json_success( array( 'message' => __( 'Network settings saved successfully.', 'mbr-performance' ) ) );
     }
 
     /**
      * Push network settings to all sites (or selected sites).
      */
     public function ajax_push_to_sites() {
-        check_ajax_referer( 'mbr_wp_performance_nonce', 'nonce' );
+        check_ajax_referer( 'mbrpe_nonce', 'nonce' );
 
         if ( ! current_user_can( 'manage_network_options' ) ) {
-            wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'mbr-wp-performance' ) ) );
+            wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'mbr-performance' ) ) );
         }
 
         $site_ids = isset( $_POST['site_ids'] ) ? array_map( 'absint', (array) $_POST['site_ids'] ) : array();
@@ -213,7 +213,7 @@ class MBR_WP_Performance_Multisite {
         $network_options = self::get_network_options();
 
         if ( empty( $network_options ) ) {
-            wp_send_json_error( array( 'message' => __( 'No network settings found. Save network settings first.', 'mbr-wp-performance' ) ) );
+            wp_send_json_error( array( 'message' => __( 'No network settings found. Save network settings first.', 'mbr-performance' ) ) );
         }
 
         $sites = array();
@@ -235,12 +235,12 @@ class MBR_WP_Performance_Multisite {
         foreach ( $sites as $site ) {
             switch_to_blog( $site->blog_id );
 
-            $result = update_option( 'mbr_wp_performance_options', $network_options );
+            $result = update_option( 'mbrpe_options', $network_options );
 
             // Mark that the site is using network defaults.
-            update_option( 'mbr_wp_performance_using_network_defaults', true );
+            update_option( 'mbrpe_using_network_defaults', true );
 
-            if ( false !== $result || get_option( 'mbr_wp_performance_options' ) === $network_options ) {
+            if ( false !== $result || get_option( 'mbrpe_options' ) === $network_options ) {
                 $updated++;
             } else {
                 $errors++;
@@ -252,7 +252,7 @@ class MBR_WP_Performance_Multisite {
         wp_send_json_success( array(
             'message' => sprintf(
                 // translators: 1: number of sites updated, 2: number of errors.
-                __( 'Settings pushed to %1$d sites. Errors: %2$d', 'mbr-wp-performance' ),
+                __( 'Settings pushed to %1$d sites. Errors: %2$d', 'mbr-performance' ),
                 $updated,
                 $errors
             ),
@@ -271,12 +271,12 @@ class MBR_WP_Performance_Multisite {
 
         foreach ( $sites as $site ) {
             switch_to_blog( $site->blog_id );
-            mbr_wp_performance()->activate();
+            mbrpe()->activate();
             restore_current_blog();
         }
 
         // Store network-level version.
-        update_site_option( 'mbr_wp_performance_network_version', MBR_WP_PERFORMANCE_VERSION );
+        update_site_option( 'mbrpe_network_version', MBRPE_VERSION );
     }
 
     /**
@@ -287,12 +287,12 @@ class MBR_WP_Performance_Multisite {
 
         foreach ( $sites as $site ) {
             switch_to_blog( $site->blog_id );
-            mbr_wp_performance()->deactivate();
+            mbrpe()->deactivate();
             restore_current_blog();
         }
 
         // Clean up network-level options (leave per-site data intact).
-        delete_site_option( 'mbr_wp_performance_network_version' );
+        delete_site_option( 'mbrpe_network_version' );
     }
 
     /**
@@ -301,19 +301,19 @@ class MBR_WP_Performance_Multisite {
      * @param WP_Site $new_site New site object.
      */
     public static function on_new_site( $new_site ) {
-        if ( ! is_plugin_active_for_network( MBR_WP_PERFORMANCE_PLUGIN_BASENAME ) ) {
+        if ( ! is_plugin_active_for_network( MBRPE_PLUGIN_BASENAME ) ) {
             return;
         }
 
         switch_to_blog( $new_site->blog_id );
 
-        mbr_wp_performance()->activate();
+        mbrpe()->activate();
 
         // If network defaults exist, apply them.
         $network_options = self::get_network_options();
         if ( ! empty( $network_options ) ) {
-            update_option( 'mbr_wp_performance_options', $network_options );
-            update_option( 'mbr_wp_performance_using_network_defaults', true );
+            update_option( 'mbrpe_options', $network_options );
+            update_option( 'mbrpe_using_network_defaults', true );
         }
 
         restore_current_blog();
@@ -329,7 +329,7 @@ class MBR_WP_Performance_Multisite {
      * @return array
      */
     public static function get_network_options() {
-        return get_site_option( 'mbr_wp_performance_network_options', array() );
+        return get_site_option( 'mbrpe_network_options', array() );
     }
 
     /**
@@ -338,7 +338,7 @@ class MBR_WP_Performance_Multisite {
      * @return bool
      */
     public static function allow_site_overrides() {
-        return (bool) get_site_option( 'mbr_wp_performance_allow_site_overrides', true );
+        return (bool) get_site_option( 'mbrpe_allow_site_overrides', true );
     }
 
     /**
@@ -347,7 +347,7 @@ class MBR_WP_Performance_Multisite {
      * @return bool
      */
     public static function site_uses_network_defaults() {
-        return (bool) get_option( 'mbr_wp_performance_using_network_defaults', false );
+        return (bool) get_option( 'mbrpe_using_network_defaults', false );
     }
 
     /**
@@ -362,12 +362,12 @@ class MBR_WP_Performance_Multisite {
      */
     public static function get_effective_options() {
         if ( ! is_multisite() ) {
-            return get_option( 'mbr_wp_performance_options', array() );
+            return get_option( 'mbrpe_options', array() );
         }
 
         // If overrides are allowed and the site has its own settings, use them.
         if ( self::allow_site_overrides() && ! self::site_uses_network_defaults() ) {
-            $site_options = get_option( 'mbr_wp_performance_options', array() );
+            $site_options = get_option( 'mbrpe_options', array() );
             if ( ! empty( $site_options ) ) {
                 return $site_options;
             }
@@ -380,6 +380,6 @@ class MBR_WP_Performance_Multisite {
         }
 
         // Absolute fallback.
-        return get_option( 'mbr_wp_performance_options', array() );
+        return get_option( 'mbrpe_options', array() );
     }
 }
