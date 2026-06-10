@@ -392,6 +392,18 @@ $core_options = isset( $options['core'] ) ? $options['core'] : array();
         <table class="form-table">
             <tr>
                 <th scope="row">
+                    <label for="minify_html">
+                        <?php esc_html_e( 'Minify HTML', 'mbr-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Strips HTML comments and collapses whitespace in the page output. Typically saves 5-15% of HTML transfer size. The contents of script, style, pre, textarea and svg blocks are preserved exactly, IE conditional comments are kept, and pages embedding a complete nested HTML document (e.g. a full landing page inside a page-builder HTML widget) are skipped automatically. AMP, REST, AJAX and feed responses are never minified.', 'mbr-performance' ); ?>">?</span>
+                    </label>
+                </th>
+                <td>
+                    <input type="checkbox" name="mbrpe_options[core][minify_html]" id="minify_html" value="1" <?php checked( isset( $core_options['minify_html'] ) && $core_options['minify_html'] ); ?>>
+                </td>
+            </tr>
+            
+            <tr>
+                <th scope="row">
                     <label for="lazy_load_mode">
                         <?php esc_html_e( 'Lazy Load Images', 'mbr-performance' ); ?>
                         <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Controls how images are lazy loaded. Enhanced mode loads images earlier for better UX.', 'mbr-performance' ); ?>">?</span>

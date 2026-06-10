@@ -293,6 +293,7 @@ class MBRPE_Admin {
             'separate_block_styles',
             'lazy_load_images',
             'remove_query_strings',
+            'minify_html',
             'disable_woocommerce_scripts',
             'disable_ai_support',
         );

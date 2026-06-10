@@ -174,6 +174,10 @@ class MBRPE_Core_Optimizations {
             add_filter( 'script_loader_src', array( $this, 'remove_query_strings' ), 10, 2 );
         }
         
+        if ( $this->get_option( 'minify_html' ) ) {
+            add_action( 'template_redirect', array( $this, 'start_html_minify' ), 99 );
+        }
+        
         $preload_resources = $this->get_option( 'preload_resources' );
         if ( ! empty( $preload_resources ) ) {
             add_action( 'wp_head', array( $this, 'preload_resources' ), 1 );
@@ -746,6 +750,136 @@ class MBRPE_Core_Optimizations {
             $src = remove_query_arg( 'ver', $src );
         }
         return $src;
+    }
+
+    /**
+     * Start output buffering for HTML minification.
+     *
+     * Skips every response type that should never be minified: admin,
+     * AJAX, REST, feeds, embeds, customizer previews, robots/favicon
+     * requests and AMP pages.
+     */
+    public function start_html_minify() {
+        if ( is_admin() || is_feed() || is_embed() || is_robots() || is_customize_preview() ) {
+            return;
+        }
+
+        if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
+            return;
+        }
+
+        if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
+            return;
+        }
+
+        if ( defined( 'XMLRPC_REQUEST' ) && XMLRPC_REQUEST ) {
+            return;
+        }
+
+        // AMP pages must not be altered.
+        if ( ( function_exists( 'amp_is_request' ) && amp_is_request() )
+            || ( function_exists( 'is_amp_endpoint' ) && is_amp_endpoint() ) ) {
+            return;
+        }
+
+        ob_start( array( $this, 'minify_html_buffer' ) );
+    }
+
+    /**
+     * Minify a complete HTML document.
+     *
+     * Conservative by design:
+     * - Only runs on output that looks like a full HTML document.
+     * - Skips pages containing a nested/embedded second document
+     *   (a second DOCTYPE, <html> or <head>), e.g. a complete landing
+     *   page pasted into a page-builder HTML widget.
+     * - Protects <script>, <style>, <pre>, <textarea> and <svg> blocks
+     *   and IE conditional comments via collision-free alphanumeric
+     *   placeholder tokens (never HTML comments).
+     * - Strips remaining HTML comments and collapses only whitespace
+     *   runs that span a newline, so inline-element spacing is kept.
+     * - Every regex pass falls back to the previous buffer if PCRE
+     *   bails, and the original buffer is returned if any placeholder
+     *   fails to restore.
+     *
+     * @param string $html Buffered page output.
+     * @return string Minified (or untouched) output.
+     */
+    public function minify_html_buffer( $html ) {
+        if ( ! is_string( $html ) || '' === $html ) {
+            return $html;
+        }
+
+        // Only operate on what looks like an HTML document.
+        $probe = substr( $html, 0, 512 );
+        if ( false === stripos( $probe, '<html' ) && false === stripos( $probe, '<!doctype' ) ) {
+            return $html;
+        }
+
+        // Nested-document guard: a second DOCTYPE, <html> or <head>
+        // means an embedded full document — leave byte-for-byte untouched.
+        if ( preg_match_all( '/<!doctype\b/i', $html ) > 1
+            || preg_match_all( '/<html[\s>]/i', $html ) > 1
+            || preg_match_all( '/<head[\s>]/i', $html ) > 1 ) {
+            return $html;
+        }
+
+        // Collision-free per-request token (alphanumeric only — never an
+        // HTML comment, so the comment-stripping pass cannot eat it).
+        $token        = 'MBRPE' . str_replace( array( '.', ' ' ), '', uniqid( '', true ) ) . wp_rand( 1000, 9999 );
+        $placeholders = array();
+        $index        = 0;
+
+        $protect = function ( $pattern, $buffer ) use ( &$placeholders, &$index, $token ) {
+            $result = preg_replace_callback(
+                $pattern,
+                function ( $matches ) use ( &$placeholders, &$index, $token ) {
+                    $key                  = $token . '_' . $index . '_' . $token;
+                    $placeholders[ $key ] = $matches[0];
+                    $index++;
+                    return $key;
+                },
+                $buffer
+            );
+            return null === $result ? $buffer : $result;
+        };
+
+        $out = $html;
+
+        // IE conditional comments first (they may contain scripts/styles).
+        $out = $protect( '/<!--\[if[^\]]*\]>.*?<!\[endif\]-->/is', $out );
+
+        // Blocks whose contents must be preserved exactly.
+        $out = $protect( '/<script\b[^>]*>.*?<\/script>/is', $out );
+        $out = $protect( '/<style\b[^>]*>.*?<\/style>/is', $out );
+        $out = $protect( '/<pre\b[^>]*>.*?<\/pre>/is', $out );
+        $out = $protect( '/<textarea\b[^>]*>.*?<\/textarea>/is', $out );
+        $out = $protect( '/<svg\b[^>]*>.*?<\/svg>/is', $out );
+
+        // Strip remaining HTML comments.
+        $stripped = preg_replace( '/<!--.*?-->/s', '', $out );
+        if ( null !== $stripped ) {
+            $out = $stripped;
+        }
+
+        // Conservative whitespace collapse: only runs that span a newline
+        // are reduced (to a single newline), preserving inline spacing.
+        $collapsed = preg_replace( '/[ \t]*(?:\r\n|\r|\n)[\s]*/', "\n", $out );
+        if ( null !== $collapsed ) {
+            $out = $collapsed;
+        }
+
+        // Restore protected blocks.
+        if ( ! empty( $placeholders ) ) {
+            $out = strtr( $out, $placeholders );
+
+            // Safety net: if any placeholder survived, abort entirely.
+            if ( false !== strpos( $out, $token ) ) {
+                return $html;
+            }
+        }
+
+        return $out;
     }
 
     /**

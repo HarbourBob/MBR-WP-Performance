@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MBR Performance
  * Description: Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, orphaned media cleanup, and WooCommerce optimisations.
- * Version: 1.15.0
+ * Version: 1.16.0
  * Author: Robin Morgan
  * Text Domain: mbr-performance
  * Domain Path: /languages
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants
-define( 'MBRPE_VERSION', '1.15.0' );
+define( 'MBRPE_VERSION', '1.16.0' );
 define( 'MBRPE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MBRPE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'MBRPE_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );

@@ -82,6 +82,7 @@ class MBRPE_Conflict_Detector {
                 'overlaps'   => array(
                     'css.minify_css'                 => 'Minify CSS (W3TC: Minify CSS)',
                     'javascript.minify_javascript'   => 'Minify JS (W3TC: Minify JS)',
+                    'core.minify_html'               => 'Minify HTML (W3TC: Minify HTML & XML)',
                     'javascript.defer_javascript'    => 'Defer JS (W3TC: JS Embed Method = Async/Defer)',
                     'server_headers.browser_cache'   => 'Browser Cache (W3TC: Browser Cache)',
                     'server_headers.gzip_compression'=> 'GZIP (W3TC: HTTP compression)',
@@ -98,6 +99,7 @@ class MBRPE_Conflict_Detector {
                     'javascript.defer_javascript'    => 'Defer JS (LSCache: JS Defer)',
                     'javascript.delay_javascript'    => 'Delay JS (LSCache: JS Delayed Load)',
                     'javascript.minify_javascript'   => 'Minify JS (LSCache: JS Minify)',
+                    'core.minify_html'               => 'Minify HTML (LSCache: HTML Minify)',
                     'webp.auto_convert'              => 'WebP conversion (LSCache: Image WebP Replacement)',
                     'server_headers.browser_cache'   => 'Browser Cache (LSCache: handled internally)',
                 ),
@@ -145,6 +147,7 @@ class MBRPE_Conflict_Detector {
                     'css.minify_css'                 => 'Minify CSS (Autoptimize: Optimize CSS Code)',
                     'javascript.defer_javascript'    => 'Defer JS (Autoptimize: Optimize JavaScript Code)',
                     'javascript.minify_javascript'   => 'Minify JS (Autoptimize)',
+                    'core.minify_html'               => 'Minify HTML (Autoptimize: Optimize HTML Code)',
                 ),
             ),
         );

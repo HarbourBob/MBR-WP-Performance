@@ -4,7 +4,7 @@ Tags: performance, optimization, speed, cache, database, webp, image
 Requires at least: 5.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.15.0
+Stable tag: 1.16.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -21,6 +21,7 @@ MBR Performance is a powerful, all-in-one performance optimization plugin that g
 * Control REST API access
 * Manage heartbeat, revisions, and autosave
 * Remove query strings for better caching
+* Minify HTML output (with automatic skip for embedded/nested documents)
 * WooCommerce script optimization
 * XML-RPC and RSS feed control
 * Disable the WordPress 7.0 AI Client, Abilities API and Connectors
@@ -206,6 +207,10 @@ When the video facade is enabled and a page contains an embedded Vimeo video, th
 This service is provided by Vimeo. Vimeo Terms of Service: https://vimeo.com/terms — Vimeo Privacy Policy: https://vimeo.com/privacy
 
 == Changelog ==
+
+= 1.16.0 =
+* Added: Minify HTML returns to the Core Features tab (Advanced Performance section), rebuilt with every hardening fix from the 1.13.x line included from day one: collision-free alphanumeric placeholder tokens (never HTML comments), exact preservation of `script` / `style` / `pre` / `textarea` / inline `svg` blocks and IE conditional comments, conservative whitespace collapsing (only runs spanning a newline), automatic skip of pages embedding a nested complete HTML document (e.g. a full landing page inside a page-builder HTML widget), and AMP / REST / AJAX / feed / embed / customizer-preview responses are never touched. Each regex pass falls back to the un-minified buffer if PCRE bails, and the original output is restored wholesale if any placeholder fails to round-trip. Off by default.
+* Added: the Caching Plugin Conflict Detector now flags the Minify HTML overlap with W3 Total Cache, LiteSpeed Cache and Autoptimize.
 
 = 1.15.0 =
 * Changed: every internal identifier now uses the unified `mbrpe` prefix (classes, constants, options, hooks, AJAX actions and script objects) to meet the WordPress.org four-character prefix requirement and avoid collisions.
