@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚡ MBR WP Performance
+# ⚡ MBR Performance
 
 ### Comprehensive WordPress performance, granular control, zero tracking — free forever.
 
