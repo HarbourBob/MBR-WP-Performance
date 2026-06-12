@@ -70,11 +70,29 @@ $css_options = isset( $options['css'] ) ? $options['css'] : array();
                 <th scope="row">
                     <label for="combine_css">
                         <?php esc_html_e( 'Combine CSS Files', 'mbr-performance' ); ?>
-                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'WARNING: Merges multiple stylesheets - May affect load order', 'mbr-performance' ); ?>">?</span>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Merges adjacent local stylesheets into a single cached file to cut requests. Cascade order is preserved; external, conditional and print stylesheets are left alone.', 'mbr-performance' ); ?>">?</span>
                     </label>
                 </th>
                 <td>
                     <input type="checkbox" name="mbrpe_options[css][combine_css]" id="combine_css" value="1" <?php checked( isset( $css_options['combine_css'] ) && $css_options['combine_css'] ); ?>>
+                    <p class="description">
+                        <?php esc_html_e( 'Concatenates runs of adjacent same-media local stylesheets into one cached bundle under /uploads/mbr-performance-combine/. Only same-origin files are merged; external, conditional, print and excluded stylesheets are left untouched so the cascade is preserved. If Minify CSS is also enabled, the bundle is minified.', 'mbr-performance' ); ?>
+                    </p>
+                </td>
+            </tr>
+            
+            <tr class="mbr-performance-child-row">
+                <th scope="row">
+                    <label for="preload_combined_css">
+                        <?php esc_html_e( 'Preload Combined CSS', 'mbr-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Adds an early preload hint so the browser fetches the combined stylesheet sooner. Ignored when Async CSS is enabled.', 'mbr-performance' ); ?>">?</span>
+                    </label>
+                </th>
+                <td>
+                    <input type="checkbox" name="mbrpe_options[css][preload_combined_css]" id="preload_combined_css" value="1" <?php checked( isset( $css_options['preload_combined_css'] ) && $css_options['preload_combined_css'] ); ?>>
+                    <p class="description">
+                        <?php esc_html_e( 'Emits a <link rel="preload" as="style"> hint in the document head for each combined bundle, so the browser starts downloading it before the parser reaches the stylesheet link. Has no effect unless Combine CSS is on, and is automatically skipped when Async CSS is enabled (which already preloads).', 'mbr-performance' ); ?>
+                    </p>
                 </td>
             </tr>
             
@@ -87,6 +105,26 @@ $css_options = isset( $options['css'] ) ? $options['css'] : array();
                 </th>
                 <td>
                     <textarea name="mbrpe_options[css][exclude_optimization]" id="exclude_optimization" rows="4" class="large-text code"><?php echo isset( $css_options['exclude_optimization'] ) ? esc_textarea( $css_options['exclude_optimization'] ) : ''; ?></textarea>
+                </td>
+            </tr>
+            
+            <tr class="mbr-performance-child-row">
+                <th scope="row"><?php esc_html_e( 'Combined CSS cache', 'mbr-performance' ); ?></th>
+                <td>
+                    <?php
+                    $mbr_combine_stats = class_exists( 'MBRPE_CSS_Optimizations' )
+                        ? MBRPE_CSS_Optimizations::combine_cache_stats()
+                        : array( 'css' => 0, 'css_bytes' => 0 );
+                    $mbr_css_size = $mbr_combine_stats['css_bytes'] > 0 ? size_format( $mbr_combine_stats['css_bytes'] ) : '0 B';
+                    ?>
+                    <p class="description" style="margin-bottom:8px;">
+                        <?php esc_html_e( 'Cached combined CSS files:', 'mbr-performance' ); ?>
+                        <strong id="mbr-combine-css-count"><?php echo esc_html( number_format_i18n( $mbr_combine_stats['css'] ) ); ?></strong>
+                        (<span id="mbr-combine-css-size"><?php echo esc_html( $mbr_css_size ); ?></span>)
+                    </p>
+                    <button type="button" class="button" id="mbr-clear-combine-css" data-cache-type="css"><?php esc_html_e( 'Clear combined CSS cache', 'mbr-performance' ); ?></button>
+                    <span id="mbr-combine-css-status"></span>
+                    <p class="description"><?php esc_html_e( 'Bundles also rebuild automatically when settings or stylesheets change.', 'mbr-performance' ); ?></p>
                 </td>
             </tr>
         </table>

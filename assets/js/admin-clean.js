@@ -62,6 +62,41 @@ console.log('==========================================');
             // CSS operations
             $('#scan-css').on('click', function(e) { self.scanCSS.call(this, e); });
             $('#clear-scan-data').on('click', function(e) { self.clearScanData.call(this, e); });
+
+            // Combine cache operations (CSS + JS tabs)
+            $('#mbr-clear-combine-css, #mbr-clear-combine-js').on('click', function(e) { self.clearCombineCache.call(this, e); });
+
+            // Persist dismissal of the caching-plugin conflict notice (per user,
+            // until the overlap changes). WordPress core hides it client-side;
+            // we record the dismissal so it doesn't return on reload. sendBeacon
+            // is used so the request still completes even if the user clicks a
+            // tab immediately after dismissing (a normal XHR would be cancelled
+            // by the navigation, and the dismissal would never save).
+            $(document).on('click', '.mbr-conflict-notice .notice-dismiss', function() {
+                var hash = $(this).closest('.mbr-conflict-notice').data('mbr-conflict-hash');
+                if (!hash) { return; }
+
+                var sent = false;
+                if (window.navigator && typeof navigator.sendBeacon === 'function') {
+                    try {
+                        var fd = new FormData();
+                        fd.append('action', 'mbrpe_dismiss_conflict');
+                        fd.append('nonce', mbrpeData.nonce);
+                        fd.append('hash', hash);
+                        sent = navigator.sendBeacon(mbrpeData.ajaxUrl, fd);
+                    } catch (err) {
+                        sent = false;
+                    }
+                }
+
+                if (!sent) {
+                    $.post(mbrpeData.ajaxUrl, {
+                        action: 'mbrpe_dismiss_conflict',
+                        nonce: mbrpeData.nonce,
+                        hash: hash
+                    });
+                }
+            });
             
             // Font operations
             $('#download-manual-fonts').on('click', function(e) { self.downloadManualFonts.call(this, e); });
@@ -710,6 +745,36 @@ console.log('==========================================');
                 } else {
                     MBRPE_Admin.showMessage($status, response.data.message, 'error');
                 }
+            });
+        },
+
+        /**
+         * Clear the combined CSS/JS bundle cache (type read from the button).
+         */
+        clearCombineCache: function(e) {
+            e.preventDefault();
+            var $button = $(this);
+            var type = $button.data('cache-type') || 'all';
+            var $status = $('#mbr-combine-' + type + '-status');
+
+            MBRPE_Admin.showLoading($button);
+
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_clear_combine_cache',
+                nonce: mbrpeData.nonce,
+                cache_type: type
+            }, function(response) {
+                MBRPE_Admin.hideLoading($button);
+                if (response && response.success) {
+                    $('#mbr-combine-' + type + '-count').text('0');
+                    $('#mbr-combine-' + type + '-size').text('0 B');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
+                } else {
+                    MBRPE_Admin.showMessage($status, (response && response.data && response.data.message) || 'Failed to clear cache.', 'error');
+                }
+            }).fail(function() {
+                MBRPE_Admin.hideLoading($button);
+                MBRPE_Admin.showMessage($status, 'Request failed.', 'error');
             });
         },
 

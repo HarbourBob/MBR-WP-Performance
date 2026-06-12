@@ -702,6 +702,21 @@ body.wp-admin,
     color: var(--mbr-text-primary);
 }
 
+/* Dismiss (×) button — core's default colour is too dark to see on our
+   dark notice backgrounds, so brighten it (especially the conflict notice). */
+.mbr-performance-wrap .notice-dismiss::before,
+.mbr-conflict-notice .notice-dismiss::before {
+    color: var(--mbr-text-primary);
+    opacity: 1;
+}
+
+.mbr-performance-wrap .notice-dismiss:hover::before,
+.mbr-performance-wrap .notice-dismiss:focus::before,
+.mbr-conflict-notice .notice-dismiss:hover::before,
+.mbr-conflict-notice .notice-dismiss:focus::before {
+    color: #ffffff;
+}
+
 /* --------------------------------------------------------------------------
    Success / Error Messages (AJAX feedback)
    -------------------------------------------------------------------------- */

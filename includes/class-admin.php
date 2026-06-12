@@ -74,6 +74,7 @@ class MBRPE_Admin {
         add_action( 'wp_ajax_mbrpe_download_fonts', array( $this, 'ajax_download_fonts' ) );
         add_action( 'wp_ajax_mbrpe_download_manual_fonts', array( $this, 'ajax_download_manual_fonts' ) );
         add_action( 'wp_ajax_mbrpe_clear_font_cache', array( $this, 'ajax_clear_font_cache' ) );
+        add_action( 'wp_ajax_mbrpe_clear_combine_cache', array( $this, 'ajax_clear_combine_cache' ) );
         
         // WebP Converter AJAX handlers
         add_action( 'wp_ajax_mbrpe_webp_get_images', array( $this, 'ajax_webp_get_images' ) );
@@ -401,6 +402,7 @@ class MBRPE_Admin {
             'async_css',
             'minify_css',
             'combine_css',
+            'preload_combined_css',
             'remove_unused_css',
             'remove_global_styles',
             'load_block_styles_conditionally',
@@ -1351,7 +1353,13 @@ class MBRPE_Admin {
         // Sanitize and save
         $sanitized = $this->sanitize_options( $options );
         mbrpe()->update_options( $sanitized );
-        
+
+        // Settings may change which stylesheets combine and how; drop any
+        // cached bundles so the next front-end request rebuilds them cleanly.
+        if ( class_exists( 'MBRPE_CSS_Optimizations' ) ) {
+            MBRPE_CSS_Optimizations::purge_combine_cache();
+        }
+
         wp_send_json_success( array( 'message' => __( 'Settings saved successfully.', 'mbr-performance' ) ) );
     }
     
@@ -1932,6 +1940,11 @@ class MBRPE_Admin {
         // runs the registered sanitiser) and refreshes the in-memory cache.
         mbrpe()->update_options( $defaults );
 
+        // Drop any cached combined-CSS bundles built under the old settings.
+        if ( class_exists( 'MBRPE_CSS_Optimizations' ) ) {
+            MBRPE_CSS_Optimizations::purge_combine_cache();
+        }
+
         wp_send_json_success( array( 'message' => __( 'Settings reset to defaults.', 'mbr-performance' ) ) );
     }
     
@@ -1985,6 +1998,35 @@ class MBRPE_Admin {
         wp_send_json_success( array( 'message' => $result['message'] ) );
     }
     
+    /**
+     * AJAX clear combined CSS/JS cache
+     */
+    public function ajax_clear_combine_cache() {
+        check_ajax_referer( 'mbrpe_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'mbr-performance' ) ) );
+        }
+
+        $type = isset( $_POST['cache_type'] ) ? sanitize_key( wp_unslash( $_POST['cache_type'] ) ) : 'all';
+        if ( ! in_array( $type, array( 'css', 'js', 'all' ), true ) ) {
+            $type = 'all';
+        }
+
+        $deleted = 0;
+        if ( class_exists( 'MBRPE_CSS_Optimizations' ) ) {
+            $deleted = MBRPE_CSS_Optimizations::purge_combine_cache( $type );
+        }
+
+        wp_send_json_success(
+            array(
+                /* translators: %d: number of deleted files */
+                'message' => sprintf( _n( 'Cleared %d combined file.', 'Cleared %d combined files.', $deleted, 'mbr-performance' ), number_format_i18n( $deleted ) ),
+                'deleted' => $deleted,
+            )
+        );
+    }
+
     /**
      * AJAX clear font cache
      */

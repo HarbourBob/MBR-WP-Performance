@@ -135,11 +135,14 @@ $js_options = isset( $options['javascript'] ) ? $options['javascript'] : array()
                 <th scope="row">
                     <label for="combine_javascript">
                         <?php esc_html_e( 'Combine JavaScript Files', 'mbr-performance' ); ?>
-                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'WARNING: Merges multiple JS files - May cause conflicts', 'mbr-performance' ); ?>">?</span>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Merges adjacent local scripts into a single cached file to cut requests. Only scripts with no inline/localized data are combined; execution order is preserved.', 'mbr-performance' ); ?>">?</span>
                     </label>
                 </th>
                 <td>
                     <input type="checkbox" name="mbrpe_options[javascript][combine_javascript]" id="combine_javascript" value="1" <?php checked( isset( $js_options['combine_javascript'] ) && $js_options['combine_javascript'] ); ?>>
+                    <p class="description">
+                        <?php esc_html_e( 'Concatenates runs of adjacent same-group local scripts into one cached bundle under /uploads/mbr-performance-combine/. For safety, only "pure" scripts are merged — any script carrying inline or localized data (which often includes per-request nonces), an async/defer strategy, or that is external or excluded, breaks the run and is left untouched. Scripts in your Defer or Delay lists are also left alone so those features keep working.', 'mbr-performance' ); ?>
+                    </p>
                 </td>
             </tr>
             
@@ -152,6 +155,26 @@ $js_options = isset( $options['javascript'] ) ? $options['javascript'] : array()
                 </th>
                 <td>
                     <textarea name="mbrpe_options[javascript][exclude_optimization]" id="exclude_optimization" rows="4" class="large-text code"><?php echo isset( $js_options['exclude_optimization'] ) ? esc_textarea( $js_options['exclude_optimization'] ) : ''; ?></textarea>
+                </td>
+            </tr>
+
+            <tr class="mbr-performance-child-row">
+                <th scope="row"><?php esc_html_e( 'Combined JS cache', 'mbr-performance' ); ?></th>
+                <td>
+                    <?php
+                    $mbr_combine_stats = class_exists( 'MBRPE_CSS_Optimizations' )
+                        ? MBRPE_CSS_Optimizations::combine_cache_stats()
+                        : array( 'js' => 0, 'js_bytes' => 0 );
+                    $mbr_js_size = $mbr_combine_stats['js_bytes'] > 0 ? size_format( $mbr_combine_stats['js_bytes'] ) : '0 B';
+                    ?>
+                    <p class="description" style="margin-bottom:8px;">
+                        <?php esc_html_e( 'Cached combined JS files:', 'mbr-performance' ); ?>
+                        <strong id="mbr-combine-js-count"><?php echo esc_html( number_format_i18n( $mbr_combine_stats['js'] ) ); ?></strong>
+                        (<span id="mbr-combine-js-size"><?php echo esc_html( $mbr_js_size ); ?></span>)
+                    </p>
+                    <button type="button" class="button" id="mbr-clear-combine-js" data-cache-type="js"><?php esc_html_e( 'Clear combined JS cache', 'mbr-performance' ); ?></button>
+                    <span id="mbr-combine-js-status"></span>
+                    <p class="description"><?php esc_html_e( 'Bundles also rebuild automatically when settings or scripts change.', 'mbr-performance' ); ?></p>
                 </td>
             </tr>
         </table>
