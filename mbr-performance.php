@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MBR Performance
  * Description: Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, orphaned media cleanup, and WooCommerce optimisations.
- * Version: 1.17.0
+ * Version: 1.19.0
  * Author: Robin Morgan
  * Text Domain: mbr-performance
  * Domain Path: /languages
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants
-define( 'MBRPE_VERSION', '1.17.0' );
+define( 'MBRPE_VERSION', '1.19.0' );
 define( 'MBRPE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MBRPE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'MBRPE_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
@@ -153,6 +153,12 @@ class MBRPE {
         
         // CSS optimizations
         require_once MBRPE_PLUGIN_DIR . 'includes/class-css-optimizations.php';
+
+        // Used CSS (Mode A) — depends on CSS optimisation helpers above.
+        require_once MBRPE_PLUGIN_DIR . 'includes/class-used-css.php';
+
+        // Performance Doctor — diagnostic advisor.
+        require_once MBRPE_PLUGIN_DIR . 'includes/class-performance-doctor.php';
         
         // Font optimizations
         require_once MBRPE_PLUGIN_DIR . 'includes/class-font-optimizations.php';
@@ -427,6 +433,7 @@ class MBRPE {
         MBRPE_Core_Optimizations::instance();
         MBRPE_JavaScript_Optimizations::instance();
         MBRPE_CSS_Optimizations::instance();
+        MBRPE_Used_CSS::instance();
         MBRPE_Font_Optimizations::instance();
         MBRPE_Database_Optimizations::instance();
         MBRPE_WooCommerce_Optimizations::instance();

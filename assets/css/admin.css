@@ -385,6 +385,10 @@ body.wp-admin,
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
+    /* Tell the browser this control is dark, so the native option list and
+       especially its hover/highlight state are rendered with readable light
+       text instead of defaulting to black-on-dark. */
+    color-scheme: dark;
     background: var(--mbr-bg-input) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23a0a4ad' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center;
     border: 1px solid var(--mbr-border);
     border-radius: var(--mbr-radius-sm);
@@ -400,18 +404,25 @@ body.wp-admin,
 .mbr-performance-wrap select:hover,
 .mbr-performance-network-settings select:hover {
     border-color: var(--mbr-border-light);
+    color: var(--mbr-text-primary) !important;
 }
 
 .mbr-performance-wrap select:focus,
-.mbr-performance-network-settings select:focus {
+.mbr-performance-wrap select:active,
+.mbr-performance-network-settings select:focus,
+.mbr-performance-network-settings select:active {
     border-color: var(--mbr-accent);
     outline: none;
     box-shadow: 0 0 0 3px var(--mbr-accent-glow);
     background-color: var(--mbr-bg-input-focus);
+    /* Chrome can paint the focused control's text with a native dark colour;
+       force the themed light colour so it never goes black-on-dark on focus. */
+    color: var(--mbr-text-primary) !important;
 }
 
-.mbr-performance-wrap select option {
-    background: var(--mbr-bg-card);
+.mbr-performance-wrap select option,
+.mbr-performance-network-settings select option {
+    background-color: var(--mbr-bg-card);
     color: var(--mbr-text-primary);
 }
 
@@ -700,6 +711,21 @@ body.wp-admin,
 
 .mbr-performance-wrap .notice p {
     color: var(--mbr-text-primary);
+}
+
+/* AJAX status messages (revision cleanup, cache clears, font tools, etc.) are
+   injected at runtime and can inherit the admin's dark text colour, leaving
+   dark text on the tinted success/error backgrounds. Force the themed light
+   colour so every status message stays readable across all tabs. */
+.mbr-performance-wrap .notice-success,
+.mbr-performance-wrap .notice-success p,
+.mbr-performance-wrap .notice-error,
+.mbr-performance-wrap .notice-error p,
+.mbr-performance-wrap .notice-warning,
+.mbr-performance-wrap .notice-warning p,
+.mbr-performance-wrap .notice-info,
+.mbr-performance-wrap .notice-info p {
+    color: var(--mbr-text-primary) !important;
 }
 
 /* Dismiss (×) button — core's default colour is too dark to see on our
@@ -1069,4 +1095,148 @@ body.wp-admin,
     background: var(--mbr-danger-bg) !important;
     border-color: var(--mbr-danger) !important;
     color: var(--mbr-danger) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Performance Doctor
+   -------------------------------------------------------------------------- */
+.mbr-performance-doctor-results .mbr-performance-card {
+    margin-top: 16px;
+}
+.mbr-doctor-verdict h3 {
+    margin: 0 0 6px 0;
+    font-size: 18px;
+    color: var(--mbr-text-primary);
+}
+.mbr-doctor-rec-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+.mbr-doctor-rec-head strong {
+    color: var(--mbr-text-primary);
+    font-size: 15px;
+}
+.mbr-doctor-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+.mbr-doctor-badge-high   { background: rgba(240, 108, 108, 0.18); color: #f7a6a6; }
+.mbr-doctor-badge-medium { background: rgba(137, 180, 250, 0.18); color: #9ec1fb; }
+.mbr-doctor-badge-low    { background: rgba(160, 164, 173, 0.18); color: #c2c6cf; }
+.mbr-doctor-badge-info   { background: var(--mbr-success-bg);     color: var(--mbr-success); }
+.mbr-doctor-rec p {
+    color: var(--mbr-text-secondary, #b8bcc6);
+    margin: 0 0 10px 0;
+}
+.mbr-doctor-warn {
+    color: #f7a6a6 !important;
+    font-weight: 500;
+}
+.mbr-doctor-rec.mbr-doctor-tier-high {
+    border-left: 3px solid #f06c6c;
+}
+.mbr-doctor-rec.mbr-doctor-tier-medium {
+    border-left: 3px solid var(--mbr-accent, #3ecfa0);
+}
+
+/* Performance Doctor — multi-template (site scan) */
+.mbr-performance-wrap .mbr-doctor-section {
+    margin: 22px 0 6px;
+    font-size: 15px;
+    color: var(--mbr-text-primary);
+}
+.mbr-performance-wrap .mbr-doctor-coverage {
+    margin-left: auto;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.mbr-performance-wrap .mbr-doctor-coverage-all {
+    background: rgba(70, 180, 80, 0.18);
+    color: #6fd47a;
+    border: 1px solid rgba(70, 180, 80, 0.35);
+}
+.mbr-performance-wrap .mbr-doctor-coverage-some {
+    background: rgba(250, 199, 117, 0.14);
+    color: #f0c27b;
+    border: 1px solid rgba(250, 199, 117, 0.30);
+}
+.mbr-performance-wrap .mbr-doctor-rec-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.mbr-performance-wrap .mbr-doctor-on {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--mbr-text-secondary);
+}
+.mbr-performance-wrap .mbr-doctor-template-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 12px;
+}
+.mbr-performance-wrap .mbr-doctor-template-url {
+    font-size: 12px;
+    word-break: break-all;
+}
+
+/* Performance Doctor — first-run nudge */
+.mbr-performance-wrap .mbr-doctor-nudge {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin: 4px 0 18px;
+    padding: 16px 18px;
+    background: var(--mbr-bg-card);
+    border: 1px solid var(--mbr-border);
+    border-left: 4px solid var(--mbr-accent);
+    border-radius: var(--mbr-radius);
+    box-shadow: var(--mbr-shadow);
+}
+.mbr-performance-wrap .mbr-doctor-nudge-text strong {
+    display: block;
+    font-size: 14px;
+    color: var(--mbr-text-primary);
+}
+.mbr-performance-wrap .mbr-doctor-nudge-text p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--mbr-text-secondary);
+    max-width: 70ch;
+}
+.mbr-performance-wrap .mbr-doctor-nudge-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.mbr-performance-wrap .mbr-doctor-nudge-dismiss {
+    background: transparent;
+    border: 0;
+    color: var(--mbr-text-muted);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: var(--mbr-radius-sm);
+    transition: var(--mbr-transition);
+}
+.mbr-performance-wrap .mbr-doctor-nudge-dismiss:hover,
+.mbr-performance-wrap .mbr-doctor-nudge-dismiss:focus {
+    color: var(--mbr-text-primary);
+    background: var(--mbr-bg-card-hover);
 }

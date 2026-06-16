@@ -1,14 +1,14 @@
 === MBR Performance ===
 Contributors: robinmorgan2059
-Tags: performance, optimization, speed, cache, database, webp, image
+Tags: performance, optimization, speed, cache, database
 Requires at least: 5.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.17.0
+Stable tag: 1.18.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, orphaned media cleanup, and WooCommerce optimisations.
+MBR Performance is a powerful, all-in-one performance optimization plugin that gives you complete control over your WordPress site's performance.
 
 == Description ==
 
@@ -35,6 +35,7 @@ MBR Performance is a powerful, all-in-one performance optimization plugin that g
 * Remove script versions
 
 **CSS Optimization**
+* Used CSS (Mode A) — inline each page's critical CSS and asynchronously load the full stylesheets, eliminating render-blocking unused CSS while keeping the originals as a safety net
 * Async CSS loading
 * Minify and combine CSS files
 * Preload combined CSS for earlier fetch (skipped when Async CSS is on)
@@ -158,6 +159,13 @@ MBR Performance is a powerful, all-in-one performance optimization plugin that g
 3. Access settings via 'MBR Performance' in the WordPress admin toolbar
 4. Configure features one tab at a time
 
+== Screenshots ==
+
+1. A view of just some of the Core Features for optimization
+2. The settings for self hosting and preloading Google Fonts
+3. The image settings for both WebP and AVIF formats
+4. The bulk converter for WebP and AVIF images
+
 == Frequently Asked Questions ==
 
 = Will this plugin break my site? =
@@ -171,6 +179,16 @@ The plugin is designed to be safe, but we recommend:
 = Can I use this with a caching plugin? =
 
 Yes. This plugin provides complementary optimisations and deliberately does no page caching of its own. Where a feature overlaps with a caching/optimisation plugin you already run — for example Combine or Minify CSS/JS in WP Rocket, LiteSpeed Cache, Autoptimize, W3 Total Cache, FlyingPress or SiteGround Optimizer — a built-in Conflict Detector flags the specific overlapping toggles on the settings screen, so you can avoid running the same combine/minify pass on both sides.
+
+= What is Used CSS (Mode A), and when should I use it? =
+
+With "Generate Used CSS" enabled (CSS tab), the plugin works out which CSS rules each page actually uses, inlines just those in the page head for an instant first paint, and loads your full stylesheets asynchronously behind them. This removes render-blocking CSS from the critical path. It is the safe variant: the original stylesheets are never removed, only deferred, so if the analysis misses a rule (for example one used by a widget that JavaScript injects after the page loads) the full stylesheet still arrives a moment later and corrects it.
+
+Used CSS only helps if your render-blocking is actually caused by CSS. Run the page through PageSpeed Insights and look at the "render-blocking requests" list: if it is mostly stylesheets, Used CSS will help; if it is mostly JavaScript, the win is on the JavaScript tab (Defer/Delay), not here. On a site that is already light on CSS the gain may be small. The feature earns its place on CSS-heavy sites — a large theme plus a page builder plus several plugins each loading their own stylesheets.
+
+Used CSS is generated in the background after the first visit to each page and cached per URL, so the first visitor sees the page generated and later visitors are served the optimised version. If your host runs a full-page cache (such as SiteGround's), the relevant URL is purged automatically after generation so the optimised version is the one that gets cached.
+
+A few notes for best results: leave it off by default and test on a staging copy first; if a particular stylesheet must always load in full, add part of its URL to the "Exclude from optimization" field on the CSS tab; and there is no need to also enable the separate "Async CSS" option — Used CSS handles delivery itself and automatically suppresses the standalone async layer to avoid the two conflicting.
 
 = Why does Combine JavaScript merge fewer files than Combine CSS? =
 
@@ -218,7 +236,21 @@ When the video facade is enabled and a page contains an embedded Vimeo video, th
 
 This service is provided by Vimeo. Vimeo Terms of Service: https://vimeo.com/terms — Vimeo Privacy Policy: https://vimeo.com/privacy
 
+== Credits ==
+
+The Used CSS feature bundles two open-source libraries, loaded only while generating used CSS. Each is MIT-licensed and GPL-compatible, and the full licence text for both is included in the plugin's includes/vendor directory.
+
+* Sabberworm PHP-CSS-Parser — Copyright (c) 2011 Raphael Schweikert (https://www.sabberworm.com/). MIT License. Used to parse stylesheets into a rule tree.
+* Symfony CssSelector Component — Copyright (c) 2004-present Fabien Potencier and the Symfony contributors (https://symfony.com/). MIT License. Used to convert CSS selectors to XPath for matching against the rendered page.
+
 == Changelog ==
+
+= 1.18.0 =
+* New: Used CSS (Mode A). For each page, MBR Performance extracts only the CSS the delivered page actually uses, inlines it in the head, and loads the full stylesheets asynchronously as a fallback — so render-blocking unused CSS is eliminated without hard-breaking JavaScript-driven styles, because the originals are deferred rather than removed. Used CSS is generated in the background after the first visit to each page and cached per URL. The former "Remove Unused CSS" toggle is relabelled "Generate Used CSS" and now drives this feature.
+* New: Per-page used-CSS cache with size/count display and a Clear used CSS cache control on the CSS tab; cache is purged automatically on settings save, post edit, and theme/plugin updates.
+* New: After generating a page's used CSS, that single URL is purged from the host's full-page cache so the optimised version is the one re-cached — supports SiteGround Speed Optimizer via sg_cachepress_purge_cache(), with an mbrpe_usedcss_purge_url action for other hosts.
+* Improvement: When Used CSS is on it owns CSS delivery — the standalone Async CSS layer is suppressed automatically to prevent the two from double-deferring the same stylesheets.
+* Bundles the Sabberworm PHP-CSS-Parser and Symfony CssSelector components (loaded only during generation) to match selectors against the rendered DOM.
 
 = 1.17.0 =
 * Added: Combine CSS is now fully implemented. With the toggle on, the plugin walks the stylesheet queue in print order and merges contiguous runs of adjacent, same-media, same-origin local stylesheets into a single cached bundle under /uploads/mbr-performance-combine/, cutting HTTP requests. Cascade order is preserved exactly: external/CDN, conditional, alternate, print/media-query and excluded stylesheets break the run and are left untouched. Relative `url()` and `@import` targets are rewritten to absolute against each source sheet's own directory, `@charset` is de-duplicated, inline styles attached via wp_add_inline_style are carried across, and RTL is handled. Bundles are fingerprinted on file contents/versions and rebuilt only when something changes; the cache is purged on settings save, reset and deactivation. If Minify CSS is also enabled, the bundle is minified with a string/url()-safe pass. A path-traversal guard ensures only files inside the site root are ever read. Off by default.
@@ -256,11 +288,120 @@ This release prepares the plugin for the WordPress.org plugin directory and incl
 = 1.13.9 =
 * Fix (UI): The "Compression" column header on the Conversion History table was set to 110px wide, which is just narrow enough that the word wraps onto a second line at the standard wp-list-table header font weight. Bumped to 140px so the label sits cleanly on one line.
 
-= 1.13.8 =
-* New: Bulk AVIF converter. The WebP tab now has an AVIF Bulk Converter section alongside the existing WebP one (Start AVIF Conversion, Clear AVIF History, Revert All AVIF Files), and only renders when the server has a real AVIF encoder available — so it can't be enabled to no effect on hosts that lack libavif/libheif. Mirrors the WebP converter's architecture: per-image AJAX with progress bar, history option (`mbr_avif_converted_images`) parallel to the WebP one, and a registry-driven Revert All that deletes every .avif this plugin created without touching originals or WebP variants.
-* New: An "AVIF Size" column has been added to the Conversion History table, alongside the existing WebP Size column. The table now merges records from both `mbr_webp_converted_images` and `mbr_avif_converted_images` keyed by original path, so each image appears as a single row with whichever format data exists (a dash shown where a format hasn't been generated for that image). The Compression column now reports the savings against whichever recorded format is smallest — AVIF when present, since it's typically 20–30% smaller than WebP at equivalent perceived quality, otherwise WebP.
-* New: Auto-convert on upload now also writes to the AVIF history option, so newly-uploaded images appear in the table alongside bulk-converted ones. Previously the auto-upload AVIF path only populated the file registry; the size data wasn't kept anywhere.
-of missing width and height attributes on front-end images to reduce Cumulative Layout Shift (CLS)
+= 1.13.0 =
+* Feature: New "Disable AI Features (WordPress 7.0+)" toggle on the Core tab, under WordPress Features. WordPress 7.0 ships a built-in AI Client, the Abilities API, and a Settings -> Connectors screen for wiring a site to AI providers. That infrastructure stays dormant until a provider connector is configured, so the front-end cost on a default install is minimal — but for site owners who want nothing to do with it, this toggle switches the whole subsystem off rather than leaving it idling. It hooks core's own kill switch (`add_filter( 'wp_supports_ai', '__return_false' )`) at PHP_INT_MAX priority so the AI Client and Abilities API never bootstrap, plus `wp_ai_client_prevent_prompt` as a second guard against any prompt execution that slips through.
+* Note: The toggle is off by default and existing behaviour is unchanged on upgrade. It has no effect on WordPress 6.x, where the `wp_supports_ai` filter does not exist, so it is safe to leave enabled across mixed-version sites. The Connectors admin screen is intentionally left in place — this is a performance and surface-area control, not a dashboard-hiding tool.
+* Tested up to WordPress 7.0.
+
+= 1.12.0 =
+* Fix: JavaScript optimisations module — previously a placeholder class with UI toggles but no backend logic — is now fully wired up. Defer, Move-to-Footer, Defer jQuery, Remove jQuery (with test mode), Minify inline JS, Delay JS (with interaction-triggered runtime and configurable timeout), Disable Concatenation, and Remove Script Versions all work as advertised. Each defer/footer/delay path honours its own exclusion textarea.
+
+* Fix: CSS optimisations module — previously a placeholder class — is now fully wired up. Inline Critical CSS, Async CSS (via preload+onload with the standard loadCSS polyfill for older browsers), Minify inline CSS, Conditional Block Styles (should_load_separate_core_block_assets), Remove CSS Versions, Disable Elementor Google Fonts, and Disable WooCommerce CSS on non-shop pages all functional.
+
+* Fix: Database optimisations module — previously had only the WooCommerce cron listener — now drives full scheduled cleanup. The `mbr_wp_performance_database_cleanup` cron auto-reschedules to match the cleanup_schedule setting (daily/weekly/manual) and runs: auto-draft purge with configurable age, trash emptying with configurable retention, spam comment deletion with configurable age, unapproved comment deletion with configurable age, expired transient cleanup (handles site transients on multisite), and revision trimming to the keep-N setting. A "Last Auto-Cleanup" log table is displayed on the Database tab plus a "Run Auto-Cleanup Now" button.
+
+* Feature: AVIF image conversion alongside WebP. New `<picture>` wrapper emits AVIF first, then WebP, then the JPEG/PNG fallback — browsers automatically pick the first format they support. AVIF is typically 20-30% smaller than WebP at equivalent perceived quality. Requires PHP 8.1+ with GD AVIF, or Imagick 7.0.25+. Falls back gracefully where unsupported; new tab section in WebP tab includes server capability diagnostics.
+
+* Feature: Self-hosted third-party scripts. New "Third-Party" tab with per-script toggles for Google Analytics (gtag.js), Google Tag Manager (gtm.js), legacy Google Analytics (analytics.js), and Facebook Pixel (fbevents.js). Scripts are downloaded daily to /wp-content/uploads/mbr-performance/third-party/ and outbound <script src=> URLs are rewritten via output buffer. Removes the PSI "Reduce the impact of third-party code" warning and stops first-paint requests to googletagmanager.com / connect.facebook.net.
+
+* Feature: YouTube and Vimeo facade pattern. Replaces embedded video iframes with a static thumbnail and play button; the real iframe is only loaded on click. Saves ~1.4MB of YouTube JS on initial page load and stops YouTube cookies being set until user interaction. Vimeo thumbnails are hydrated lazily via the public v2 API behind an IntersectionObserver. Keyboard accessible (Enter/Space). Toggle on Lazy Loading tab.
+
+* Feature: New "Server" tab. Browser-cache headers (Expires + Cache-Control, 1 year for images/fonts, 30 days for CSS/JS) and Brotli + Gzip text compression via .htaccess. Detects the web server and shows an equivalent Nginx snippet for Nginx hosts. Addresses two of the most common PSI warnings: "Serve static assets with an efficient cache policy" and "Enable text compression". Marker blocks "MBR Browser Cache" and "MBR Compression" — fully removed on deactivation.
+
+* Feature: New "Diagnostics" tab containing three tools:
+  - **Autoloaded Options Audit** — shows total autoloaded bytes and the top 30 options by size, with a one-click "Disable autoload" button. Protected core options (siteurl, home, active_plugins, template, stylesheet, etc.) cannot be modified. Transients are flagged. This is the single most common WordPress DB perf killer and has not been addressable from inside the plugin until now.
+
+  - **WP-Cron Viewer** — lists every scheduled event with next-run, recurrence, and a "Callback?" column showing whether any PHP callback is currently registered. Events with no callback (left over from deactivated plugins) are flagged "orphan" and can be unscheduled with one click. Includes instructions for replacing WP-Cron with a real system cron job for performance-sensitive sites.
+
+  - **Caching Plugin Conflict Detector** — detects WP Rocket, W3 Total Cache, LiteSpeed Cache, FlyingPress, WP Super Cache, Perfmatters, and Autoptimize, and lists which MBR options overlap with each — preventing the common pitfall of having defer/delay/minify enabled in two plugins at once.
+
+* Feature: HTML minification (Core tab). Output-buffered, strips HTML comments (preserves IE conditionals), collapses whitespace between tags. Carefully preserves the contents of `<pre>`, `<textarea>`, `<script>`, and `<style>` via placeholder swap. Typically saves 5-15% of HTML transfer size.
+
+* Feature: `decoding="async"` on images (WebP tab → Image Sizing & Dimensions). Lets the browser decode images off the main thread, improving INP on image-heavy pages. Auto-skips any image already carrying `fetchpriority="high"` so the LCP candidate continues to decode synchronously.
+
+* Feature: EXIF metadata stripping on upload (WebP tab → Image Sizing & Dimensions). Removes EXIF, IPTC and XMP metadata (camera serial, GPS coordinates, embedded thumbnails) from newly uploaded JPEGs. ICC colour profiles are preserved so colours stay accurate. Uses Imagick where available (clean stripImage()) or falls back to GD. Privacy win plus typically 5-30% file size reduction with zero visible quality loss.
+
+* Feature: Hover prefetch (Preloading tab). On link hover (or first touchstart on mobile), the destination page is prefetched so the next click feels instant. Uses the canonical instant.page v5.2.0 runtime (MIT). Server-side bail when the `Save-Data: on` header is present so users on metered connections aren't penalised.
+
+* Improvement: `crossorigin="anonymous"` is now explicit on all preload and preconnect tags (font preloads and resource hints) — previously the bare `crossorigin` attribute was used, which is technically equivalent but flagged inconsistently by some Lighthouse audits.
+* Three new option sections seeded on upgrade: `preloading`, `lazy_loading`, `third_party`, `server_headers`. Migration block handles the upgrade idempotently.
+
+* On deactivation: all v1.12.0 .htaccess marker blocks (MBR AVIF, MBR Browser Cache, MBR Compression) are cleanly removed; the third-party script refresh cron is unscheduled; AVIF files in the registry are deleted.
+
+* Combine JS and Combine CSS toggles remain in the UI for forward compatibility but are no-ops in this release — a safe implementation handling dependency graphs and async order is a separate engineering project. Admin notice clarifies this when either toggle is enabled. Remove Unused CSS similarly remains a UI toggle pointing users at MBR Advanced Asset Manager for per-asset control.
+
+= 1.11.0 =
+* Feature: Orphaned Images tab renamed and expanded to "Orphaned Media" — scope now covers images, videos, audio, documents, and archives alongside the original image-only detection
+* Feature: Media-type checkbox group in tab settings — users opt in per type (Images / Videos / Audio / Documents / Archives); defaults to images-only on upgrade so v1.10.0 behaviour is preserved
+* Feature: New Type column in the candidate list with category icons (image, video, audio, document, archive) for quick visual scanning
+* Feature: Type filter dropdown alongside the existing Confidence and Sort filters — narrow the list to a specific media type
+* Feature: Per-type stat breakdown row above the candidates table showing count and reclaimable bytes for each enabled type
+* Tab slug changed from `orphaned-images` to `orphaned-media`; the legacy slug continues to work for one release for any bookmarked URLs
+* Detection logic for non-image types relies on the existing filename-stem matching in `post_content` (which already catches URL-only references in `[video]`, `[audio]`, and `<a href>` tags) plus the postmeta string-search; explicit builder-aware detection lands in v1.12.0
+* Non-image deletions only remove the single attached file — no sub-sizes or `.webp` siblings to clean up for those types, so the deletion path is naturally simpler
+* Backward-compatible: existing v1.10.0 staging-table rows and exclusions list carry over unchanged
+* Behaviour change: post_parent is no longer treated as definitive proof an attachment is in use. WordPress sets post_parent on upload via the post editor and never clears it, so attachments uploaded into a post and later removed from the content stayed hidden under v1.10.0. Parent-only matches now drop to Review tier so they can be inspected and deleted manually. Featured-image and post-content matches remain definitive.
+
+= 1.10.0 =
+* Feature: New "Orphaned Images" tab — scans the Media Library for image attachments that are no longer referenced anywhere, with a safe two-stage deletion workflow and a configurable restore window
+* Feature: Detection covers post_parent, featured images (_thumbnail_id), post_content (matching by attachment ID, attachment_ shortcode reference, and filename stem so sized variants are caught too), and a string-search across postmeta values
+* Feature: Two-tier confidence classifier — "High" candidates (zero references found) are eligible for bulk-delete; "Review" candidates (matched only in postmeta) must be deleted individually after manual inspection
+* Feature: Staging table (`{prefix}mbr_orphan_log`) records the full attachment post row, postmeta, and file manifest before deletion — allows the database record to be restored within the configured window (7/14/30/60 days, or "keep forever")
+* Feature: Per-attachment exclusions list to prevent specific IDs from ever being flagged as orphan
+* Feature: Daily WP-Cron job (`mbr_wp_performance_orphan_purge`) cleans up staging records past their restore window
+* Feature: File deletion handles the original file, all WordPress sub-size variants, the "scaled" full-size variant, and matching `.webp` siblings produced by the WebP converter — no orphan files left on disk
+* Feature: Pre-deletion re-verification — orphan status is re-checked at delete time, blocking the action if the attachment has become referenced since the scan
+* Feature: Live progress bar during scans, batched at 50 attachments per AJAX request to avoid timeouts on large libraries
+* Feature: Stat cards show high-confidence count, review-required count, and total reclaimable bytes
+* Note: Restore reinstates the database record only — image file bytes are physically deleted at the time of staging and must be re-uploaded if needed
+* Note: This release does not yet detect references stored in page builder data (Elementor `_elementor_data`, Bricks, Beaver Builder, etc.) beyond the postmeta string-search; review tier exists partly to cover this gap
+
+= 1.9.3 =
+* Feature: Allowlist of REST API namespaces on the Core tab. When "Disable REST API" is set to a non-default mode (Disable for Non-Admins or Disable When Logged Out), admins can now whitelist specific namespaces that should remain accessible — useful for plugins exposing public REST endpoints such as front-end chat widgets, contact forms, or store APIs.
+* Fix: Public REST endpoints registered with `permission_callback => '__return_true'` are no longer indiscriminately blocked by the REST hardening modes when their namespace is in the allowlist. Previously the only options were "all REST open" or "all REST blocked", which broke any third-party plugin (or sister plugin like MBR Intelligent Site Assistant) that legitimately needed public REST access for non-admin or logged-out visitors.
+* Improvement: Helper text on the Core tab now explicitly lists common public namespaces (mbr-isa/v1, contact-form-7/v1, wc/store/v1) to make the configuration discoverable.
+
+= 1.9.2 =
+* Fix: "Remove Global Styles" no longer breaks the front end of Full Site Editing (block) themes — the optimisation is now auto-skipped when a block theme is active. FSE themes such as Twenty Twenty-Two through Twenty Twenty-Five rely on the inline `<style id="global-styles-inline-css">` output to render their colours, fonts, layout and spacing on the public front end. Stripping it left the Site Editor working but the front end with no design tokens.
+* Fix: Removed the duplicate (and previously non-functional) "Remove Global Styles" checkbox from the CSS tab. The working toggle on the Core tab is now the canonical home. Two checkboxes wrote to two different option keys but only one had a backend handler — now there's just one.
+* Migration: any existing `[css][remove_global_styles]` truthy value is automatically copied to `[core][remove_global_styles]` on update, so users who toggled the previously-orphaned CSS-tab checkbox don't lose their setting. The migration runs on `plugins_loaded` so it fires reliably on plugin update, not just manual activation.
+* Improvement: Updated the Core tab tooltip for "Remove Global Styles" to clearly warn that it's incompatible with FSE themes, so the option remains available to classic-theme users without footgunning anyone running a block theme.
+
+= 1.9.1 =
+* Feature: Weekly automated cleanup toggle in the WooCommerce tab — runs expired sessions, transients and Action Scheduler cleanup on the existing weekly cron hook
+* Feature: Geolocation and page cache advisory notice — warns when WooCommerce's default customer location is set to "Geolocate" (breaks full-page caching entirely) or "Geolocate (with page cache support)" (appends `?v=<timestamp>` query string that some cache plugins mishandle)
+* Feature: Last-run log display showing when the scheduled cleanup last ran and what it removed
+* Feature: Direct link from the advisory notice to the WooCommerce General settings page for quick resolution
+* Fix: The `mbr_wp_performance_database_cleanup` weekly cron event now has an actual listener — previously the event was scheduled on activation but fired into the void with nothing attached
+* Improvement: Defensive re-scheduling of the weekly cron when the user enables automated cleanup, in case the event was cleared by another plugin or missed during activation
+
+= 1.9.0 =
+* Feature: New dedicated WooCommerce tab consolidating all store-specific optimisations
+* Feature: Cart fragments control — disable the admin-ajax `get_refreshed_fragments` request site-wide or only on non-shop pages (major TTFB win on cached sites)
+* Feature: Expanded conditional asset loading — dequeues WC scripts, styles, block assets, selectWoo, blockUI and related libraries on non-shop pages
+* Feature: Disable the zxcvbn password strength meter on the frontend
+* Feature: Disable WooCommerce marketplace suggestions and dashboard status widgets
+* Feature: Prevent the heavy wc-admin React bundles from loading on non-WooCommerce admin screens
+* Feature: Configurable Action Scheduler retention period (default 30 days, options for 14/7/3) — stops `actionscheduler_actions` ballooning on busy stores
+* Feature: One-click cleanup buttons for expired WooCommerce sessions and product/order/expired transients
+* Feature: One-time admin notice on upgrade informing users that their existing WooCommerce settings have moved to the new tab (dismissible)
+* Improvement: Legacy `core.disable_woocommerce_scripts` and `css.disable_woocommerce_css` options remain fully backward-compatible — existing sites keep their behaviour without re-saving
+* Improvement: Tab gracefully shows an inactive state when WooCommerce is not installed, so the capability remains discoverable
+
+= 1.8.0 =
+* Feature: Bulk resize tool for existing Media Library images — scan for JPEGs and PNGs exceeding the configured maximum dimension, then downscale them in place
+* Feature: Two-phase workflow (Scan → Start Resize) with progress bar, live log, and running savings total
+* Feature: Automatic sub-size regeneration after each resize using the WordPress core pipeline
+* Feature: Elementor CSS cache is cleared automatically after a bulk resize so widgets re-render with the new dimensions
+* Improvement: Stale WebP files are deleted automatically before sub-sizes are regenerated, and their entries are stripped from the WebP registry — prevents old WebP content being served after a resize
+* Improvement: Skips images that are already within the configured maximum, writes a clear "skipped" reason to the log
+* Improvement: Clear warning in the UI that bulk resize permanently overwrites files on disk and cannot be undone automatically
+* Improvement: Paginated scan (batches of 200) to keep memory use reasonable on large libraries
+
+= 1.7.0 =
+* Feature: New "Image Sizing & Dimensions" section in the WebP tab
+* Feature: Automatic resize-on-upload with configurable maximum dimension (uses the WordPress `big_image_size_threshold` filter, default 2560px)
+* Feature: Automatic injection of missing width and height attributes on front-end images to reduce Cumulative Layout Shift (CLS)
 * Feature: Dimension lookups work on post content, Gutenberg blocks (image, gallery, media-text, cover), Elementor widgets, attachment images and post thumbnails
 * Improvement: Per-URL dimension cache (in-memory + weekly transient) to keep the filter cheap on image-heavy pages
 * Improvement: Skips external images, SVGs and data URIs automatically — only measures local files
@@ -277,6 +418,7 @@ of missing width and height attributes on front-end images to reduce Cumulative 
 * Feature: Server diagnostics panel (GD library, WebP support, folder permissions)
 * Feature: Conversion history with bulk management actions
 * Feature: Gutenberg block and Elementor widget integration for <picture> tags
+* Feature: Automatic migration of conversion history from standalone MBR WebP Converter plugin
 * Improvement: Smart skip when WebP output would be larger than the original
 
 = 1.5.0 =
@@ -316,6 +458,9 @@ of missing width and height attributes on front-end images to reduce Cumulative 
 
 == Upgrade Notice ==
 
+= 1.18.0 =
+Adds Used CSS (Mode A): inlines per-page critical CSS and async-loads the full stylesheets. Enable via CSS > Generate Used CSS. Test on staging first.
+
 = 1.17.0 =
 Adds working Combine CSS and Combine JavaScript, plus an optional Preload Combined CSS hint. All are off by default, so nothing changes on upgrade unless you enable them. If you already run a caching plugin's own combine (WP Rocket, LiteSpeed, Autoptimize, W3 Total Cache, FlyingPress or SiteGround Optimizer), use one or the other — not both — and the built-in conflict notice will flag any overlap.
 
@@ -344,7 +489,7 @@ Adds a bulk resize tool for existing Media Library images — downscale oversize
 Adds automatic image resizing on upload and auto-injection of missing width/height attributes to help fix common PageSpeed Insights warnings. New settings live under the WebP tab. Backup before upgrading.
 
 = 1.6.0 =
-WebP image conversion is now built in. 
+WebP image conversion is now built in. If you were using the standalone MBR WebP Converter plugin, you can deactivate it after upgrading — your conversion history will be migrated automatically. Backup before upgrading.
 
 = 1.5.0 =
 Adds full WordPress Multisite support — manage performance settings across your entire network from one place. Backup before upgrading.

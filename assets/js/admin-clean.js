@@ -2,24 +2,16 @@
  * MBR Performance Admin JavaScript - Clean Rebuild
  */
 
-console.log('==========================================');
-console.log('MBR Performance JS FILE IS LOADING...');
-console.log('==========================================');
-
 (function($) {
     'use strict';
-    
-    console.log('Inside IIFE - jQuery available:', typeof $ !== 'undefined');
 
     const MBRPE_Admin = {
-        
+
         /**
          * Initialize
          */
         init: function() {
-            console.log('MBRPE_Admin.init() called');
             this.bindEvents();
-            console.log('MBRPE_Admin.init() complete');
         },
 
         /**
@@ -27,17 +19,7 @@ console.log('==========================================');
          */
         bindEvents: function() {
             var self = this;
-            
-            // CRITICAL: Prevent form submission while debug message is showing
-            $('.mbr-performance-form').on('submit', function(e) {
-                if (window.mbrpeDebugActive) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    alert('Cannot save settings while debug message is displayed. Please read the message first.');
-                    return false;
-                }
-            });
-            
+
             // Reset to defaults
             $('.mbr-performance-reset').on('click', function(e) { self.resetSettings.call(this, e); });
             
@@ -65,6 +47,15 @@ console.log('==========================================');
 
             // Combine cache operations (CSS + JS tabs)
             $('#mbr-clear-combine-css, #mbr-clear-combine-js').on('click', function(e) { self.clearCombineCache.call(this, e); });
+
+            // Used CSS (Mode A) cache
+            $('#mbr-clear-used-css').on('click', function(e) { self.clearUsedCss.call(this, e); });
+
+            // Performance Doctor (delegated so it binds regardless of timing)
+            $(document).on('click', '#mbr-run-doctor', function(e) { self.runDoctor.call(this, e); });
+            $(document).on('click', '#mbr-run-doctor-site', function(e) { self.runDoctorSite.call(this, e); });
+            $(document).on('click', '#mbr-doctor-report', function(e) { self.openDoctorReport.call(this, e); });
+            $(document).on('click', '#mbr-doctor-nudge-dismiss', function(e) { self.dismissDoctorNudge.call(this, e); });
 
             // Persist dismissal of the caching-plugin conflict notice (per user,
             // until the overlap changes). WordPress core hides it client-side;
@@ -150,6 +141,320 @@ console.log('==========================================');
         },
 
         /**
+         * Performance Doctor — run analysis
+         */
+        runDoctor: function(e) {
+            e.preventDefault();
+            var self = MBRPE_Admin;
+            var $btn = $('#mbr-run-doctor');
+            var $out = $('#mbr-doctor-results');
+            var url = $('#mbr-doctor-url').val() || '';
+
+            $btn.prop('disabled', true).text(mbrpeData.i18n && mbrpeData.i18n.analysing ? mbrpeData.i18n.analysing : 'Analysing…');
+            $out.prop('hidden', false).html('<p class="description">' + (mbrpeData.i18n && mbrpeData.i18n.analysing ? mbrpeData.i18n.analysing : 'Analysing…') + '</p>');
+
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_run_doctor',
+                nonce: mbrpeData.nonce,
+                url: url
+            }).done(function(response) {
+                if (response && response.success && response.data) {
+                    self.renderDoctorResults($out, response.data);
+                } else {
+                    var msg = (response && response.data && response.data.message) ? response.data.message : 'Analysis failed.';
+                    $out.html('<div class="notice notice-error inline"><p></p></div>');
+                    $out.find('p').text(msg);
+                }
+            }).fail(function() {
+                $out.html('<div class="notice notice-error inline"><p>Request failed. Please try again.</p></div>');
+            }).always(function() {
+                $btn.prop('disabled', false).text(mbrpeData.i18n && mbrpeData.i18n.runAnalysis ? mbrpeData.i18n.runAnalysis : 'Run analysis');
+            });
+        },
+
+        /**
+         * Performance Doctor — build a single recommendation card.
+         * coverage (optional) is shown for site-level recs, e.g. "Site-wide (4/4)".
+         */
+        buildDoctorRec: function(rec, coverage) {
+            var tierLabels = { high: 'High impact', medium: 'Worth doing', low: 'Minor', info: 'Note' };
+            var $card = $('<div class="mbr-performance-card mbr-doctor-rec mbr-doctor-tier-' + rec.tier + '"/>');
+            var $head = $('<div class="mbr-doctor-rec-head"/>');
+            $('<span class="mbr-doctor-badge mbr-doctor-badge-' + rec.tier + '"/>')
+                .text(tierLabels[rec.tier] || rec.tier).appendTo($head);
+            $('<strong/>').text(rec.title).appendTo($head);
+            if (coverage) {
+                $('<span class="mbr-doctor-coverage mbr-doctor-coverage-' + (rec.scope === 'site-wide' ? 'all' : 'some') + '"/>')
+                    .text(coverage).appendTo($head);
+            }
+            $head.appendTo($card);
+
+            $('<p/>').text(rec.detail).appendTo($card);
+            if (rec.labels && rec.labels.length) {
+                $('<p class="mbr-doctor-on"/>').text('On: ' + rec.labels.join(', ')).appendTo($card);
+            }
+            if (rec.warning) {
+                $('<p class="mbr-doctor-warn"/>').text('⚠ ' + rec.warning).appendTo($card);
+            }
+            if (rec.tab) {
+                $('<a class="button button-secondary"/>')
+                    .attr('href', '?page=mbr-performance&tab=' + encodeURIComponent(rec.tab))
+                    .text('Open ' + rec.tab + ' settings')
+                    .appendTo($card);
+            }
+            return $card;
+        },
+
+        /**
+         * Performance Doctor — render structured results
+         */
+        renderDoctorResults: function($out, data) {
+            var self = MBRPE_Admin;
+            var $wrap = $('<div/>');
+
+            // Verdict.
+            var $verdict = $('<div class="mbr-performance-card mbr-doctor-verdict"/>');
+            $('<h3/>').text(data.summary.verdict).appendTo($verdict);
+            var s = data.summary;
+            $('<p class="description"/>').text(
+                'Render-blocking CSS: ' + s.css_count + ' file(s), ' + s.css_bytes_human +
+                '  •  Render-blocking JS: ' + s.js_count + ' file(s), ' + s.js_bytes_human
+            ).appendTo($verdict);
+            if (s.images && s.images.total > 0) {
+                $('<p class="description"/>').text(
+                    'Images: ' + s.images.total + ' total  •  ' +
+                    s.images.missing_dimensions + ' missing size  •  ' +
+                    s.images.legacy_format + ' JPEG/PNG  •  ' +
+                    s.images.not_lazy + ' not lazy-loaded'
+                ).appendTo($verdict);
+            }
+            $verdict.appendTo($wrap);
+
+            // Recommendations.
+            (data.recommendations || []).forEach(function(rec) {
+                self.buildDoctorRec(rec).appendTo($wrap);
+            });
+
+            $out.prop('hidden', false).empty().append($wrap);
+        },
+
+        /**
+         * Performance Doctor — multi-template (site) scan
+         */
+        runDoctorSite: function(e) {
+            e.preventDefault();
+            var self = MBRPE_Admin;
+            var $btn = $('#mbr-run-doctor-site');
+            var $out = $('#mbr-doctor-results');
+
+            $btn.prop('disabled', true).text('Scanning templates…');
+            $out.prop('hidden', false).html('<p class="description">Scanning your key templates — this fetches several pages, give it a moment…</p>');
+
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_run_doctor_site',
+                nonce: mbrpeData.nonce
+            }).done(function(response) {
+                if (response && response.success && response.data) {
+                    self.renderDoctorSiteResults($out, response.data);
+                    self.dismissDoctorNudge(); // They found the Doctor — stop nudging.
+                } else {
+                    var msg = (response && response.data && response.data.message) ? response.data.message : 'Scan failed.';
+                    $out.html('<div class="notice notice-error inline"><p></p></div>');
+                    $out.find('p').text(msg);
+                }
+            }).fail(function() {
+                $out.html('<div class="notice notice-error inline"><p>Request failed. Please try again.</p></div>');
+            }).always(function() {
+                $btn.prop('disabled', false).text('Scan key templates');
+            });
+        },
+
+        /**
+         * Performance Doctor — render aggregated site results
+         */
+        renderDoctorSiteResults: function($out, data) {
+            var self = MBRPE_Admin;
+            self._lastSiteScan = data;
+            var $wrap = $('<div/>');
+            var site = data.site || {};
+
+            // Site verdict + report action.
+            var $verdict = $('<div class="mbr-performance-card mbr-doctor-verdict"/>');
+            $('<h3/>').text(site.verdict || 'Site analysis').appendTo($verdict);
+            $('<p class="description"/>').text((site.templates_ok || 0) + ' template(s) analysed.').appendTo($verdict);
+            $('<button type="button" class="button button-primary" id="mbr-doctor-report"/>')
+                .text('Download report (PDF)').appendTo($verdict);
+            $verdict.appendTo($wrap);
+
+            // Site-wide recommendations (de-duplicated, with coverage).
+            var recs = site.recommendations || [];
+            if (recs.length) {
+                $('<h3 class="mbr-doctor-section"/>').text('Recommended across your site').appendTo($wrap);
+                recs.forEach(function(rec) {
+                    var coverage = (rec.scope === 'site-wide')
+                        ? ('Site-wide (' + rec.coverage + '/' + rec.total + ')')
+                        : (rec.coverage + ' of ' + rec.total + ' templates');
+                    self.buildDoctorRec(rec, coverage).appendTo($wrap);
+                });
+            } else {
+                $('<div class="mbr-performance-card"/>')
+                    .append($('<p/>').text('No actionable recommendations — the templates sampled are already in good shape.'))
+                    .appendTo($wrap);
+            }
+
+            // Per-template breakdown.
+            $('<h3 class="mbr-doctor-section"/>').text('By template').appendTo($wrap);
+            (data.templates || []).forEach(function(t) {
+                var $row = $('<div class="mbr-performance-card mbr-doctor-template"/>');
+                var $h = $('<div class="mbr-doctor-template-head"/>');
+                $('<strong/>').text(t.label).appendTo($h);
+                $('<a class="mbr-doctor-template-url" target="_blank" rel="noopener"/>')
+                    .attr('href', t.url).text(t.url).appendTo($h);
+                $h.appendTo($row);
+                if (!t.ok) {
+                    $('<p class="mbr-doctor-warn"/>').text(t.message || 'Could not analyse this template.').appendTo($row);
+                } else {
+                    $('<p class="description"/>').text(t.summary.verdict).appendTo($row);
+                    var titles = (t.recommendations || [])
+                        .filter(function(r) { return r.tier !== 'info'; })
+                        .map(function(r) { return r.title; });
+                    $('<p/>').text(titles.length ? ('Suggests: ' + titles.join(', ')) : 'Nothing to flag here.').appendTo($row);
+                }
+                $row.appendTo($wrap);
+            });
+
+            $out.prop('hidden', false).empty().append($wrap);
+        },
+
+        /**
+         * Performance Doctor — open a branded, print-ready report in a new
+         * window. The user prints or "Saves as PDF" from there. No server-side
+         * PDF engine, so it works on any host and adds no weight.
+         */
+        openDoctorReport: function(e) {
+            e.preventDefault();
+            var self = MBRPE_Admin;
+            var data = self._lastSiteScan;
+            if (!data) { return; }
+            var ctx = (mbrpeData && mbrpeData.report) ? mbrpeData.report : { siteName: '', siteUrl: '', version: '' };
+            var win = window.open('', '_blank');
+            if (!win) {
+                alert('Please allow pop-ups for this page to open the report.');
+                return;
+            }
+            win.document.open();
+            win.document.write(self.buildReportHTML(data, ctx));
+            win.document.close();
+        },
+
+        /**
+         * Escape text for safe insertion into the report markup.
+         */
+        escReport: function(s) {
+            return String(s == null ? '' : s).replace(/[&<>"]/g, function(c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+            });
+        },
+
+        buildReportHTML: function(data, ctx) {
+            var esc = MBRPE_Admin.escReport;
+            var site = data.site || {};
+            var tierLabels = { high: 'High impact', medium: 'Worth doing', low: 'Minor' };
+            var now = new Date();
+            var dateStr = now.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+
+            // Site-wide recommendation rows.
+            var rows = '';
+            (site.recommendations || []).forEach(function(rec) {
+                var scope = (rec.scope === 'site-wide')
+                    ? ('Site-wide (' + rec.coverage + '/' + rec.total + ')')
+                    : (rec.coverage + ' of ' + rec.total + ' templates');
+                rows += '<tr class="tier-' + esc(rec.tier) + '">' +
+                    '<td class="pri"><span class="badge badge-' + esc(rec.tier) + '">' + esc(tierLabels[rec.tier] || rec.tier) + '</span></td>' +
+                    '<td><div class="rec-title">' + esc(rec.title) + '</div><div class="rec-detail">' + esc(rec.detail) + '</div>' +
+                    (rec.warning ? '<div class="rec-warn">⚠ ' + esc(rec.warning) + '</div>' : '') + '</td>' +
+                    '<td class="scope">' + esc(scope) + '</td>' +
+                    '<td class="setting">' + (rec.tab ? esc(rec.tab) : '—') + '</td></tr>';
+            });
+            var recTable = rows
+                ? '<table class="recs"><thead><tr><th>Priority</th><th>Recommendation</th><th>Scope</th><th>Setting</th></tr></thead><tbody>' + rows + '</tbody></table>'
+                : '<p class="clean">No actionable recommendations — the templates sampled are already in good shape.</p>';
+
+            // Per-template breakdown.
+            var tpls = '';
+            (data.templates || []).forEach(function(t) {
+                var body;
+                if (!t.ok) {
+                    body = '<p class="tpl-warn">' + esc(t.message || 'Could not analyse this template.') + '</p>';
+                } else {
+                    var titles = (t.recommendations || []).filter(function(r) { return r.tier !== 'info'; })
+                        .map(function(r) { return r.title; });
+                    body = '<p class="tpl-verdict">' + esc(t.summary.verdict) + '</p>' +
+                        '<p class="tpl-sugg">' + (titles.length ? 'Suggests: ' + esc(titles.join(', ')) : 'Nothing to flag here.') + '</p>';
+                }
+                tpls += '<div class="tpl"><div class="tpl-name">' + esc(t.label) + '</div>' +
+                    '<div class="tpl-url">' + esc(t.url) + '</div>' + body + '</div>';
+            });
+
+            var css = '@page{size:A4;margin:16mm}' +
+                '*{box-sizing:border-box}' +
+                'body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#1e293b;line-height:1.5;font-size:12px}' +
+                '.head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #2563eb;padding-bottom:12px;margin-bottom:18px}' +
+                '.brand{font-size:22px;font-weight:800;letter-spacing:-.3px;color:#0f172a}' +
+                '.brand span{color:#2563eb}' +
+                '.kicker{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:#64748b;margin-top:2px}' +
+                '.meta{text-align:right;font-size:11px;color:#475569}' +
+                '.verdict{background:#f8fafc;border:1px solid #e2e8f0;border-left:4px solid #2563eb;border-radius:6px;padding:14px 16px;margin-bottom:20px}' +
+                '.verdict h1{margin:0 0 4px;font-size:16px;color:#0f172a}' +
+                '.verdict p{margin:0;color:#64748b;font-size:11px}' +
+                'h2{font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:#334155;border-bottom:1px solid #e2e8f0;padding-bottom:5px;margin:24px 0 12px}' +
+                'table.recs{width:100%;border-collapse:collapse}' +
+                'table.recs th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#94a3b8;padding:0 8px 6px;border-bottom:1px solid #e2e8f0}' +
+                'table.recs td{padding:9px 8px;border-bottom:1px solid #eef2f7;vertical-align:top}' +
+                '.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:9px;font-weight:700;white-space:nowrap}' +
+                '.badge-high{background:#fee2e2;color:#b91c1c}.badge-medium{background:#fef3c7;color:#a16207}.badge-low{background:#e2e8f0;color:#475569}' +
+                '.rec-title{font-weight:600;color:#0f172a}.rec-detail{color:#475569;font-size:11px;margin-top:2px}' +
+                '.rec-warn{color:#b45309;font-size:10px;margin-top:3px}' +
+                '.scope{font-size:11px;color:#334155;white-space:nowrap}.setting{font-size:11px;color:#2563eb}' +
+                '.pri{white-space:nowrap}.clean{color:#16a34a;font-weight:600}' +
+                '.tpl{border:1px solid #e2e8f0;border-radius:6px;padding:10px 12px;margin-bottom:10px;page-break-inside:avoid}' +
+                '.tpl-name{font-weight:700;color:#0f172a;font-size:12px}' +
+                '.tpl-url{font-size:10px;color:#2563eb;word-break:break-all;margin-bottom:5px}' +
+                '.tpl-verdict{margin:0;color:#334155;font-size:11px}.tpl-sugg{margin:3px 0 0;font-size:11px;color:#475569}.tpl-warn{color:#b91c1c;font-size:11px;margin:0}' +
+                'footer{margin-top:24px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between}' +
+                '.noprint{margin:0 0 16px}@media print{.noprint{display:none}}' +
+                'button{font:inherit;padding:8px 16px;background:#2563eb;color:#fff;border:0;border-radius:6px;cursor:pointer}';
+
+            return '<!DOCTYPE html><html><head><meta charset="utf-8">' +
+                '<title>MBR Performance Report — ' + esc(ctx.siteName) + '</title><style>' + css + '</style></head><body>' +
+                '<p class="noprint"><button onclick="window.print()">Print / Save as PDF</button></p>' +
+                '<div class="head"><div><div class="brand">MBR<span>Performance</span></div><div class="kicker">Performance Report</div></div>' +
+                '<div class="meta">' + esc(ctx.siteName) + '<br>' + esc(ctx.siteUrl) + '<br>' + esc(dateStr) + '</div></div>' +
+                '<div class="verdict"><h1>' + esc(site.verdict || 'Site analysis') + '</h1><p>' + (site.templates_ok || 0) + ' template(s) analysed</p></div>' +
+                '<h2>Recommended across your site</h2>' + recTable +
+                '<h2>By template</h2>' + tpls +
+                '<footer><span>Generated by MBR Performance v' + esc(ctx.version) + '</span><span>' + esc(ctx.siteUrl) + '</span></footer>' +
+                '<script>window.onload=function(){setTimeout(function(){window.print();},300);};<\/script>' +
+                '</body></html>';
+        },
+
+        /**
+         * Dismiss the first-run Doctor nudge (also called automatically once a
+         * site scan runs). Removes the banner and records the dismissal per-user.
+         */
+        dismissDoctorNudge: function(e) {
+            if (e && e.preventDefault) { e.preventDefault(); }
+            var $n = $('#mbr-doctor-nudge');
+            if ($n.length) {
+                $n.slideUp(150, function() { $(this).remove(); });
+            }
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_dismiss_doctor_nudge',
+                nonce: mbrpeData.nonce
+            });
+        },
+
+        /**
          * Reset settings to defaults
          */
         resetSettings: function(e) {
@@ -179,76 +484,37 @@ console.log('==========================================');
         },
 
         /**
-         * Clear font cache - TESTED AND WORKING
+         * Clear font cache
          */
         clearFontCache: function(e) {
-            console.log('STEP 1: clearFontCache function called');
             e.preventDefault();
             e.stopPropagation();
-            console.log('STEP 2: preventDefault called');
-            
-            // SET FLAG TO PREVENT FORM SUBMISSION
-            window.mbrpeDebugActive = true;
-            
+            var self = MBRPE_Admin;
             var $button = $(this);
             var $status = $('#clear-font-status');
-            console.log('STEP 3: Button and status elements found');
-            
+
             if (!confirm('Are you sure you want to delete ALL downloaded fonts and reset the configuration? This cannot be undone.')) {
-                console.log('STEP 4: User cancelled');
-                window.mbrpeDebugActive = false;
                 return;
             }
-            console.log('STEP 5: User confirmed, proceeding...');
-            
-            // PREVENT ANY PAGE RELOADS/NAVIGATION
-            window.onbeforeunload = function() {
-                console.log('BLOCKED: Page tried to reload/navigate!');
-                return "Debug message is being displayed. Are you sure you want to leave?";
-            };
-            console.log('STEP 6: Reload blocker installed');
-            
+
             $status.html('');
             var originalText = $button.text();
             $button.text('Clearing...').prop('disabled', true);
-            console.log('STEP 7: Button updated, sending AJAX...');
-            
+
             $.post(mbrpeData.ajaxUrl, {
                 action: 'mbrpe_clear_font_cache',
                 nonce: mbrpeData.nonce
             }, function(response) {
-                console.log('STEP 8: AJAX response received');
-                console.log('Response:', response);
-                
                 $button.text(originalText).prop('disabled', false);
-                
-                if (response.success) {
-                    console.log('STEP 9: Success!');
-                    console.log('=== CLEAR FONT CACHE DEBUG ===');
-                    console.log(response.data.message);
-                    console.log('=== END DEBUG ===');
-                    
-                    // Show in a BIG obvious div that can't be missed
-                    $status.html('<div style="background: #d4edda; border: 3px solid #28a745; padding: 30px; margin: 20px 0; font-size: 14px;"><strong style="color: green; font-size: 18px;">✓ CACHE CLEARED!</strong><br><br><div style="font-family: monospace; white-space: pre-wrap; background: white; padding: 15px; border: 1px solid #ccc;">' + response.data.message + '</div><br><br><strong style="color: red; font-size: 16px;">⚠️ READ THE MESSAGE ABOVE - DO NOT RELOAD YET!</strong><br><br><button type="button" onclick="window.mbrpeDebugActive=false; window.onbeforeunload=null; location.reload();" class="button button-primary" style="font-size: 16px; padding: 10px 20px;">I Have Read It - Reload Page Now</button></div>');
-                    
-                    console.log('STEP 10: Message displayed, function complete');
+                if (response && response.success) {
+                    self.showMessage($status, (response.data && response.data.message) || 'Font cache cleared.', 'success');
                 } else {
-                    console.error('STEP 9: Error response:', response.data.message);
-                    window.mbrpeDebugActive = false;
-                    $status.html('<div style="background: #f8d7da; border: 2px solid #dc3545; padding: 20px;"><strong>Error:</strong> ' + (response.data.message || 'An error occurred') + '</div>');
+                    self.showMessage($status, (response && response.data && response.data.message) || 'An error occurred.', 'error');
                 }
             }).fail(function(xhr, status, error) {
-                console.error('STEP 8: AJAX FAILED');
-                console.error('Status:', status);
-                console.error('Error:', error);
-                console.error('XHR:', xhr);
-                
-                window.mbrpeDebugActive = false;
                 $button.text(originalText).prop('disabled', false);
-                $status.html('<div style="background: #f8d7da; border: 2px solid #dc3545; padding: 20px;"><strong>AJAX Error:</strong> ' + error + '</div>');
+                self.showMessage($status, 'Request failed: ' + error, 'error');
             });
-            
-            console.log('STEP 11: AJAX call initiated, waiting for response...');
         },
 
         /**
@@ -768,6 +1034,31 @@ console.log('==========================================');
                 if (response && response.success) {
                     $('#mbr-combine-' + type + '-count').text('0');
                     $('#mbr-combine-' + type + '-size').text('0 B');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
+                } else {
+                    MBRPE_Admin.showMessage($status, (response && response.data && response.data.message) || 'Failed to clear cache.', 'error');
+                }
+            }).fail(function() {
+                MBRPE_Admin.hideLoading($button);
+                MBRPE_Admin.showMessage($status, 'Request failed.', 'error');
+            });
+        },
+
+        clearUsedCss: function(e) {
+            e.preventDefault();
+            var $button = $(this);
+            var $status = $('#mbr-used-css-status');
+
+            MBRPE_Admin.showLoading($button);
+
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_clear_used_css',
+                nonce: mbrpeData.nonce
+            }, function(response) {
+                MBRPE_Admin.hideLoading($button);
+                if (response && response.success) {
+                    $('#mbr-used-css-count').text('0');
+                    $('#mbr-used-css-size').text('0 B');
                     MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
                     MBRPE_Admin.showMessage($status, (response && response.data && response.data.message) || 'Failed to clear cache.', 'error');
@@ -1422,17 +1713,8 @@ console.log('==========================================');
     };
 
     // Initialize on document ready
-    console.log('Registering document.ready handler...');
     $(document).ready(function() {
-        console.log('DOCUMENT READY FIRED!');
         MBRPE_Admin.init();
-        console.log('After init call');
     });
-    
-    console.log('End of IIFE');
 
 })(jQuery);
-
-console.log('==========================================');
-console.log('MBR Performance JS FILE LOADED!');
-console.log('==========================================');
