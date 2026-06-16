@@ -53,6 +53,7 @@ class MBRPE_Admin {
         // AJAX handlers
         add_action( 'wp_ajax_mbrpe_save_settings', array( $this, 'ajax_save_settings' ) );
         add_action( 'wp_ajax_mbrpe_reset_settings', array( $this, 'ajax_reset_settings' ) );
+        add_action( 'wp_ajax_mbrpe_dismiss_doctor_nudge', array( $this, 'ajax_dismiss_doctor_nudge' ) );
         add_action( 'wp_ajax_mbrpe_clean_revisions', array( $this, 'ajax_clean_revisions' ) );
         add_action( 'wp_ajax_mbrpe_scan_post_meta', array( $this, 'ajax_scan_post_meta' ) );
         add_action( 'wp_ajax_mbrpe_delete_post_meta', array( $this, 'ajax_delete_post_meta' ) );
@@ -75,6 +76,7 @@ class MBRPE_Admin {
         add_action( 'wp_ajax_mbrpe_download_manual_fonts', array( $this, 'ajax_download_manual_fonts' ) );
         add_action( 'wp_ajax_mbrpe_clear_font_cache', array( $this, 'ajax_clear_font_cache' ) );
         add_action( 'wp_ajax_mbrpe_clear_combine_cache', array( $this, 'ajax_clear_combine_cache' ) );
+        add_action( 'wp_ajax_mbrpe_clear_used_css', array( $this, 'ajax_clear_used_css' ) );
         
         // WebP Converter AJAX handlers
         add_action( 'wp_ajax_mbrpe_webp_get_images', array( $this, 'ajax_webp_get_images' ) );
@@ -137,6 +139,7 @@ class MBRPE_Admin {
         
         // Add submenu items for each tab
         $tabs = array(
+            'doctor' => __( 'Doctor', 'mbr-performance' ),
             'core' => __( 'Core Features', 'mbr-performance' ),
             'javascript' => __( 'JavaScript', 'mbr-performance' ),
             'css' => __( 'CSS', 'mbr-performance' ),
@@ -795,6 +798,11 @@ class MBRPE_Admin {
                 'ajaxUrl' => admin_url( 'admin-ajax.php' ),
                 'nonce' => wp_create_nonce( 'mbrpe_nonce' ),
                 'uploadUrl' => wp_upload_dir()['baseurl'],
+                'report' => array(
+                    'siteName' => get_bloginfo( 'name' ),
+                    'siteUrl'  => home_url( '/' ),
+                    'version'  => MBRPE_VERSION,
+                ),
                 'i18n' => array(
                     'saveSuccess' => __( 'Settings saved successfully.', 'mbr-performance' ),
                     'saveError' => __( 'Error saving settings. Please try again.', 'mbr-performance' ),
@@ -841,6 +849,18 @@ class MBRPE_Admin {
     /**
      * Render settings page
      */
+    /**
+     * Persist that this user has dismissed the first-run Doctor nudge.
+     */
+    public function ajax_dismiss_doctor_nudge() {
+        check_ajax_referer( 'mbrpe_nonce', 'nonce' );
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error();
+        }
+        update_user_meta( get_current_user_id(), 'mbrpe_doctor_nudge_dismissed', 1 );
+        wp_send_json_success();
+    }
+
     public function render_settings_page() {
         // Get current tab
         $this->current_tab = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : 'core';
@@ -869,6 +889,8 @@ class MBRPE_Admin {
             }
             ?>
             
+            <?php $this->render_doctor_nudge(); ?>
+
             <?php $this->render_tabs(); ?>
             
             <form method="post" action="options.php" class="mbr-performance-form">
@@ -876,6 +898,9 @@ class MBRPE_Admin {
                 settings_fields( 'mbrpe_options' );
                 
                 switch ( $this->current_tab ) {
+                    case 'doctor':
+                        $this->render_doctor_tab( $options );
+                        break;
                     case 'core':
                         $this->render_core_tab( $options );
                         break;
@@ -946,8 +971,36 @@ class MBRPE_Admin {
     /**
      * Render tabs
      */
+    /**
+     * First-run nudge: steer newcomers to the Doctor instead of the toggle wall.
+     * Shown above the tabs until the user dismisses it or runs a site scan, and
+     * never on the Doctor tab itself (they're already there). Dismissal is
+     * stored per-user so each admin only sees it once.
+     */
+    private function render_doctor_nudge() {
+        if ( 'doctor' === $this->current_tab ) {
+            return;
+        }
+        if ( get_user_meta( get_current_user_id(), 'mbrpe_doctor_nudge_dismissed', true ) ) {
+            return;
+        }
+        ?>
+        <div class="mbr-doctor-nudge" id="mbr-doctor-nudge">
+            <div class="mbr-doctor-nudge-text">
+                <strong><?php esc_html_e( 'New here? Start with the Performance Doctor.', 'mbr-performance' ); ?></strong>
+                <p><?php esc_html_e( 'No need to work through every toggle. Let the Doctor scan your key pages and tell you — in priority order — which settings your site actually needs, and which to leave alone.', 'mbr-performance' ); ?></p>
+            </div>
+            <div class="mbr-doctor-nudge-actions">
+                <a class="button button-primary" href="?page=mbr-performance&amp;tab=doctor"><?php esc_html_e( 'Open the Doctor', 'mbr-performance' ); ?></a>
+                <button type="button" class="mbr-doctor-nudge-dismiss" id="mbr-doctor-nudge-dismiss" aria-label="<?php esc_attr_e( 'Dismiss this tip', 'mbr-performance' ); ?>">&times;</button>
+            </div>
+        </div>
+        <?php
+    }
+
     private function render_tabs() {
         $tabs = array(
+            'doctor' => __( 'Doctor', 'mbr-performance' ),
             'core' => __( 'Core Features', 'mbr-performance' ),
             'javascript' => __( 'JavaScript', 'mbr-performance' ),
             'css' => __( 'CSS', 'mbr-performance' ),
@@ -973,6 +1026,15 @@ class MBRPE_Admin {
             );
         }
         echo '</h2>';
+    }
+
+    /**
+     * Render Doctor tab
+     *
+     * @param array $options
+     */
+    private function render_doctor_tab( $options ) {
+        require_once MBRPE_PLUGIN_DIR . 'includes/admin/tabs/doctor.php';
     }
 
     /**
@@ -1358,6 +1420,9 @@ class MBRPE_Admin {
         // cached bundles so the next front-end request rebuilds them cleanly.
         if ( class_exists( 'MBRPE_CSS_Optimizations' ) ) {
             MBRPE_CSS_Optimizations::purge_combine_cache();
+            if ( class_exists( 'MBRPE_Used_CSS' ) ) {
+                MBRPE_Used_CSS::purge_all();
+            }
         }
 
         wp_send_json_success( array( 'message' => __( 'Settings saved successfully.', 'mbr-performance' ) ) );
@@ -1943,6 +2008,9 @@ class MBRPE_Admin {
         // Drop any cached combined-CSS bundles built under the old settings.
         if ( class_exists( 'MBRPE_CSS_Optimizations' ) ) {
             MBRPE_CSS_Optimizations::purge_combine_cache();
+            if ( class_exists( 'MBRPE_Used_CSS' ) ) {
+                MBRPE_Used_CSS::purge_all();
+            }
         }
 
         wp_send_json_success( array( 'message' => __( 'Settings reset to defaults.', 'mbr-performance' ) ) );
@@ -2022,6 +2090,30 @@ class MBRPE_Admin {
             array(
                 /* translators: %d: number of deleted files */
                 'message' => sprintf( _n( 'Cleared %d combined file.', 'Cleared %d combined files.', $deleted, 'mbr-performance' ), number_format_i18n( $deleted ) ),
+                'deleted' => $deleted,
+            )
+        );
+    }
+
+    /**
+     * Clear the cached per-page used-CSS files (Mode A).
+     */
+    public function ajax_clear_used_css() {
+        check_ajax_referer( 'mbrpe_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'mbr-performance' ) ) );
+        }
+
+        $deleted = 0;
+        if ( class_exists( 'MBRPE_Used_CSS' ) ) {
+            $deleted = MBRPE_Used_CSS::purge_all();
+        }
+
+        wp_send_json_success(
+            array(
+                /* translators: %d: number of deleted files */
+                'message' => sprintf( _n( 'Cleared %d used-CSS file.', 'Cleared %d used-CSS files.', $deleted, 'mbr-performance' ), number_format_i18n( $deleted ) ),
                 'deleted' => $deleted,
             )
         );

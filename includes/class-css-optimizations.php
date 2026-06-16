@@ -185,7 +185,10 @@ class MBRPE_CSS_Optimizations {
      */
     private function init_optimizations() {
         // Async non-critical stylesheets via the preload+onload pattern.
-        if ( $this->get_option( 'async_css' ) ) {
+        // When Used CSS (Mode A) is active it owns CSS delivery — it inlines the
+        // used CSS and defers every sheet itself — so the standalone Async CSS
+        // layer is redundant and would double-wrap links. Suppress it here.
+        if ( $this->get_option( 'async_css' ) && ! $this->get_option( 'remove_unused_css' ) ) {
             add_filter( 'style_loader_tag', array( $this, 'async_stylesheet' ), 99, 4 );
             add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_loadcss_polyfill' ) );
         }
@@ -200,7 +203,12 @@ class MBRPE_CSS_Optimizations {
         // wp_enqueue_scripts so the full queue is known before we walk it, and
         // only ever merges runs of adjacent eligible sheets so the cascade
         // order of the page is preserved exactly.
-        if ( $this->get_option( 'combine_css' ) ) {
+        //
+        // Like Async CSS above, Combine is stood down when Used CSS (Mode A) is
+        // active: Mode A inlines the used CSS and defers every sheet itself, so
+        // combining would only build a second cache to produce Mode A's deferred
+        // fallback — redundant work for no gain. The two are alternatives.
+        if ( $this->get_option( 'combine_css' ) && ! $this->get_option( 'remove_unused_css' ) ) {
             add_action( 'wp_enqueue_scripts', array( $this, 'combine_styles' ), 9999 );
 
             // Optionally emit early <link rel="preload"> hints for the combined
@@ -213,10 +221,8 @@ class MBRPE_CSS_Optimizations {
             }
         }
 
-        // Remove unused CSS is a no-op — needs a proper DOM scanner.
-        if ( $this->get_option( 'remove_unused_css' ) ) {
-            add_action( 'admin_notices', array( $this, 'notice_remove_unused_unavailable' ) );
-        }
+        // Remove unused CSS (Mode A) is handled by MBRPE_Used_CSS, which is
+        // instantiated separately and reads the same remove_unused_css option.
 
         // Conditionally load Gutenberg block stylesheets (only those used on the page).
         if ( $this->get_option( 'load_block_styles_conditionally' ) ) {
@@ -746,7 +752,7 @@ class MBRPE_CSS_Optimizations {
             $css = preg_replace( '/@charset\s+["\'][^"\']*["\']\s*;/i', '', $css );
 
             // Rewrite relative url()/@import targets against this sheet's dir.
-            $css = $this->rewrite_css_urls( $css, $member['href'] );
+            $css = self::rewrite_css_urls( $css, $member['href'] );
 
             // Hoist @import statements — they must precede all normal rules.
             $css = preg_replace_callback(
@@ -776,7 +782,7 @@ class MBRPE_CSS_Optimizations {
         $out .= implode( "\n", $bodies );
 
         if ( $minify ) {
-            $out = $this->minify_css_string( $out );
+            $out = self::minify_css_string( $out );
         }
 
         // A single UTF-8 @charset must lead the file, before any rule.
@@ -794,7 +800,7 @@ class MBRPE_CSS_Optimizations {
      * @param string $base_href Source stylesheet URL.
      * @return string
      */
-    private function rewrite_css_urls( $css, $base_href ) {
+    public static function rewrite_css_urls( $css, $base_href ) {
         $base     = preg_replace( '/[?#].*$/', '', (string) $base_href );
         $base_dir = preg_replace( '#/[^/]*$#', '/', $base ); // Strip filename → dir URL.
 
@@ -816,7 +822,7 @@ class MBRPE_CSS_Optimizations {
                 if ( $is_absolute( $target ) ) {
                     return $match[0];
                 }
-                return 'url(' . $match[1] . $this->resolve_relative_url( $base_dir, $target ) . $match[1] . ')';
+                return 'url(' . $match[1] . self::resolve_relative_url( $base_dir, $target ) . $match[1] . ')';
             },
             $css
         );
@@ -829,7 +835,7 @@ class MBRPE_CSS_Optimizations {
                 if ( $is_absolute( $target ) ) {
                     return $match[0];
                 }
-                return '@import ' . $match[1] . $this->resolve_relative_url( $base_dir, $target ) . $match[1];
+                return '@import ' . $match[1] . self::resolve_relative_url( $base_dir, $target ) . $match[1];
             },
             $css
         );
@@ -845,7 +851,7 @@ class MBRPE_CSS_Optimizations {
      * @param string $rel          Relative target.
      * @return string
      */
-    private function resolve_relative_url( $base_dir_url, $rel ) {
+    public static function resolve_relative_url( $base_dir_url, $rel ) {
         $abs   = $base_dir_url . $rel;
         $parts = wp_parse_url( $abs );
         if ( empty( $parts ) || empty( $parts['path'] ) ) {
@@ -882,7 +888,7 @@ class MBRPE_CSS_Optimizations {
      * @param string $css
      * @return string
      */
-    private function minify_css_string( $css ) {
+    public static function minify_css_string( $css ) {
         $tokens = array();
         $index  = 0;
 
@@ -1065,18 +1071,5 @@ class MBRPE_CSS_Optimizations {
         foreach ( array_unique( $this->combine_preload_urls ) as $url ) {
             echo '<link rel="preload" href="' . esc_url( $url ) . '" as="style" />' . "\n";
         }
-    }
-
-    /**
-     * Notice: Remove Unused CSS not yet available.
-     */
-    public function notice_remove_unused_unavailable() {
-        $screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
-        if ( ! $screen || false === strpos( (string) $screen->id, 'mbr-performance' ) ) {
-            return;
-        }
-        echo '<div class="notice notice-warning"><p>'
-            . esc_html__( 'Remove Unused CSS is not yet implemented in this release. For per-page asset control, see the MBR Advanced Asset Manager plugin.', 'mbr-performance' )
-            . '</p></div>';
     }
 }

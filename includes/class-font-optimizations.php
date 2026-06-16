@@ -58,6 +58,11 @@ class MBRPE_Font_Optimizations {
             
             // Remove from head
             add_action( 'wp_head', array( $this, 'remove_google_fonts_meta' ), 1 );
+
+            // Final-output sweep: strips hardcoded <link> tags, preconnects, and
+            // inline @font-face/@import that never pass through the enqueue
+            // system (e.g. fonts hardcoded into a theme's header.php).
+            add_action( 'template_redirect', array( $this, 'maybe_strip_google_fonts' ), 1 );
         }
 
         // Disable Elementor's Google Fonts requests entirely.
@@ -407,5 +412,88 @@ class MBRPE_Font_Optimizations {
     public function remove_google_fonts_meta() {
         // Remove any actions that might add Google Fonts preconnect
         remove_action( 'wp_head', 'wp_resource_hints', 2 );
+    }
+
+    /**
+     * Decide whether the output-buffer sweep should run for this request.
+     *
+     * @return bool True to skip (admin, AJAX, REST, feeds, non-GET, etc.).
+     */
+    private function skip_font_buffer() {
+        if ( is_admin() || is_feed() || is_embed() ) {
+            return true;
+        }
+        if ( ( defined( 'DOING_AJAX' ) && DOING_AJAX )
+            || ( defined( 'REST_REQUEST' ) && REST_REQUEST )
+            || ( defined( 'DOING_CRON' ) && DOING_CRON ) ) {
+            return true;
+        }
+        if ( isset( $_SERVER['REQUEST_METHOD'] ) && 'GET' !== strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) ) {
+            return true;
+        }
+        if ( function_exists( 'is_customize_preview' ) && is_customize_preview() ) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Start buffering front-end output so hardcoded Google Fonts can be stripped.
+     */
+    public function maybe_strip_google_fonts() {
+        if ( $this->skip_font_buffer() ) {
+            return;
+        }
+        ob_start( array( $this, 'strip_google_fonts_buffer' ) );
+    }
+
+    /**
+     * Strip Google Fonts references that bypass the enqueue system: hardcoded
+     * <link> tags (stylesheet, preconnect, preload, dns-prefetch), inline
+     * @font-face blocks, and @import statements.
+     *
+     * @param string $html Buffered page HTML.
+     * @return string
+     */
+    public function strip_google_fonts_buffer( $html ) {
+        // Cheap bail-out when there's nothing Google-fonty to remove.
+        if ( '' === $html || false === stripos( $html, 'fonts.g' ) ) {
+            return $html;
+        }
+        if ( false === stripos( $html, '</head>' ) ) {
+            return $html; // Not a full HTML document.
+        }
+
+        // 1) Any <link> referencing the Google Fonts domains, whatever its rel.
+        $out = preg_replace(
+            '#<link\b[^>]*?(?:fonts\.googleapis\.com|fonts\.gstatic\.com)[^>]*?>#i',
+            '',
+            $html
+        );
+        if ( null !== $out ) {
+            $html = $out;
+        }
+
+        // 2) Inline @font-face blocks that pull from Google Fonts.
+        $out = preg_replace(
+            '#@font-face\s*\{[^{}]*?(?:fonts\.googleapis\.com|fonts\.gstatic\.com)[^{}]*?\}#is',
+            '',
+            $html
+        );
+        if ( null !== $out ) {
+            $html = $out;
+        }
+
+        // 3) @import statements pulling from Google Fonts.
+        $out = preg_replace(
+            '#@import\s+(?:url\()?["\']?[^"\')]*fonts\.googleapis\.com[^"\')]*["\']?\)?\s*;?#i',
+            '',
+            $html
+        );
+        if ( null !== $out ) {
+            $html = $out;
+        }
+
+        return $html;
     }
 }
