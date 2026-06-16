@@ -7,11 +7,11 @@
 [![WordPress](https://img.shields.io/badge/WordPress-5.8%2B-blue.svg)](https://wordpress.org)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
 [![License](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
-[![Version](https://img.shields.io/badge/Version-1.17.0-orange.svg)](https://github.com/harbourbob/mbr-wp-performance/releases)
+[![Version](https://img.shields.io/badge/Version-1.19.0-orange.svg)](https://github.com/harbourbob/mbr-wp-performance/releases)
 [![Downloads](https://img.shields.io/github/downloads/harbourbob/mbr-wp-performance/total)](https://github.com/harbourbob/mbr-wp-performance/releases)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-%E2%98%95-yellow.svg)](https://buymeacoffee.com/robertpalmer/)
 
-**Thirteen tabs of individually-toggleable optimisations.** Image conversion, script and style delivery, font self-hosting, database cleanup, server-level caching, third-party self-hosting, plus a diagnostics suite that catches conflicts before they bite. Every option is explained in plain language, nothing phones home, and there's no "pro" tier holding features back.
+**Fifteen tabs of individually-toggleable optimisations, now led by a Performance Doctor that scans your site and tells you which settings it actually needs.** Image conversion, Used CSS and render-blocking control, font self-hosting, database cleanup, server-level caching, third-party self-hosting, plus a diagnostics suite that catches conflicts before they bite. Every option is explained in plain language, nothing phones home, and there's no "pro" tier holding features back.
 
 [**📥 Download Latest**](https://github.com/harbourbob/mbr-wp-performance/releases) &nbsp;·&nbsp; [**🐛 Report a Bug**](https://github.com/harbourbob/mbr-wp-performance/issues) &nbsp;·&nbsp; [**💡 Request a Feature**](https://github.com/harbourbob/mbr-wp-performance/issues) &nbsp;·&nbsp; [**📖 User Guide (PDF)**](https://littlewebshack.com/wp-content/uploads/2026/05/mbr-wp-performance-user-guide-1.12.0.pdf)
 
@@ -19,18 +19,16 @@
 
 ---
 
-## 🆕 What's new in 1.13.x
+## 🆕 What's new in 1.19.0
 
-The 1.13.x line is a stability and feature-completion run on top of the major v1.12.0 release. Recent highlights:
+The headline is the **MBR Performance Doctor** — a new advisory tab that turns "a wall of toggles I don't understand" into a short, ordered worklist — built on top of the **Used CSS (Mode A)** engine that landed in 1.18.0.
 
-- ✨ **Bulk AVIF Converter** *(1.13.8)* sits alongside the existing WebP one, with a unified conversion history table that now shows both **WebP Size** and **AVIF Size** columns side-by-side. Per-image AJAX with progress bar, registry-driven Revert All that deletes every `.avif` this plugin created without touching originals or WebP variants. Auto-convert on upload writes to the AVIF history option too, so freshly-uploaded images join the table alongside bulk-converted ones.
-- 🐛 **AVIF false-positive fix** *(1.13.7)*. `function_exists('imageavif')` returns true on PHP 8.1+ even when libgd wasn't built with libavif — detection now uses `gd_info()['AVIF Support']` (the same reliable pattern the WebP detection has always used). Servers that "looked supported" but silently failed conversion now display a clear admin notice instead of pretending it's working.
-- 🐛 **The real "CSS settings reset themselves" fix** *(1.13.5)*. Three font fields on the Fonts tab were scoped to `[css]` instead of `[fonts]` in their form `name` attributes — so saving the Fonts tab posted a partial `css` section that the CSS sanitiser obediently used to replace the entire stored CSS section, wiping every other CSS toggle to `false`. Two of those three fields were dead UI and have been removed; the third moved to its correct home with a migration. The trigger was reliably "click Save on the Fonts tab." Took a while to find.
-- 🔧 **Critical-CSS chain redesign** *(1.13.4)*. The Auto-Generate Critical CSS button is gone — regex-based extraction across hardcoded selectors stripped `@media` wrappers off rules, matched anything starting with a single-letter target, and ignored CSS variables defined on `:root`. Paste critical CSS from a proper viewport-aware tool (Penthouse, Critical, Critters) instead. An async-CSS safety interlock also keeps the first 2 stylesheets render-blocking when there's no critical-CSS bridge in place, so async loading no longer paints unstyled content.
-- 🐛 **Three audit fixes** *(1.13.3)*. The Critical CSS generator's output now persists (was writing to a sanitiser-stripped field), the Reset to Defaults button now works (was an inert `&reset=1` GET with no handler), and the Autoload Audit SQL now genuinely excludes the plugin's own options as its docblock had always claimed.
-- 🎨 **UI contrast fix** *(1.13.6)*. Plugin notice text was inheriting WordPress core's near-black `.notice` colour against the dark-themed admin's tinted backgrounds, producing low-contrast pills that were hard to read.
-
-Plus the standout 1.13.0 hook: a one-click switch to **disable WordPress 7.0's built-in AI subsystem** (AI Client, Abilities API, Connectors plumbing) via core's own `wp_supports_ai` kill switch.
+- 🩺 **MBR Performance Doctor** *(1.19.0)*. Analyses a real front-end page — or, with one click, your key templates (home, blog, a post, a page, WooCommerce shop/product) — and recommends, in priority order, which settings will actually help *this* site, including telling you which to leave **off**. It diagnoses the render-blocking CSS-vs-JavaScript split (the most decisive factor), runs an image pass (missing dimensions → CLS, JPEG/PNG that next-gen formats would shrink, below-the-fold images not lazy-loaded), and links each recommendation straight to the setting that fixes it, skipping anything already enabled. Advisory only — it never changes a setting for you.
+- 📑 **Multi-template scan + branded PDF report** *(1.19.0)*. The site scan aggregates findings into **site-wide vs page-specific** recommendations, then exports a clean, print-ready PDF report — generated client-side, so it adds no plugin weight and works on any host. Ideal for handing an agency client a "here's what we found" deliverable.
+- 👋 **First-run nudge** *(1.19.0)*. New users are pointed at the Doctor before they face the toggle wall. Dismissed per-user, and auto-dismissed once a scan is run.
+- ✨ **Used CSS (Mode A)** *(1.18.0)*. Inlines each page's *used* (critical) CSS into the head and async-defers the original stylesheets as a safe fallback — eliminating render-blocking CSS without a flash of unstyled content. Fully self-hosted (a bundled MIT CSS parser; no external service, no API key), cached per URL, and coordinated with the page cache. This is the kind of feature that's normally paywalled elsewhere — here it's free.
+- 🐛 **Disable Google Fonts now catches hardcoded fonts** *(1.19.0)*. A guarded final-output pass strips Google Fonts that bypass WordPress's enqueue system entirely — hardcoded `<link>` tags and preconnects in a theme header, plus inline `@font-face` and `@import` — which the handle-based removal could never reach.
+- 🔧 **Combine CSS / Used CSS coordination** *(1.19.0)*. The two are alternatives, so Combine is now automatically stood down when Used CSS is active (Mode A already owns CSS delivery). The CSS panel explains it, and the Doctor recommends one or the other, never both.
 
 [See the full changelog ↓](#-changelog)
 
@@ -38,8 +36,9 @@ Plus the standout 1.13.0 hook: a one-click switch to **disable WordPress 7.0's b
 
 ## 🎯 At a glance
 
-13 tabs, one toolbar menu, zero "Pro" tier:
+15 tabs, one toolbar menu, zero "Pro" tier:
 
+- 🩺 **Guided, not guesswork** — the Performance Doctor scans your site and tells you which settings to enable (and which to skip), so you're not staring at a wall of toggles wondering where to start
 - 🆓 **Free forever** — no premium gates, no upsells, no feature throttling
 - 🔒 **Zero tracking** — never phones home, never sends analytics, never touches visitor data
 - 🎛️ **Granular control** — toggle individual optimisations with clear explanations, not opaque "speed up my site" buttons
@@ -61,7 +60,7 @@ Plus the standout 1.13.0 hook: a one-click switch to **disable WordPress 7.0's b
 | **Properly size images** | Resize-on-upload at a configurable maximum, plus a Bulk Resize tool for existing libraries |
 | **Defer offscreen images** | Native + IntersectionObserver lazy loading, including background-image lazy loading |
 | **Image elements do not have explicit width and height** | Auto-inject missing `width`/`height` attributes from front-end `<img>` tags |
-| **Eliminate render-blocking resources** | Async CSS (preload + onload), Defer JS, Delay JS until interaction, Inline Critical CSS |
+| **Eliminate render-blocking resources** | Used CSS (Mode A — inline the critical CSS, defer the rest), Combine CSS, Async CSS (preload + onload), Defer JS, Delay JS until interaction, Inline Critical CSS |
 | **Reduce the impact of third-party code** | Self-host gtag.js, GTM, analytics.js, Facebook Pixel; daily refresh cron keeps the local copies fresh |
 | **Serve static assets with an efficient cache policy** | Server tab writes Browser Cache Headers to `.htaccess` (1 year for images, 1 month for CSS / JS) |
 | **Enable text compression** | Server tab writes Brotli / Gzip rules to `.htaccess`; Nginx hosts get a copy-ready snippet |
@@ -76,9 +75,10 @@ Plus the standout 1.13.0 hook: a one-click switch to **disable WordPress 7.0's b
 
 | Tab | Focus |
 |-----|-------|
+| 🩺 **Performance Doctor** | Scans a page — or your key templates in one click — and recommends, in priority order, which settings this site needs and which to leave off. Site-wide vs page-specific aggregation, branded print-ready PDF report |
 | ⚙️ **Core Features** | WordPress-level toggles: emojis, embeds, REST API, Heartbeat, query strings, HTML minify, disable WordPress 7.0 AI |
 | 📜 **JavaScript** | Defer, defer jQuery, jQuery removal, minify, delay until interaction, disable concatenation |
-| 🎨 **CSS** | Async loading, inline-CSS minification, unused-style scanner, conditional block styles, critical CSS textarea |
+| 🎨 **CSS** | Used CSS (Mode A), Combine CSS, async loading, inline-CSS minification, unused-style scanner, conditional block styles, critical CSS textarea |
 | 🔤 **Fonts** | Self-hosted Google Fonts, preloading, font-display, Font Awesome optimisation, Disable Elementor Google Fonts |
 | 🚀 **Preloading** | LCP image preload, fetch priority, Cloudflare Early Hints, speculative loading, hover prefetch |
 | 🐢 **Lazy Loading** | Native image/iFrame lazy loading, YouTube / Vimeo facade, fine-grained exclusions |
@@ -91,7 +91,7 @@ Plus the standout 1.13.0 hook: a one-click switch to **disable WordPress 7.0's b
 | 🗑️ **Orphaned Media** | Find and safely remove unreferenced images, videos, audio, documents, archives |
 | 🛒 **WooCommerce** | Cart fragments, conditional asset loading, Action Scheduler retention |
 
-> ℹ️ **Combine JS, Combine CSS, and Remove Unused CSS** remain visible in the UI for forward compatibility but are currently no-ops — they surface an admin notice when enabled. A safe implementation of each requires a separate engineering project. Use Defer, Delay, Inline Critical CSS, Async CSS, or [MBR Advanced Asset Manager](https://github.com/harbourbob/mbr-advanced-asset-manager) for per-asset control in the meantime.
+> ℹ️ **Combine CSS and Used CSS (Remove Unused CSS / Mode A) are now fully implemented** as of 1.18.0 — see the CSS tab. They're alternatives, so Combine is automatically stood down when Used CSS is active. **Combine JavaScript** remains visible in the UI but is still a no-op (it surfaces an admin notice when enabled) pending a safe implementation — use Defer and Delay for script wins in the meantime, or [MBR Advanced Asset Manager](https://github.com/harbourbob/mbr-advanced-asset-manager) for per-asset control.
 
 > 🧹 **Clean uninstall:** All `.htaccess` marker blocks (*MBR AVIF*, *MBR Browser Cache*, *MBR Compression*) are removed cleanly on deactivation. The third-party script refresh cron is unscheduled. The AVIF file registry is purged.
 
@@ -167,6 +167,9 @@ After activation, open **WP Performance** from the admin toolbar.
 
 ## 📚 Detailed features
 
+### 🩺 MBR Performance Doctor
+The advisor that answers "which of these settings does *my* site actually need?" Point it at a page (or hit **Scan key templates** to sample your home, blog, a post, a page, and WooCommerce shop/product in one pass) and it analyses the rendered output: the render-blocking CSS-vs-JavaScript split and total weight, plus an image pass for missing `width`/`height` (layout shift), JPEG/PNG that next-gen formats would shrink, and below-the-fold images that aren't lazy-loaded. It then produces a prioritised, plain-language worklist — high / worth-doing / minor — that links straight to the relevant setting and **skips anything already enabled**, and it's happy to tell you a fix *isn't* worth it ("your render-blocking CSS is light, leave Used CSS off"). The multi-template scan rolls everything up into **site-wide vs page-specific** recommendations, and a one-click **branded PDF report** (generated in the browser, so it adds no plugin weight and works on any host) gives agencies a client-ready deliverable. A first-run nudge points newcomers here before they meet the toggle wall. Advisory only — the Doctor never changes a setting for you.
+
 ### ⚙️ Core Features
 Disable WordPress defaults that don't earn their place — emojis, embeds, dashicons, jQuery Migrate, XML-RPC, RSS feeds, self-pingbacks, REST API links. Throttle the Heartbeat API, limit revisions, strip query strings. Three REST API access modes for tightening user enumeration without breaking the block editor, with a namespace allowlist for plugins that legitimately need public REST access. **Minify HTML** — output-buffered, comments and whitespace stripped, `<pre>` / `<textarea>` / `<script>` / `<style>` / `<svg>` and IE conditional comments preserved, and pages containing a nested/embedded HTML document automatically skipped. **Disable AI Features (WordPress 7.0+)** — switches off WordPress 7.0's built-in AI Client, Abilities API, and Connectors plumbing via core's own `wp_supports_ai` kill switch; off by default and inert on WordPress 6.x.
 
@@ -174,10 +177,10 @@ Disable WordPress defaults that don't earn their place — emojis, embeds, dashi
 Defer or async script loading, defer jQuery specifically, move scripts to the footer, optionally remove jQuery entirely (with a test mode that scopes the removal to logged-out visitors only). Minify inline JS and delay execution of analytics and chat widgets until the user actually interacts with the page — configurable timeout ensures delayed scripts run eventually even if the user never interacts. Per-option exclusion lists keep your essential scripts running normally. Disable WordPress's admin-script concatenation, strip `?ver=` query strings from script URLs.
 
 ### 🎨 CSS Optimisation
-Async loading (preload + onload pattern with the standard loadCSS polyfill for older browsers), inline-CSS minification, built-in scanner for unused styles. Conditionally load block styles, remove global styles for classic themes, kill duplicate Elementor Google Fonts requests, dequeue WooCommerce stylesheets on non-shop pages, strip CSS version query strings. **Async-CSS safety interlock** *(new in 1.13.4)*: when Async CSS is enabled without a critical-CSS bridge (Inline Critical CSS + Critical CSS Code populated), the first two stylesheets stay render-blocking to prevent a flash of unstyled content. Paste critical CSS produced by a proper viewport-aware tool — Penthouse, Critical, Critters, or any of the online critical-CSS generators — into the Critical CSS Code field for full async loading.
+**Used CSS (Mode A)** *(new in 1.18.0)* — the headline CSS feature. For each page it extracts the CSS actually used by that page's markup, inlines it into the `<head>`, and async-defers the original stylesheets as a safe fallback, so the page paints with no render-blocking CSS and no flash of unstyled content. The extraction runs through a bundled, self-hosted CSS parser (MIT-licensed — no external service, no API key, nothing phones home), keeps custom-property, `:root`/`html`, and JS-toggled (`[aria-*]` / `[data-*]`) rules regardless of static matches so nothing breaks, caches the result per URL, and coordinates with the page cache. **Combine CSS** merges runs of adjacent same-media local stylesheets into one cached bundle to cut requests, preserving cascade order and leaving external / conditional / print sheets alone. The two are alternatives — Combine automatically stands down while Used CSS is on, and the Doctor recommends one or the other, never both. Plus: async loading (preload + onload with the standard loadCSS polyfill), inline-CSS minification, a scanner for unused styles, conditional block styles, remove global styles for classic themes, dequeue WooCommerce stylesheets on non-shop pages, and a Critical CSS textarea. **Async-CSS safety interlock** *(1.13.4)*: when Async CSS is enabled without a critical-CSS bridge, the first two stylesheets stay render-blocking to prevent a flash of unstyled content. Paste critical CSS from a proper viewport-aware tool (Penthouse, Critical, Critters) for full async loading.
 
 ### 🔤 Font Management
-Self-host Google Fonts to eliminate render-blocking third-party requests (and improve GDPR posture). Preload critical fonts with an explicit `crossorigin="anonymous"` attribute, manage manual entries for fonts the auto-scanner misses, enable subsetting, and pick your `font-display` strategy. Optimise or fully disable Font Awesome. **Disable Elementor Google Fonts** — sits in this tab (1.13.5 onwards) and switches off Elementor's separate Google Fonts requests when you've already self-hosted them.
+Self-host Google Fonts to eliminate render-blocking third-party requests (and improve GDPR posture). Preload critical fonts with an explicit `crossorigin="anonymous"` attribute, manage manual entries for fonts the auto-scanner misses, enable subsetting, and pick your `font-display` strategy. Optimise or fully disable Font Awesome. **Disable Elementor Google Fonts** — sits in this tab (1.13.5 onwards) and switches off Elementor's separate Google Fonts requests when you've already self-hosted them. **Disable Google Fonts** removes Google Fonts site-wide — and as of 1.19.0 it also strips fonts hardcoded directly into the page (theme-header `<link>` tags and preconnects, inline `@font-face`, and `@import`) that bypass WordPress's enqueue system, via a guarded final-output pass.
 
 ### 🚀 Preloading & Speculative Loading
 Preload your LCP image so it lands fast. Configure fetch priority manually or auto-prioritise the first image in main content. Emit Cloudflare Early Hints (HTTP 103) for edge-level preloading. The Speculation Rules API prefetches or prerenders the next page with conservative, moderate, eager, or auto eagerness. **Hover Prefetch** uses the canonical instant.page v5.2.0 runtime (MIT) — on link hover or first touchstart, the destination page is prefetched. Honours the `Save-Data: on` request header so users on metered connections aren't penalised.
@@ -302,9 +305,9 @@ Page-builder data stores (Elementor `_elementor_data`, Bricks `_bricks_page_cont
 </details>
 
 <details>
-<summary><strong>Why do Combine JavaScript / Combine CSS / Remove Unused CSS do nothing?</strong></summary>
+<summary><strong>Why does Combine JavaScript do nothing — and what about Combine CSS / Remove Unused CSS?</strong></summary>
 
-Those three toggles are preserved in the UI for forward compatibility but currently act as no-ops with a clear admin notice. A safe implementation of each requires substantial engineering work scheduled for a future release. In the meantime, use Defer, Delay, Inline Critical CSS, and Async CSS for similar real-world wins, and the [MBR Advanced Asset Manager](https://github.com/harbourbob/mbr-advanced-asset-manager) plugin for per-URL stylesheet control.
+**Combine CSS** and **Remove Unused CSS (Used CSS / Mode A)** are now fully implemented as of 1.18.0 — see the CSS tab. They're two approaches to the same problem (render-blocking CSS) and shouldn't both run, so Combine automatically stands down whenever Used CSS is enabled, and the Performance Doctor recommends one or the other rather than both. **Combine JavaScript** is still preserved in the UI as a no-op with a clear admin notice — a safe implementation is scheduled for a future release. In the meantime, use Defer and Delay JS for real-world script wins, and the [MBR Advanced Asset Manager](https://github.com/harbourbob/mbr-advanced-asset-manager) plugin for per-URL asset control.
 </details>
 
 <details>
@@ -340,6 +343,20 @@ WordPress 7.0 ships a built-in AI subsystem — an AI Client, the Abilities API,
 ---
 
 ## 📝 Changelog
+
+### 1.19.0
+- 🩺 **New: MBR Performance Doctor.** A new advisory tab that analyses a real front-end page and recommends, in priority order, which settings will actually help this site — including which to leave **off** — instead of presenting a wall of switches. v1 diagnoses the render-blocking CSS-vs-JavaScript split (the most decisive factor), links each recommendation straight to the relevant setting, and skips anything already enabled. Advisory only; it never changes settings automatically
+- ✨ **New: Doctor image pass.** Flags images missing `width`/`height` (layout shift), JPEG/PNG that next-gen formats would shrink, and below-the-fold images that aren't lazy-loaded — each routed to the setting that fixes it
+- ✨ **New: Doctor multi-template scan.** Auto-detects key templates (home, blog index, a post, a page, WooCommerce shop/product) and aggregates findings into **site-wide vs page-specific** recommendations, with a per-template breakdown
+- ✨ **New: branded PDF report.** One-click, print-ready report of the site scan for client hand-off. Generated client-side, so it adds no plugin weight and works on any host; all data is HTML-escaped before rendering
+- ✨ **New: first-run nudge.** Steers new users to the Doctor before the toggle wall. Dismissed per-user (stored in user meta), and auto-dismissed once a scan is run; never shown on other admin screens, no tracking
+- 🐛 **Fix (Disable Google Fonts):** the toggle now also strips Google Fonts that bypass WordPress's enqueue system entirely — hardcoded `<link>` tags and preconnects in a theme header, inline `@font-face`, and `@import` — via a guarded final-output pass that runs only on front-end GET requests and bails instantly when no Google-font reference is present. The previous handle-based removal could only see fonts enqueued through `wp_enqueue_style`, so a hardcoded `<link>` slipped through untouched
+- 🔧 **Improvement: Combine CSS / Used CSS coordination.** The two are alternatives, so Combine is now automatically stood down when Used CSS (Mode A) is active — Mode A already inlines the critical CSS and defers every sheet itself, making Combine redundant. The CSS panel shows a note explaining the pause, and the Doctor recommends one or the other rather than both
+
+### 1.18.0
+- ✨ **New: Used CSS (Mode A).** Extracts the CSS each page actually uses, inlines it into the `<head>`, and async-defers the original stylesheets as a safe fallback — eliminating render-blocking CSS without a flash of unstyled content. The kind of feature usually reserved for paid plugins
+- 🔒 **Fully self-hosted.** Extraction runs through a bundled, MIT-licensed CSS parser — no external service, no API key, nothing phones home. Custom-property, `:root`/`html`, and JS-toggled (`[aria-*]` / `[data-*]`) rules are always kept so dynamic states and CSS variables don't break
+- ⚡ **Per-URL cache + page-cache coordination.** Used CSS is generated after the response, cached per URL, and served inline on subsequent loads; the just-generated URL is purged from the page cache so the inlined version is served next. Skipped for logged-in users (who have the admin bar and per-user CSS) and on admin/AJAX/REST/feed/preview requests
 
 ### 1.13.9
 - 🎨 **Fix (UI):** The "Compression" column header on the Conversion History table was 110px wide, just narrow enough that the word wrapped onto a second line at the standard wp-list-table header font weight. Bumped to 140px so the label sits cleanly on one line
