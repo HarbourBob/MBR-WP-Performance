@@ -4,7 +4,7 @@ Tags: performance, optimization, speed, cache, database
 Requires at least: 5.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.18.0
+Stable tag: 1.20.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -13,6 +13,8 @@ MBR Performance is a powerful, all-in-one performance optimization plugin that g
 == Description ==
 
 MBR Performance is a powerful, all-in-one performance optimization plugin that gives you complete control over your WordPress site's performance.
+
+A comprehensive User Guide is bundled into the zip file.
 
 = Features =
 
@@ -244,6 +246,9 @@ The Used CSS feature bundles two open-source libraries, loaded only while genera
 * Symfony CssSelector Component — Copyright (c) 2004-present Fabien Potencier and the Symfony contributors (https://symfony.com/). MIT License. Used to convert CSS selectors to XPath for matching against the rendered page.
 
 == Changelog ==
+
+= 1.20.0 =
+* Fixed: "Move scripts to footer" no longer relocates the jQuery foundation (jquery, jquery-core, jquery-migrate). Moving these split the dependency graph — jquery-migrate could be left in the head while jquery-core dropped to the footer, producing "jQuery is not defined" and silently breaking jQuery-dependent widgets (Elementor accordions, ElementsKit, and other page-builder handlers). jQuery now always stays in the head; the exclusion list continues to apply to every other script. A new mbrpe_footer_protected_handles filter lets advanced users adjust the protected set.
 
 = 1.18.0 =
 * New: Used CSS (Mode A). For each page, MBR Performance extracts only the CSS the delivered page actually uses, inlines it in the head, and loads the full stylesheets asynchronously as a fallback — so render-blocking unused CSS is eliminated without hard-breaking JavaScript-driven styles, because the originals are deferred rather than removed. Used CSS is generated in the background after the first visit to each page and cached per URL. The former "Remove Unused CSS" toggle is relabelled "Generate Used CSS" and now drives this feature.
