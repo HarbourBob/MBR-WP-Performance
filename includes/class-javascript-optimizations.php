@@ -232,7 +232,37 @@ class MBRPE_JavaScript_Optimizations {
     }
 
     /**
+     * The jQuery foundation. These handles are never moved to the footer.
+     *
+     * Relocating jQuery core/migrate breaks the dependency graph: WordPress
+     * resolves script groups against each handle's dependents, so moving one
+     * of the pair without the other (or ahead of a dependant that stays in
+     * the head) strands jquery-migrate in the head with nothing to attach to,
+     * yielding "jQuery is not defined" and taking down every downstream
+     * handler (Elementor, ElementsKit, page-builder widgets, etc.). Almost
+     * nothing benefits from deferring jQuery itself, so it is protected
+     * unconditionally regardless of the user's exclusion list.
+     *
+     * @return array List of protected script handles.
+     */
+    protected function get_footer_protected_handles() {
+        /**
+         * Filter the handles that are never moved to the footer.
+         *
+         * @param array $handles Protected script handles.
+         */
+        return apply_filters(
+            'mbrpe_footer_protected_handles',
+            array( 'jquery', 'jquery-core', 'jquery-migrate' )
+        );
+    }
+
+    /**
      * Move all enqueued scripts to the footer (with exclusions).
+     *
+     * The jQuery foundation (see get_footer_protected_handles) is always left
+     * in the head so the dependency graph stays intact; user exclusions apply
+     * to everything else.
      */
     public function move_scripts_to_footer() {
         if ( $this->should_skip() ) {
@@ -244,9 +274,13 @@ class MBRPE_JavaScript_Optimizations {
             return;
         }
 
-        $excludes = $this->get_exclusion_list( 'exclude_footer' );
+        $excludes  = $this->get_exclusion_list( 'exclude_footer' );
+        $protected = $this->get_footer_protected_handles();
 
         foreach ( $wp_scripts->registered as $handle => $script ) {
+            if ( in_array( $handle, $protected, true ) ) {
+                continue;
+            }
             if ( $this->is_excluded( $handle, isset( $script->src ) ? (string) $script->src : '', $excludes ) ) {
                 continue;
             }
