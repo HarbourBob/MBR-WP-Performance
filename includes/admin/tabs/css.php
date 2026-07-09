@@ -78,6 +78,11 @@ $css_options = isset( $options['css'] ) ? $options['css'] : array();
                     <p class="description">
                         <?php esc_html_e( 'Concatenates runs of adjacent same-media local stylesheets into one cached bundle under /uploads/mbr-performance-combine/. Only same-origin files are merged; external, conditional, print and excluded stylesheets are left untouched so the cascade is preserved. If Minify CSS is also enabled, the bundle is minified.', 'mbr-performance' ); ?>
                     </p>
+                    <?php if ( ! empty( $css_options['remove_unused_css'] ) ) : ?>
+                        <p class="description" style="color: var(--mbr-warning, #d6a700);">
+                            <?php esc_html_e( 'Currently stood down: Used CSS is enabled, and it already inlines the critical CSS and defers every stylesheet itself. Combine and Used CSS are alternatives — there is no benefit to running both, so Combine is paused while Used CSS is on.', 'mbr-performance' ); ?>
+                        </p>
+                    <?php endif; ?>
                 </td>
             </tr>
             
@@ -130,29 +135,46 @@ $css_options = isset( $options['css'] ) ? $options['css'] : array();
         </table>
     </div>
     
-    <!-- Unused CSS Removal Section -->
+    <!-- Used CSS (Mode A) Section -->
     <div class="mbr-performance-section">
-        <h2><?php esc_html_e( 'Unused CSS Removal', 'mbr-performance' ); ?></h2>
-        
+        <h2><?php esc_html_e( 'Used CSS', 'mbr-performance' ); ?></h2>
+
         <table class="form-table">
             <tr>
                 <th scope="row">
                     <label for="remove_unused_css">
-                        <?php esc_html_e( 'Remove Unused CSS', 'mbr-performance' ); ?>
-                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'EXPERIMENTAL: Removes CSS not used on your pages. Always test thoroughly on a staging site first.', 'mbr-performance' ); ?>">?</span>
+                        <?php esc_html_e( 'Generate Used CSS', 'mbr-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Inlines only the CSS each page actually uses and loads the full stylesheets asynchronously as a fallback.', 'mbr-performance' ); ?>">?</span>
                     </label>
                 </th>
                 <td>
                     <input type="checkbox" name="mbrpe_options[css][remove_unused_css]" id="remove_unused_css" value="1" <?php checked( isset( $css_options['remove_unused_css'] ) && $css_options['remove_unused_css'] ); ?>>
-                    <p class="description" style="color: #d63638;">
-                        <strong><?php esc_html_e( '⚠️ WARNING:', 'mbr-performance' ); ?></strong>
-                        <?php esc_html_e( 'This feature is experimental. May break responsive designs, interactive elements, or plugin styles.', 'mbr-performance' ); ?>
+                    <p class="description">
+                        <?php esc_html_e( 'For each page, MBR Performance works out which CSS the delivered page actually uses, inlines just that in the head, and loads the full stylesheets asynchronously as a safety net — so unused CSS no longer blocks rendering, while anything added by JavaScript still applies a moment later. Used CSS is generated in the background after the first visit to each page, then served from cache.', 'mbr-performance' ); ?>
                     </p>
-                    <p>
-                        <button type="button" class="button" id="scan-css"><?php esc_html_e( 'Scan Site for Used CSS', 'mbr-performance' ); ?></button>
-                        <button type="button" class="button" id="clear-scan-data"><?php esc_html_e( 'Clear Scan Data', 'mbr-performance' ); ?></button>
+                    <p class="description">
+                        <?php esc_html_e( 'Logged-in views are skipped. Test on a staging site first and check interactive elements (menus, sliders, popups). Use the exclusion list above to keep specific stylesheets loading normally.', 'mbr-performance' ); ?>
                     </p>
-                    <p id="scan-status" class="description"></p>
+                </td>
+            </tr>
+
+            <tr class="mbr-performance-child-row">
+                <th scope="row"><?php esc_html_e( 'Used CSS cache', 'mbr-performance' ); ?></th>
+                <td>
+                    <?php
+                    $mbr_used_stats = class_exists( 'MBRPE_Used_CSS' )
+                        ? MBRPE_Used_CSS::cache_stats()
+                        : array( 'count' => 0, 'bytes' => 0 );
+                    $mbr_used_size = $mbr_used_stats['bytes'] > 0 ? size_format( $mbr_used_stats['bytes'] ) : '0 B';
+                    ?>
+                    <p class="description" style="margin-bottom:8px;">
+                        <?php esc_html_e( 'Cached used-CSS files:', 'mbr-performance' ); ?>
+                        <strong id="mbr-used-css-count"><?php echo esc_html( number_format_i18n( $mbr_used_stats['count'] ) ); ?></strong>
+                        (<span id="mbr-used-css-size"><?php echo esc_html( $mbr_used_size ); ?></span>)
+                    </p>
+                    <button type="button" class="button" id="mbr-clear-used-css"><?php esc_html_e( 'Clear used CSS cache', 'mbr-performance' ); ?></button>
+                    <span id="mbr-used-css-status"></span>
+                    <p class="description"><?php esc_html_e( 'Used CSS also regenerates automatically when settings change, a page is edited, or the theme/plugins update.', 'mbr-performance' ); ?></p>
                 </td>
             </tr>
         </table>
