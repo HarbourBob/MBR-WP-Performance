@@ -1,0 +1,26 @@
+{
+	"name": "MBR Performance",
+	"slug": "mbr-performance",
+	"version": "1.20.1",
+	"download_url": "https://littlewebshack.com/downloads/mbr-performance/mbr-performance-1.20.1.zip",
+	"author": "<a href=\"https://littlewebshack.com\">Robert Palmer</a>",
+	"author_homepage": "https://littlewebshack.com/about/",
+	"homepage": "https://littlewebshack.com/mbr-performance/",
+	"requires": "5.9",
+	"tested": "7.0",
+	"requires_php": "7.4",
+	"last_updated": "2026-07-10 01:30:00",
+	"sections": {
+		"description": "Granular, transparent WordPress performance optimisation across core, scripts, fonts, preloading, database, images, WooCommerce and multisite — plus paste-in Critical CSS.",
+		"changelog": "<h4>1.20.1</h4><ul><li>Update checks now served from GitHub for reliable delivery.</li><li>Consolidated self-hosted release; corrected update manifest.</li></ul>",
+		"installation": "Upload the plugin to <code>/wp-content/plugins/</code>, activate, and configure under MBR &rarr; Performance."
+	},
+	"icons": {
+		"1x": "https://littlewebshack.com/updates/assets/mbr-performance-128.png",
+		"2x": "https://littlewebshack.com/updates/assets/mbr-performance-256.png"
+	},
+	"banners": {
+		"low": "https://littlewebshack.com/updates/assets/mbr-performance-772x250.png",
+		"high": "https://littlewebshack.com/updates/assets/mbr-performance-1544x500.png"
+	}
+}
