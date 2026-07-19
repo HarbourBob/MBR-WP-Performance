@@ -1,0 +1,164 @@
+/**
+ * MBR Cookie Consent — Form Consent Modal
+ * Shown when an Elementor form submission is blocked pending consent.
+ *
+ * @package MBR_Cookie_Consent
+ * @since   1.9.0
+ */
+
+/* ── Overlay ────────────────────────────────────────────────────────── */
+.mbr-cc-form-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    box-sizing: border-box;
+    animation: mbr-cc-fade-in 0.2s ease;
+}
+
+@keyframes mbr-cc-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* ── Card ───────────────────────────────────────────────────────────── */
+.mbr-cc-form-modal {
+    background: #1a1a1a;
+    background-image: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 10px,
+        rgba(255,255,255,0.03) 10px,
+        rgba(255,255,255,0.03) 20px
+    );
+    border-radius: 8px;
+    padding: 2.25rem 2rem;
+    max-width: 400px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    animation: mbr-cc-slide-up 0.25s ease;
+    position: relative;
+}
+
+@keyframes mbr-cc-slide-up {
+    from { transform: translateY(16px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ── Close button ───────────────────────────────────────────────────── */
+.mbr-cc-form-modal__close {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.9rem;
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.4);
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.15s;
+}
+
+.mbr-cc-form-modal__close:hover {
+    color: rgba(255,255,255,0.8);
+}
+
+/* ── Icon circle ────────────────────────────────────────────────────── */
+.mbr-cc-form-modal__icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--mbr-cc-primary, #0073aa);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.mbr-cc-form-modal__icon svg {
+    width: 26px;
+    height: 26px;
+    color: #fff;
+}
+
+/* ── Text ───────────────────────────────────────────────────────────── */
+.mbr-cc-form-modal__title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+    line-height: 1.3;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.mbr-cc-form-modal__message {
+    font-size: 0.875rem;
+    color: #aaa;
+    margin: 0;
+    line-height: 1.65;
+    max-width: 300px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────── */
+.mbr-cc-form-modal__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    width: 100%;
+    max-width: 260px;
+}
+
+.mbr-cc-form-modal__btn-accept {
+    background: var(--mbr-cc-primary, #0073aa);
+    color: #fff !important;
+    border: none;
+    border-radius: 5px;
+    padding: 0.7rem 1.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    font-family: inherit;
+    width: 100%;
+}
+
+.mbr-cc-form-modal__btn-accept:hover {
+    opacity: 0.88;
+    transform: translateY(-1px);
+}
+
+.mbr-cc-form-modal__btn-dismiss {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.5) !important;
+    border-radius: 5px;
+    padding: 0.6rem 1.5rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+    font-family: inherit;
+    width: 100%;
+}
+
+.mbr-cc-form-modal__btn-dismiss:hover {
+    border-color: rgba(255,255,255,0.35);
+    color: rgba(255,255,255,0.75) !important;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+    .mbr-cc-form-modal {
+        padding: 1.75rem 1.25rem;
+    }
+}

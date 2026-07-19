@@ -1,0 +1,18 @@
+{
+	"name": "MBR Cookie Consent",
+	"slug": "mbr-cookie-consent",
+	"version": "2.1.2",
+	"download_url": "https://littlewebshack.com/downloads/cookie-consent/mbr-cookie-consent-v2.1.1.zip",
+	"author": "<a href=\"https://littlewebshack.com\">Robert Palmer</a>",
+	"author_homepage": "https://madebyrobert.co.uk",
+	"homepage": "https://littlewebshack.com/mbr-cookie-consent/",
+	"requires": "6.0",
+	"tested": "7.0",
+	"requires_php": "8.0",
+	"last_updated": "2026-07-11 03:00:00",
+	"sections": {
+		"description": "Enterprise-grade cookie consent management compliant with GDPR/EEA, UK DUAA, US CCPA and multi-state privacy laws, LGPD, PIPEDA, Quebec Law 25, Switzerland nFADP, Australia Privacy Act, India DPDP, Vietnam PDPL, and other global privacy regulations. Features IAB TCF v2.3, Google Consent Mode v2, Global Privacy Control (GPC) signal support, automatic script blocking, local consent logging, 40+ languages, WCAG accessibility, and a built-in privacy policy generator. Completely free with no upsells, no telemetry, and no external API calls.",
+		"changelog": "<h4>2.1.1</h4><ul><li>New: Vietnam PDPL (Law 91/2025, in force 1 Jan 2026) added as a dedicated opt-in privacy region with granular per-purpose consent and a Vietnam compliance card.</li><li>Update: US multi-state notes refreshed (enacted total ~24 states; CT + UT changes effective 1 Jul 2026; CA DROP broker deadline 1 Aug 2026).</li><li>Update: EU notes flag the Digital Omnibus proposal (Arts 88a/88b) as a forward-looking item in trilogue.</li></ul><h4>1.1.3</h4><ul><li>Self-hosted update support.</li><li>Maintenance and packaging fixes.</li></ul><h4>1.1.2</h4><ul><li>Appearance refinements.</li></ul>",
+		"installation": "Upload the plugin to <code>/wp-content/plugins/</code> and activate."
+	}
+}

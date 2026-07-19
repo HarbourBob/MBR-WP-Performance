@@ -1,0 +1,173 @@
+/**
+ * MBR Cookie Consent — Blocked Content Overlay
+ *
+ * Styles the branded placeholder shown in place of blocked iframes / embeds.
+ * The accent colour is injected as CSS custom properties inline by PHP,
+ * falling back to the default WordPress admin blue when not set.
+ *
+ * @package MBR_Cookie_Consent
+ * @since   1.7.0
+ */
+
+/* ── Outer wrapper ──────────────────────────────────────────────────── */
+.mbr-cc-blocked-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 315px;
+    background: #1a1a1a;
+    background-image: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 10px,
+        rgba(255, 255, 255, 0.03) 10px,
+        rgba(255, 255, 255, 0.03) 20px
+    );
+    border-radius: 4px;
+    overflow: hidden;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 Helvetica, Arial, sans-serif;
+    padding: 2rem;
+}
+
+/* ── Modal card ─────────────────────────────────────────────────────── */
+.mbr-cc-blocked-modal {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 28px 32px;
+    max-width: 380px;
+    width: 90%;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    text-align: center;
+}
+
+/* ── Logo — image variant ───────────────────────────────────────────── */
+.mbr-cc-blocked-logo {
+    display: block;
+    max-height: 40px;
+    max-width: 140px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    opacity: 0.85;
+}
+
+.mbr-cc-blocked-logo--icon {
+    max-height: 36px;
+    max-width: 36px;
+    border-radius: 6px;
+}
+
+/* ── Logo — text fallback ───────────────────────────────────────────── */
+.mbr-cc-blocked-logo-text {
+    font-size: 14px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: -0.2px;
+    line-height: 1.2;
+}
+
+/* ── Play/lock icon circle ──────────────────────────────────────────── */
+.mbr-cc-blocked-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    background: var(--mbr-cc-accent, #c8102e);
+    border-radius: 50%;
+    flex-shrink: 0;
+    color: #ffffff;
+}
+
+.mbr-cc-blocked-icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+/* ── Heading ────────────────────────────────────────────────────────── */
+.mbr-cc-blocked-heading {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #ffffff;
+    margin: 0;
+    line-height: 1.4;
+}
+
+/* ── Message ────────────────────────────────────────────────────────── */
+.mbr-cc-blocked-message {
+    font-size: 0.85rem;
+    color: #aaaaaa;
+    margin: 0;
+    line-height: 1.65;
+    max-width: 300px;
+}
+
+/* ── CTA button ─────────────────────────────────────────────────────── */
+.mbr-cc-blocked-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0.65rem 1.4rem;
+    background: var(--mbr-cc-accent, #c8102e);
+    color: #ffffff !important;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none !important;
+    line-height: 1;
+    transition: opacity 0.2s ease, transform 0.1s ease;
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.mbr-cc-blocked-btn:hover,
+.mbr-cc-blocked-btn:focus-visible {
+    opacity: 0.85;
+    color: #ffffff !important;
+    outline: 2px solid var(--mbr-cc-accent, #c8102e);
+    outline-offset: 2px;
+    transform: translateY(-1px);
+}
+
+.mbr-cc-blocked-btn:active {
+    transform: translateY(0);
+}
+
+.mbr-cc-blocked-btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+    .mbr-cc-blocked-wrapper {
+        min-height: 220px;
+        padding: 1.5rem;
+    }
+
+    .mbr-cc-blocked-modal {
+        padding: 20px 16px;
+        gap: 12px;
+    }
+
+    .mbr-cc-blocked-heading {
+        font-size: 0.95rem;
+    }
+
+    .mbr-cc-blocked-message {
+        font-size: 0.8rem;
+    }
+}
