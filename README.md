@@ -4,30 +4,30 @@
 
 ### Comprehensive WordPress performance, granular control, zero tracking — free forever.
 
-[![WordPress](https://img.shields.io/badge/WordPress-5.8%2B-blue.svg)](https://wordpress.org)
+[![WordPress](https://img.shields.io/badge/WordPress-5.9%2B-blue.svg)](https://wordpress.org)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
 [![License](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
-[![Version](https://img.shields.io/badge/Version-1.20.0-orange.svg)](https://github.com/harbourbob/mbr-wp-performance/releases)
+[![Version](https://img.shields.io/badge/Version-1.22.0-orange.svg)](https://github.com/harbourbob/mbr-wp-performance/releases)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-%E2%98%95-yellow.svg)](https://buymeacoffee.com/robertpalmer/)
 
-**Fifteen tabs of individually-toggleable optimisations, now led by a Performance Doctor that scans your site and tells you which settings it actually needs.** Image conversion, Used CSS and render-blocking control, font self-hosting, database cleanup, server-level caching, third-party self-hosting, plus a diagnostics suite that catches conflicts before they bite. Every option is explained in plain language, nothing phones home, and there's no "pro" tier holding features back.
+**Fourteen tabs of individually-toggleable optimisations, a Performance Doctor that scans your site and tells you which settings it actually needs — and now Real User Monitoring, so the verdict comes from your actual visitors, not just a lab test.** Image conversion, Used CSS and render-blocking control, script-module preloading, font self-hosting, database cleanup, server-level caching, plus a diagnostics suite that catches conflicts before they bite. Every option is explained in plain language, nothing phones home, and there's no "pro" tier holding features back.
 
-[**📥 Download Latest**](https://github.com/harbourbob/mbr-wp-performance/releases) &nbsp;·&nbsp; [**🐛 Report a Bug**](https://github.com/harbourbob/mbr-wp-performance/issues) &nbsp;·&nbsp; [**💡 Request a Feature**](https://github.com/harbourbob/mbr-wp-performance/issues) &nbsp;·&nbsp; [**📖 User Guide (PDF)**](https://littlewebshack.com/wp-content/uploads/2026/05/mbr-wp-performance-user-guide-1.12.0.pdf)
+[**📥 Download Latest**](https://github.com/harbourbob/mbr-wp-performance/releases) &nbsp;·&nbsp; [**🐛 Report a Bug**](https://github.com/harbourbob/mbr-wp-performance/issues) &nbsp;·&nbsp; [**💡 Request a Feature**](https://github.com/harbourbob/mbr-wp-performance/issues) &nbsp;·&nbsp; [**📖 User Guide (PDF)**](https://littlewebshack.com/downloads/mbr-performance/MBR-Performance-User-Guide-v1.22.0.pdf)
+<!-- ^ Update this URL once the v1.22.0 guide is uploaded to littlewebshack -->
 
 </div>
 
 ---
 
-## 🆕 What's new in 1.19.0
+## 🆕 What's new in 1.22.0
 
-The headline is the **MBR Performance Doctor** — a new advisory tab that turns "a wall of toggles I don't understand" into a short, ordered worklist — built on top of the **Used CSS (Mode A)** engine that landed in 1.18.0.
+Two big capabilities have landed since 1.19.0. The headline is **Real User Monitoring** — every other measurement in the plugin is synthetic, but this one comes from the people actually using your site. Alongside it, **Script Modules support** brings the plugin up to date with how WordPress 6.5+ loads JavaScript.
 
-- 🩺 **MBR Performance Doctor** *(1.19.0)*. Analyses a real front-end page — or, with one click, your key templates (home, blog, a post, a page, WooCommerce shop/product) — and recommends, in priority order, which settings will actually help *this* site, including telling you which to leave **off**. It diagnoses the render-blocking CSS-vs-JavaScript split (the most decisive factor), runs an image pass (missing dimensions → CLS, JPEG/PNG that next-gen formats would shrink, below-the-fold images not lazy-loaded), and links each recommendation straight to the setting that fixes it, skipping anything already enabled. Advisory only — it never changes a setting for you.
-- 📑 **Multi-template scan + branded PDF report** *(1.19.0)*. The site scan aggregates findings into **site-wide vs page-specific** recommendations, then exports a clean, print-ready PDF report — generated client-side, so it adds no plugin weight and works on any host. Ideal for handing an agency client a "here's what we found" deliverable.
-- 👋 **First-run nudge** *(1.19.0)*. New users are pointed at the Doctor before they face the toggle wall. Dismissed per-user, and auto-dismissed once a scan is run.
-- ✨ **Used CSS (Mode A)** *(1.18.0)*. Inlines each page's *used* (critical) CSS into the head and async-defers the original stylesheets as a safe fallback — eliminating render-blocking CSS without a flash of unstyled content. Fully self-hosted (a bundled MIT CSS parser; no external service, no API key), cached per URL, and coordinated with the page cache. This is the kind of feature that's normally paywalled elsewhere — here it's free.
-- 🐛 **Disable Google Fonts now catches hardcoded fonts** *(1.19.0)*. A guarded final-output pass strips Google Fonts that bypass WordPress's enqueue system entirely — hardcoded `<link>` tags and preconnects in a theme header, plus inline `@font-face` and `@import` — which the handle-based removal could never reach.
-- 🔧 **Combine CSS / Used CSS coordination** *(1.19.0)*. The two are alternatives, so Combine is now automatically stood down when Used CSS is active (Mode A already owns CSS delivery). The CSS panel explains it, and the Doctor recommends one or the other, never both.
+- 📡 **Real User Monitoring** *(1.21.0)*. Collects Core Web Vitals — LCP, CLS and **INP** — from real visitors and stores every reading **on your own server**. No third-party service, no cookies, no IP addresses; the measurement library is bundled and served from your own domain. A nightly job (plus on-demand roll-up whenever you open the tab) turns raw samples into per-template and per-URL p75s, a scorecard with good/needs-improvement/poor distribution, and a worst-offenders table that names the *element or handler* responsible — turning "your INP is 380ms" into "your INP is 380ms, and it's the menu toggle."
+- 🩺 **The Doctor now leads with field data** *(1.21.x)*. When RUM has enough samples, the Doctor's recommendations open with what visitors actually experienced — and where field and synthetic disagree, field wins, and it says so. INP is the prize here: it only exists when a real person interacts, so no synthetic scan can ever measure it. Thin data is shown as provisional readings rather than acted on, and a passing site gets told so plainly.
+- 🧩 **Script Modules & Interactivity API support** *(1.22.0)*. WordPress 6.5+ loads Interactivity-API code as ES modules, which the classic defer/delay/combine passes never touch — correctly, since modules defer by spec and combining them would break the import map. What the plugin adds is the piece core leaves on the table: on **classic themes**, WordPress prints all its `modulepreload` hints in the footer (it can't know the modules any earlier), where they're near-worthless. **Preload hoisting** learns each URL's module set on first visit and emits the hints in the head from then on, walking the static dependency graph and deliberately skipping dynamic imports. Block themes already get this right from core and are left alone. Complete no-op below WordPress 6.5.
+- 🖨️ **PDF report polish** *(1.21.3)*. The Doctor's report now previews as a proper centred A4 sheet instead of stretching to the browser width, and prints with correct single margins.
+- 🐛 **jQuery footer protection** *(1.20.1)*. "Move scripts to footer" no longer relocates the jQuery foundation — moving it could split the dependency graph and silently break jQuery-dependent widgets (Elementor accordions and friends). A new `mbrpe_footer_protected_handles` filter lets advanced users adjust the protected set.
 
 [See the full changelog ↓](#-changelog)
 
@@ -35,17 +35,18 @@ The headline is the **MBR Performance Doctor** — a new advisory tab that turns
 
 ## 🎯 At a glance
 
-15 tabs, one toolbar menu, zero "Pro" tier:
+14 tabs, one toolbar menu, zero "Pro" tier:
 
-- 🩺 **Guided, not guesswork** — the Performance Doctor scans your site and tells you which settings to enable (and which to skip), so you're not staring at a wall of toggles wondering where to start
+- 📡 **Measured by real visitors** — self-hosted Real User Monitoring collects LCP, CLS and INP from actual traffic, entirely on your own server. The only way to see INP, which no synthetic test can measure
+- 🩺 **Guided, not guesswork** — the Performance Doctor scans your site (and reads your field data) and tells you which settings to enable and which to skip, so you're not staring at a wall of toggles wondering where to start
 - 🆓 **Free forever** — no premium gates, no upsells, no feature throttling
-- 🔒 **Zero tracking** — never phones home, never sends analytics, never touches visitor data
+- 🔒 **Zero tracking** — never phones home, never sends analytics, never touches visitor data. Even RUM keeps every byte on your own server
 - 🎛️ **Granular control** — toggle individual optimisations with clear explanations, not opaque "speed up my site" buttons
 - 🌙 **Dark-mode admin** — lives in the WordPress toolbar, no sidebar clutter
 - 🏗️ **Page-builder aware** — auto-disables inside Elementor, Bricks, Divi, Beaver Builder, Oxygen, WPBakery
 - 🌐 **Multisite-ready** — full Network Admin with one-click push to all sites, plus per-site override control
 - 🤝 **Plays nicely with caching plugins** — designed to complement WP Rocket, LiteSpeed, W3 Total Cache, FlyingPress, Autoptimize, Perfmatters. The built-in Conflict Detector shows exactly which options overlap with each
-- 🤖 **WordPress 7.0 ready** — including the AI-subsystem kill switch
+- 🧩 **WordPress 6.5–7.0 ready** — Script Modules / Interactivity API support, and the WordPress 7.0 AI-subsystem kill switch
 
 [Detailed features ↓](#-detailed-features) &nbsp;·&nbsp; [Why this plugin ↓](#-why-this-plugin) &nbsp;·&nbsp; [Quick start ↓](#-quick-start)
 
@@ -58,15 +59,14 @@ The headline is the **MBR Performance Doctor** — a new advisory tab that turns
 | **Serve images in next-gen formats** | WebP **and** AVIF conversion with `<picture>` delivery (AVIF first, then WebP, then original) |
 | **Properly size images** | Resize-on-upload at a configurable maximum, plus a Bulk Resize tool for existing libraries |
 | **Defer offscreen images** | Native + IntersectionObserver lazy loading, including background-image lazy loading |
-| **Image elements do not have explicit width and height** | Auto-inject missing `width`/`height` attributes from front-end `<img>` tags |
-| **Eliminate render-blocking resources** | Used CSS (Mode A — inline the critical CSS, defer the rest), Combine CSS, Async CSS (preload + onload), Defer JS, Delay JS until interaction, Inline Critical CSS |
-| **Reduce the impact of third-party code** | Self-host gtag.js, GTM, analytics.js, Facebook Pixel; daily refresh cron keeps the local copies fresh |
+| **Image elements do not have explicit width and height** | Auto-inject missing `width`/`height` attributes into front-end `<img>` tags |
+| **Eliminate render-blocking resources** | Used CSS (Mode A — inline the critical CSS, defer the rest), Combine CSS, Async CSS, Defer JS, Delay JS until interaction |
+| **Reduce JavaScript execution time** | Delay JS with an interaction-triggered runtime and configurable timeout |
+| **Minimize third-party usage** | Delay JS for analytics/chat/tag managers, plus YouTube / Vimeo facades that hold back ~1.4MB of player JavaScript until click |
 | **Serve static assets with an efficient cache policy** | Server tab writes Browser Cache Headers to `.htaccess` (1 year for images, 1 month for CSS / JS) |
 | **Enable text compression** | Server tab writes Brotli / Gzip rules to `.htaccess`; Nginx hosts get a copy-ready snippet |
-| **Reduce JavaScript execution time** | Delay JS with an interaction-triggered runtime and configurable timeout |
-| **Minify HTML / CSS / JavaScript** | Output-buffered HTML minify (preserves `<pre>`, `<textarea>`, `<script>`, `<style>`, `<svg>`, IE conditionals), plus inline JS/CSS minification |
-| **Lazy load third-party resources** | YouTube / Vimeo facade — embedded iframes replaced with a thumbnail + play button until interaction |
-| **Avoid an excessive DOM size** | Self-hosted Google Fonts removes render-blocking third-party DNS / TLS / fetch |
+| **Minify HTML / CSS / JavaScript** | Output-buffered HTML minify (preserves `<pre>`, `<textarea>`, `<script>`, `<style>`, `<svg>`, IE conditionals), plus inline JS/CSS minification and JS/CSS combining |
+| **Interaction to Next Paint (INP)** | The one no lab tool can see. RUM measures it from real visitors, names the offending handler, and the Doctor routes you to the fix |
 
 ---
 
@@ -74,25 +74,22 @@ The headline is the **MBR Performance Doctor** — a new advisory tab that turns
 
 | Tab | Focus |
 |-----|-------|
-| 🩺 **Performance Doctor** | Scans a page — or your key templates in one click — and recommends, in priority order, which settings this site needs and which to leave off. Site-wide vs page-specific aggregation, branded print-ready PDF report |
-| ⚙️ **Core Features** | WordPress-level toggles: emojis, embeds, REST API, Heartbeat, query strings, HTML minify, disable WordPress 7.0 AI |
-| 📜 **JavaScript** | Defer, defer jQuery, jQuery removal, minify, delay until interaction, disable concatenation |
+| 🩺 **Doctor** | Scans a page — or your key templates in one click — and recommends, in priority order, which settings this site needs and which to leave off. Leads with real-user field data when RUM is on. Site-wide vs page-specific aggregation, branded print-ready PDF report |
+| ⚙️ **Core Features** | WordPress-level toggles: emojis, embeds, REST API modes with namespace allowlist, Heartbeat, HTML minify, disable WordPress 7.0 AI |
+| 📜 **JavaScript** | Defer, delay-until-interaction, move-to-footer (jQuery protected), minify, **Combine JS**, jQuery removal with test mode — plus Script Modules preload hoisting for WordPress 6.5+ |
 | 🎨 **CSS** | Used CSS (Mode A), Combine CSS, async loading, inline-CSS minification, unused-style scanner, conditional block styles, critical CSS textarea |
-| 🔤 **Fonts** | Self-hosted Google Fonts, preloading, font-display, Font Awesome optimisation, Disable Elementor Google Fonts |
+| 🔤 **Fonts** | Self-hosted Google Fonts, preloading, subsetting, font-display, Font Awesome optimisation, hardcoded-font stripping, Disable Elementor Google Fonts |
 | 🚀 **Preloading** | LCP image preload, fetch priority, Cloudflare Early Hints, speculative loading, hover prefetch |
-| 🐢 **Lazy Loading** | Native image/iFrame lazy loading, YouTube / Vimeo facade, fine-grained exclusions |
+| 🐢 **Lazy Loading** | Native image/iFrame lazy loading, YouTube / Vimeo facade, six kinds of exclusion rule |
 | 🗄️ **Database** | Revisions, transients, orphaned metadata, table optimisation, scheduled cleanup with last-run log |
-| 🖼️ **WebP / AVIF** | WebP **and** AVIF conversion, bulk converters for both formats, `<picture>` delivery, `.htaccess` rules |
-| 📐 **Image Sizing** | Resize large uploads, inject missing dimensions, `decoding="async"`, EXIF strip, bulk resize tool |
+| 🖼️ **WebP / AVIF** | WebP **and** AVIF conversion, bulk converters, `<picture>` delivery — plus Image Sizing: resize large uploads, inject missing dimensions, `decoding="async"`, EXIF strip, bulk resize |
 | 🖥️ **Server** | Browser cache headers, Brotli / Gzip compression, Nginx snippet for non-Apache hosts |
-| 🌐 **Third-Party** | Self-host gtag.js, gtm.js, analytics.js, fbevents.js — daily refresh cron, URL rewriting |
 | 🔬 **Diagnostics** | Autoload audit, WP-Cron viewer with orphan detection, caching-plugin conflict detector |
+| 📡 **RUM** | Real-user Core Web Vitals — scorecard, per-template breakdown, worst offenders with the culprit element named. 100% self-hosted, zero PII |
 | 🗑️ **Orphaned Media** | Find and safely remove unreferenced images, videos, audio, documents, archives |
 | 🛒 **WooCommerce** | Cart fragments, conditional asset loading, Action Scheduler retention |
 
-> ℹ️ **Combine CSS and Used CSS (Remove Unused CSS / Mode A) are now fully implemented** as of 1.18.0 — see the CSS tab. They're alternatives, so Combine is automatically stood down when Used CSS is active. **Combine JavaScript** remains visible in the UI but is still a no-op (it surfaces an admin notice when enabled) pending a safe implementation — use Defer and Delay for script wins in the meantime, or [MBR Advanced Asset Manager](https://github.com/harbourbob/mbr-advanced-asset-manager) for per-asset control.
-
-> 🧹 **Clean uninstall:** All `.htaccess` marker blocks (*MBR AVIF*, *MBR Browser Cache*, *MBR Compression*) are removed cleanly on deactivation. The third-party script refresh cron is unscheduled. The AVIF file registry is purged.
+> 🧹 **Clean uninstall:** All `.htaccess` marker blocks (*MBR AVIF*, *MBR Browser Cache*, *MBR Compression*) are removed cleanly on deactivation, and all scheduled crons (database cleanup, orphan purge, RUM aggregation) are unscheduled.
 
 ---
 
@@ -100,11 +97,13 @@ The headline is the **MBR Performance Doctor** — a new advisory tab that turns
 
 There are good performance plugins on WordPress.org and elsewhere. Here's why this one might fit better than the alternative you're currently looking at:
 
+**You want evidence, not just a lab score.** PageSpeed tests one page, once, from a data centre. RUM tells you what your slower quarter of real visitors actually experienced — per template, per device — and names the element or handler responsible. When you make a change, you get before-and-after numbers from real traffic, not a synthetic guess. And it does this without a third-party analytics service: every reading lives in your own database.
+
 **You want everything in one place, but not on rails.** WP Rocket and similar are excellent if you want "click everything on and trust us." This plugin is for site owners who want to understand each toggle and choose. Every option has a plain-language explanation, every default is conservative, and every change is reversible.
 
 **You already have a caching plugin and don't want to fight it.** The Diagnostics tab actively detects WP Rocket, LiteSpeed, W3 Total Cache, FlyingPress, WP Super Cache, Perfmatters, and Autoptimize, and tells you which MBR options overlap with each. There's deliberately no full-page caching here — this plugin complements caching plugins rather than replacing them.
 
-**You care about privacy.** No telemetry, no remote pings, no third-party services. Free isn't a loss-leader for an upsell — it's just the entire product.
+**You care about privacy.** No telemetry, no remote pings, no third-party services. Even the Real User Monitoring — a category of feature that's almost always a SaaS subscription with your visitors' data as the product — is entirely self-hosted: bundled library, first-party endpoint, your database, no cookies, no IPs. Free isn't a loss-leader for an upsell — it's just the entire product.
 
 **You like a long, honest changelog.** Each release tells you what changed, why, and what edge case prompted the fix. If something broke and got fixed, the entry says so plainly. You can read the changelog as a portrait of how the plugin actually evolves.
 
@@ -120,35 +119,30 @@ There are good performance plugins on WordPress.org and elsewhere. Here's why th
 2. Go to **Plugins → Add New → Upload Plugin**
 3. Upload the zip and click **Install Now**
 4. Activate
-5. Click **WP Performance** in the admin toolbar
+5. Click **MBR Performance** in the admin toolbar
 
 ### Or manually
 
 1. Extract the zip
-2. Upload `mbr-wp-performance/` to `/wp-content/plugins/`
+2. Upload `mbr-performance/` to `/wp-content/plugins/`
 3. Activate from the Plugins screen
-
-### Or via WP-CLI
-
-```bash
-wp plugin install mbr-wp-performance.zip --activate
-```
 
 ### First-time setup, in a safe order
 
-After activation, open **WP Performance** from the admin toolbar.
+After activation, open **MBR Performance** from the admin toolbar.
 
-1. 🔬 **Diagnostics tab** — open this first. Check the Caching Plugin Conflicts panel; if any caching plugin is detected, decide who owns each optimisation before enabling anything below. Glance at the Autoloaded Options Audit and WP-Cron Viewer for any red flags
-2. 🗄️ **Database tab** — clean up accumulated bloat (revisions, expired transients, orphaned metadata). Click **Run Auto-Cleanup Now** once to clear any backlog
-3. 🖥️ **Server tab** — enable Browser Cache Headers and Brotli / Gzip Compression (Apache / LiteSpeed write to `.htaccess`; Nginx hosts get a copy-ready snippet)
-4. 🐢 **Lazy Loading tab** — enable image and iFrame lazy loading; enable YouTube / Vimeo Facade if you embed videos
-5. ⚙️ **Core Features tab** — disable emojis, embeds, and dashicons if you don't use them; enable **Minify HTML**
-6. 🖼️ **WebP / AVIF tab** — check the server diagnostics, run the WebP bulk converter; if AVIF is supported, run that one too
-7. 📐 **Image Sizing & Dimensions** — enable "Resize Large Uploads", "Add Missing Width & Height", `decoding="async"`, and Strip EXIF Metadata
-8. 🚀 **Preloading tab** — enable Hover Prefetch; auto-prioritise the first image if your hero is reliably the LCP element
-9. 🌐 **Third-Party tab** — enable self-hosting for whichever tracking scripts you use; click **Refresh Now** to populate the cache
-10. 🗑️ **Orphaned Media tab** *(optional)* — back up first, then run a scan to identify reclaimable disk space across images, videos, audio, documents, and archives
-11. 🛒 **WooCommerce tab** *(if applicable)* — disable cart fragments, dequeue shop assets on non-shop pages, set Action Scheduler retention to 14 days
+1. 📡 **RUM tab** — switch on Real User Monitoring *first* and let it collect while you work through everything else. By the time you've finished, you'll have real field data to check your results against
+2. 🔬 **Diagnostics tab** — check the Caching Plugin Conflicts panel; if any caching plugin is detected, decide who owns each optimisation before enabling anything below. Glance at the Autoloaded Options Audit and WP-Cron Viewer for red flags
+3. 🩺 **Doctor tab** — run **Scan key templates** and let it tell you whether your render-blocking is CSS or JavaScript, and which image issues to fix. Act on its priority list rather than guessing
+4. 🖼️ **WebP / AVIF tab** — check the server diagnostics, run the WebP bulk converter (and AVIF if supported); enable resize-on-upload, missing-dimension injection, `decoding="async"` and EXIF stripping
+5. 📜 / 🎨 **Address render-blocking** — if the Doctor flagged CSS, enable Used CSS; if JavaScript, enable Defer and Delay. One at a time, testing between
+6. 🔤 **Fonts tab** — self-host Google Fonts, set font-display to swap, preload only above-the-fold fonts
+7. 🐢 **Lazy Loading tab** — lazy-load below-the-fold images and videos; exclude your logo and hero image
+8. 🖥️ **Server tab** — enable Browser Cache Headers and Brotli / Gzip Compression, unless your host or CDN already provides them
+9. 🗄️ **Database tab** — clean up accumulated bloat and set a sensible cleanup schedule
+10. 🗑️ **Orphaned Media tab** *(optional)* — back up first, then scan for reclaimable disk space
+11. 🛒 **WooCommerce tab** *(if applicable)* — disable cart fragments, dequeue shop assets on non-shop pages, cap Action Scheduler retention
+12. 📡 **Back to RUM** — after a few days of real traffic, check the scorecard and re-run the Doctor to confirm real visitors are seeing the improvement
 
 > 💡 Enable features one at a time and test after each change. Page builder editors are automatically detected and bypassed.
 
@@ -156,7 +150,7 @@ After activation, open **WP Performance** from the admin toolbar.
 
 ## 📋 Requirements
 
-- WordPress **5.8** or higher (tested up to **7.0**)
+- WordPress **5.9** or higher (tested up to **7.0**); Script Modules features activate on **6.5+**
 - PHP **7.4** or higher (**PHP 8.1+** with libavif for the GD AVIF path)
 - MySQL **5.6** or higher
 - GD library with WebP support for image conversion and resizing
@@ -166,61 +160,64 @@ After activation, open **WP Performance** from the admin toolbar.
 
 ## 📚 Detailed features
 
+### 📡 Real User Monitoring
+The feature that turns the plugin from a lab tool into a field instrument. A tiny beacon (built on Google's open-source `web-vitals` attribution library — bundled locally, never loaded from a CDN) reports each visitor's **LCP**, **CLS** and **INP** to a first-party REST endpoint, which stores them in your own database. Nothing leaves your server: no cookies, no IP storage, and the user agent is reduced to a coarse device class and browser family before anything is written.
+
+A nightly job rolls raw samples into daily per-template and per-URL p75s, then purges the raw — and the roll-up also runs on demand whenever you open the tab, so fresh traffic shows up immediately. The panel gives you a **scorecard** (p75 per metric with the good/needs-improvement/poor distribution against the official thresholds), a **per-template breakdown** split by desktop and mobile — which tells you *where* the problem is, not just that one exists — and a **worst-offenders table** naming the specific URLs and the element or handler most often responsible. Attribution is the point: "your INP is 380ms" becomes "your INP is 380ms, and it's `.menu-toggle`."
+
+Configurable sampling for high-traffic sites, logged-in sessions excluded by default, retention windows for both raw and aggregate data, and readings under ten samples are shown greyed as *provisional* rather than treated as fact. **Why INP matters:** it only exists when a real person interacts, so no synthetic tool — PageSpeed included — can measure it. If your site scores well in the lab but feels sluggish in the hand, this is the tab that shows you why.
+
 ### 🩺 MBR Performance Doctor
-The advisor that answers "which of these settings does *my* site actually need?" Point it at a page (or hit **Scan key templates** to sample your home, blog, a post, a page, and WooCommerce shop/product in one pass) and it analyses the rendered output: the render-blocking CSS-vs-JavaScript split and total weight, plus an image pass for missing `width`/`height` (layout shift), JPEG/PNG that next-gen formats would shrink, and below-the-fold images that aren't lazy-loaded. It then produces a prioritised, plain-language worklist — high / worth-doing / minor — that links straight to the relevant setting and **skips anything already enabled**, and it's happy to tell you a fix *isn't* worth it ("your render-blocking CSS is light, leave Used CSS off"). The multi-template scan rolls everything up into **site-wide vs page-specific** recommendations, and a one-click **branded PDF report** (generated in the browser, so it adds no plugin weight and works on any host) gives agencies a client-ready deliverable. A first-run nudge points newcomers here before they meet the toggle wall. Advisory only — the Doctor never changes a setting for you.
+The advisor that answers "which of these settings does *my* site actually need?" Point it at a page (or hit **Scan key templates** to sample home, blog, a post, a page, and WooCommerce shop/product in one pass) and it analyses the rendered output: the render-blocking CSS-vs-JavaScript split, plus an image pass for missing dimensions, next-gen format candidates, and lazy-loading gaps. It produces a prioritised, plain-language worklist that links straight to the relevant setting and skips anything already enabled — and it's happy to tell you a fix *isn't* worth it.
+
+**With RUM switched on, the Doctor leads with field data.** Real-user recommendations name the p75, name the culprit element or handler, and route to the right tab — INP problems to Delay JS, LCP to preloading, CLS to dimensions or fonts. Where field and synthetic disagree, field wins, and the Doctor says so plainly. Thin field data is reported as provisional readings rather than acted on, and if your Core Web Vitals are passing, it tells you that too — your real visitors' verdict, above the lab's.
+
+The multi-template scan rolls everything up into **site-wide vs page-specific** recommendations (field data appears once, site-wide, since a global metric isn't a property of one template), and a one-click **branded PDF report** — previewed as a proper A4 sheet, generated entirely in the browser — gives agencies a client-ready deliverable. Advisory only: the Doctor never changes a setting for you.
 
 ### ⚙️ Core Features
-Disable WordPress defaults that don't earn their place — emojis, embeds, dashicons, jQuery Migrate, XML-RPC, RSS feeds, self-pingbacks, REST API links. Throttle the Heartbeat API, limit revisions, strip query strings. Three REST API access modes for tightening user enumeration without breaking the block editor, with a namespace allowlist for plugins that legitimately need public REST access. **Minify HTML** — output-buffered, comments and whitespace stripped, `<pre>` / `<textarea>` / `<script>` / `<style>` / `<svg>` and IE conditional comments preserved, and pages containing a nested/embedded HTML document automatically skipped. **Disable AI Features (WordPress 7.0+)** — switches off WordPress 7.0's built-in AI Client, Abilities API, and Connectors plumbing via core's own `wp_supports_ai` kill switch; off by default and inert on WordPress 6.x.
+Disable WordPress defaults that don't earn their place — emojis, embeds, dashicons, jQuery Migrate, XML-RPC, RSS feeds, self-pingbacks, REST API links. Throttle the Heartbeat API, limit revisions, strip query strings. Three REST API access modes with a namespace allowlist — and the plugin's own `mbrpe/v1` namespace is always permitted, so the RUM beacon keeps working for logged-out visitors however hard you lock the API down. **Minify HTML** — output-buffered, with `<pre>` / `<textarea>` / `<script>` / `<style>` / `<svg>` and IE conditionals preserved, and nested-document pages skipped automatically. **Disable AI Features (WordPress 7.0+)** — switches off WordPress 7.0's built-in AI subsystem via core's own `wp_supports_ai` kill switch; inert on 6.x.
 
 ### 📜 JavaScript Optimisation
-Defer or async script loading, defer jQuery specifically, move scripts to the footer, optionally remove jQuery entirely (with a test mode that scopes the removal to logged-out visitors only). Minify inline JS and delay execution of analytics and chat widgets until the user actually interacts with the page — configurable timeout ensures delayed scripts run eventually even if the user never interacts. Per-option exclusion lists keep your essential scripts running normally. Disable WordPress's admin-script concatenation, strip `?ver=` query strings from script URLs.
+Defer or async script loading, defer jQuery specifically, move scripts to the footer (with the jQuery foundation protected from the move — relocating it could split the dependency graph and silently break page-builder widgets; adjustable via the `mbrpe_footer_protected_handles` filter), or remove jQuery entirely with a logged-out-only test mode. Minify inline JS, and delay analytics and chat widgets until the user actually interacts — with a configurable timeout so they still fire eventually. **Combine JavaScript** merges local scripts into cached head and footer bundles; for safety it only combines "pure" scripts — anything carrying inline or localised data (which routinely includes per-request nonces), an async/defer strategy, or a conditional stays separate, which is why it merges fewer files than Combine CSS. That's correct behaviour, not a fault.
+
+**Script Modules & the Interactivity API (WordPress 6.5+).** Modules are printed by WordPress separately from ordinary scripts, so defer/delay/combine never touch them — deliberately, since modules defer by spec and combining them would destroy the import map. What the plugin adds is **preload hoisting**: on classic themes, WordPress discovers modules during body rendering and prints all its `modulepreload` hints in the footer, where they arrive at the same moment as the scripts they were meant to front-run. Hoisting learns each URL's module set on first visit and emits the hints in the head from the second visit on, walking the static dependency graph (dynamic imports deliberately excluded — they may never be needed) with a per-page cap and exclusion list. Optional high `fetchpriority` for nominated modules via the core API on 6.9+. Block themes already get head hints from core and are left alone; below 6.5 the whole feature is a no-op and the UI section explains why.
 
 ### 🎨 CSS Optimisation
-**Used CSS (Mode A)** *(new in 1.18.0)* — the headline CSS feature. For each page it extracts the CSS actually used by that page's markup, inlines it into the `<head>`, and async-defers the original stylesheets as a safe fallback, so the page paints with no render-blocking CSS and no flash of unstyled content. The extraction runs through a bundled, self-hosted CSS parser (MIT-licensed — no external service, no API key, nothing phones home), keeps custom-property, `:root`/`html`, and JS-toggled (`[aria-*]` / `[data-*]`) rules regardless of static matches so nothing breaks, caches the result per URL, and coordinates with the page cache. **Combine CSS** merges runs of adjacent same-media local stylesheets into one cached bundle to cut requests, preserving cascade order and leaving external / conditional / print sheets alone. The two are alternatives — Combine automatically stands down while Used CSS is on, and the Doctor recommends one or the other, never both. Plus: async loading (preload + onload with the standard loadCSS polyfill), inline-CSS minification, a scanner for unused styles, conditional block styles, remove global styles for classic themes, dequeue WooCommerce stylesheets on non-shop pages, and a Critical CSS textarea. **Async-CSS safety interlock** *(1.13.4)*: when Async CSS is enabled without a critical-CSS bridge, the first two stylesheets stay render-blocking to prevent a flash of unstyled content. Paste critical CSS from a proper viewport-aware tool (Penthouse, Critical, Critters) for full async loading.
+**Used CSS (Mode A)** — the headline CSS feature. For each page it extracts the CSS actually used by that page's markup, inlines it into the `<head>`, and async-defers the original stylesheets as a safe fallback — no render-blocking CSS, no flash of unstyled content, and nothing ever deleted. Extraction runs through a bundled, self-hosted CSS parser (no external service, no API key), keeps custom-property, `:root`, and JS-toggled (`[aria-*]` / `[data-*]`) rules regardless of static matches, caches per URL, and coordinates with the page cache. **Combine CSS** merges runs of adjacent same-media local stylesheets into one cached bundle — automatically stood down while Used CSS is on, since Mode A already owns delivery; the Doctor recommends one or the other, never both. Plus async loading, inline-CSS minification, an unused-style scanner, conditional block styles, and a Critical CSS textarea with the async-CSS safety interlock.
 
 ### 🔤 Font Management
-Self-host Google Fonts to eliminate render-blocking third-party requests (and improve GDPR posture). Preload critical fonts with an explicit `crossorigin="anonymous"` attribute, manage manual entries for fonts the auto-scanner misses, enable subsetting, and pick your `font-display` strategy. Optimise or fully disable Font Awesome. **Disable Elementor Google Fonts** — sits in this tab (1.13.5 onwards) and switches off Elementor's separate Google Fonts requests when you've already self-hosted them. **Disable Google Fonts** removes Google Fonts site-wide — and as of 1.19.0 it also strips fonts hardcoded directly into the page (theme-header `<link>` tags and preconnects, inline `@font-face`, and `@import`) that bypass WordPress's enqueue system, via a guarded final-output pass.
+Self-host Google Fonts to eliminate render-blocking third-party requests (and improve GDPR posture). Preload critical fonts with explicit `crossorigin`, manage manual entries, enable subsetting, pick your `font-display` strategy, optimise or disable Font Awesome. **Disable Google Fonts** removes them site-wide — including fonts hardcoded straight into theme headers (`<link>` tags, preconnects, inline `@font-face` and `@import`) that bypass the enqueue system entirely, via a guarded final-output pass. Dedicated Elementor Google Fonts control included.
 
 ### 🚀 Preloading & Speculative Loading
-Preload your LCP image so it lands fast. Configure fetch priority manually or auto-prioritise the first image in main content. Emit Cloudflare Early Hints (HTTP 103) for edge-level preloading. The Speculation Rules API prefetches or prerenders the next page with conservative, moderate, eager, or auto eagerness. **Hover Prefetch** uses the canonical instant.page v5.2.0 runtime (MIT) — on link hover or first touchstart, the destination page is prefetched. Honours the `Save-Data: on` request header so users on metered connections aren't penalised.
+Preload your LCP image so it lands fast. Configure fetch priority manually or auto-prioritise the first image in main content. Emit Cloudflare Early Hints (HTTP 103) for edge-level preloading. The Speculation Rules API prefetches or prerenders the next page with conservative, moderate, eager, or auto eagerness. **Hover Prefetch** uses the canonical instant.page runtime (MIT) and honours `Save-Data: on` so metered connections aren't penalised.
 
 ### 🐢 Lazy Loading
-Native browser lazy loading for images and iFrames with configurable thresholds. Background-image lazy loading via IntersectionObserver. Exclude by selector, class, ID, data attribute, filename keyword, or parent container — six different ways to keep your hero image loading early. DOM monitoring catches dynamically inserted images from carousels, infinite scroll, and AJAX content. **YouTube / Vimeo Facade** — embedded video iframes are replaced with a static thumbnail and play button; the real iframe only loads on click. Saves roughly 1.4MB of YouTube JavaScript on initial page load, prevents YouTube cookies until interaction, keyboard accessible. Vimeo thumbnails are lazy-fetched via the public API behind an IntersectionObserver so the network request only happens when the facade scrolls into view.
+Native browser lazy loading for images and iFrames with configurable thresholds, background-image lazy loading via IntersectionObserver, and DOM monitoring for dynamically inserted images. Exclude by selector, class, ID, data attribute, filename keyword, or parent container — six ways to keep your hero loading early. **YouTube / Vimeo Facade** replaces embedded players with a thumbnail and play button — roughly 1.4MB of YouTube JavaScript held back until click, no provider cookies until interaction, keyboard accessible.
 
 ### 🗄️ Database Optimisation
-**Scheduled cleanup runs** — auto-draft purge with configurable age, trash emptying with configurable retention, spam and unapproved comment cleanup with their own age thresholds, expired transient cleanup (multisite-aware), and revision trimming to the keep-N setting. Schedule selector (daily / weekly / manual only) re-schedules the cron automatically when changed. **Last Auto-Cleanup log** displays the time of the last run with per-action item counts. **Run Auto-Cleanup Now** button triggers the cleanup logic on demand for clearing a backlog. Plus all the existing tools: post revisions retention, one-click orphaned metadata scanners across posts / comments / terms / taxonomy relationships, transient stats and cleanup, `OPTIMIZE TABLE`, MyISAM-to-InnoDB conversion, table repair, diagnostic info panel.
+Scheduled cleanup runs (daily / weekly / manual) covering auto-drafts, trash, spam and unapproved comments, expired transients (multisite-aware), and revision trimming — with a last-run log showing per-action counts and a **Run Auto-Cleanup Now** button. Plus orphaned-metadata scanners across posts / comments / terms / relationships, `OPTIMIZE TABLE`, MyISAM-to-InnoDB conversion, and table repair.
 
-### 🖼️ WebP / AVIF Image Conversion
-Convert JPG, JPEG, and PNG to WebP with configurable compression (1–100). Auto-convert on upload plus a bulk converter for your existing Media Library. Serve via HTML `<picture>` tags or `.htaccess` rewrite rules. Originals are never modified — the WebP sits alongside as a parallel file. Skip-when-larger detection, full conversion history, and a "Revert All" button that cleans up every plugin-created WebP without touching originals.
+### 🖼️ WebP / AVIF Image Conversion & Image Sizing
+Convert JPG, JPEG and PNG to WebP and AVIF with configurable quality, auto-convert on upload, and bulk converters with per-image AJAX progress. Delivery via `<picture>` (AVIF first, WebP second, original fallback) or `.htaccess` rewrite. Originals never modified; skip-when-larger detection; unified conversion history with per-format sizes and a registry-driven Revert All. Server capability diagnostics use `gd_info()['AVIF Support']` — the reliable detection — so the AVIF tools only appear when your host can actually encode it.
 
-**AVIF conversion** alongside WebP. The `<picture>` wrapper emits AVIF first, then WebP, then the original — browsers pick the first format they support. Configurable AVIF quality (default 60, perceptually equivalent to WebP at 75). Server capability diagnostics show whether GD AVIF (PHP 8.1+ with libavif compiled in, detected via `gd_info()['AVIF Support']`) or Imagick AVIF (7.0.25+ with libheif) is available; the AVIF section is hidden in the UI if neither is present.
-
-**Bulk AVIF Converter** *(new in 1.13.8)* — sits alongside the WebP one with its own Start / Clear History / Revert All buttons, per-image AJAX progress, and a unified Conversion History table that now shows both **WebP Size** and **AVIF Size** columns. Each image appears as a single row with whichever format data exists. The Compression column reports savings against whichever format is smallest (AVIF when present, since it's typically 20–30% smaller than WebP at equivalent perceived quality).
-
-### 📐 Image Sizing & Dimensions
-Two PageSpeed wins: auto-resize oversized uploads (default 2560px, configurable) using the WordPress core scaling pipeline, and inject missing `width`/`height` attributes into front-end `<img>` tags to eliminate Cumulative Layout Shift. The Bulk Resize tool downscales existing Media Library images in place, regenerating sub-sizes and cleaning up stale WebP / AVIF copies along the way. **`decoding="async"`** on images — lets the browser decode off the main thread, improving INP on image-heavy pages. The LCP candidate (any image with `fetchpriority="high"`) is automatically skipped. **Strip EXIF metadata on JPEG upload** — removes camera serial, GPS coordinates, embedded thumbnails. ICC colour profiles preserved so colours stay accurate. Imagick `stripImage()` preferred, GD fallback at quality 92. Only affects new uploads; existing images are unchanged.
+Image Sizing in the same tab: resize-on-upload at a configurable maximum, missing `width`/`height` injection (kills CLS), a Bulk Resize tool for existing libraries with sub-size regeneration, `decoding="async"` (LCP candidate automatically skipped), and EXIF stripping on new JPEG uploads with ICC profiles preserved.
 
 ### 🖥️ Server
-Writes server-level configuration to `.htaccess` on Apache and LiteSpeed for browser caching and text compression — two of the most common PageSpeed Insights warnings that can't be fixed from inside PHP. **Browser cache headers** with conservative expiry windows (1 year for images / fonts / video, 1 month for CSS / JS, 0 for HTML, 1 hour for feeds), `Cache-Control: public, max-age=31536000, immutable` as belt-and-braces. **Brotli / Gzip compression** with `mod_brotli` preferred where loaded, `mod_deflate` fallback. On Nginx and IIS hosts (where `.htaccess` is ignored), the tab detects the server and shows an equivalent server-config snippet to paste into your configuration. Marker blocks (*MBR Browser Cache*, *MBR Compression*) are removed cleanly when you disable the toggles or deactivate the plugin.
-
-### 🌐 Third-Party
-Self-hosts common tracking scripts and rewrites outbound `<script src=>` URLs in the page output to point at the local copies. Removes the PSI *"Reduce the impact of third-party code"* warning and stops first-paint network requests to googletagmanager.com and connect.facebook.net. Supported scripts: **Google Analytics (gtag.js)**, **Google Tag Manager (gtm.js)** (query strings like `?id=GTM-XXXXX` preserved intact so your container IDs keep working), **Google Analytics (analytics.js)** for legacy Universal Analytics, **Facebook Pixel (fbevents.js)**. Each enabled script is downloaded once on enable then refreshed daily via the `mbr_wp_performance_third_party_refresh` WP-Cron event. Cache Status panel shows last-refresh time, per-script success / failure, and a manual Refresh Now button. Pairs particularly well with Delay JavaScript Until Interaction on the JS tab — the script is served from your own domain *and* only executes when the user interacts.
+Writes browser-cache and compression rules to `.htaccess` on Apache and LiteSpeed — 1 year for images/fonts, 1 month for CSS/JS, `immutable` belt-and-braces, Brotli preferred with Gzip fallback. Nginx and IIS hosts get a copy-ready snippet instead. Marker blocks removed cleanly on disable or deactivation.
 
 ### 🔬 Diagnostics
-Three diagnostic tools in one tab, each targeting a common WordPress performance footgun.
-
-- **Caching Plugin Conflicts** — detects WP Rocket, W3 Total Cache, LiteSpeed Cache, FlyingPress, WP Super Cache, Perfmatters, and Autoptimize, and lists exactly which MBR options overlap with each. Prevents the common pitfall of having Defer / Minify / cache headers enabled in two plugins at once
-- **Autoloaded Options Audit** — shows total bytes currently being autoloaded plus the top 30 options by size. One-click "Disable autoload" button on each row. Around 85 protected core options (`siteurl`, `home`, `active_plugins`, `template`, `stylesheet`, etc.) cannot be modified — the toggle is replaced with an em-dash. The plugin's own options are excluded from the list *(1.13.3)*. Transients (autoloaded transients are almost always a bug) are flagged
-- **WP-Cron Viewer** — lists every scheduled event with its hook, next-run time, recurrence, and a Callback? column showing whether any PHP callback is currently registered for the hook. Events with no callback are flagged "orphan" (left behind by deactivated plugins) and can be unscheduled with one click. Includes setup instructions for replacing WP-Cron with a real system cron job
+- **Caching Plugin Conflicts** — detects WP Rocket, W3 Total Cache, LiteSpeed Cache, FlyingPress, WP Super Cache, Perfmatters, and Autoptimize, and lists exactly which MBR options overlap with each
+- **Autoloaded Options Audit** — total autoloaded bytes plus the top 30 options by size, one-click autoload disable, ~85 protected core options, transients flagged
+- **WP-Cron Viewer** — every scheduled event with next-run, recurrence, and whether a callback is actually registered; orphan events flagged and unschedulable in one click
 
 ### 🗑️ Orphaned Media
-Find attachments no longer referenced anywhere on your site — images, videos, audio, documents, and archives. Tick the media types you want to scan, hit Run Scan, review the candidates, delete the ones you don't need. Detection covers featured images and post content (matched by attachment ID, shortcode reference, and filename stem so sized image variants and URL-only video / audio references are caught), with a string-search across postmeta values for everything else. Post parents are treated as suggestive evidence rather than definitive — attachments uploaded for a post and later removed from the content correctly surface as Review-tier candidates instead of being silently skipped. Two confidence tiers — high-confidence orphans are eligible for bulk-delete; review-tier candidates require manual inspection. For images, deletion handles the original file, every WordPress sub-size variant, and matching `.webp` and `.avif` siblings; for other media types it removes the single attached file. Pre-deletion re-verification blocks deletes if an attachment has become referenced since the last scan. Defaults to images-only on upgrade — opt in to other types via the settings checkboxes.
+Find attachments no longer referenced anywhere — images, videos, audio, documents, archives. Two confidence tiers (high-confidence for bulk delete, review tier for manual inspection), pre-deletion re-verification, a staging table with a configurable restore window, and deletion that handles sub-sizes and `.webp`/`.avif` siblings together.
 
 ### 🛒 WooCommerce Optimisations
-Cart fragments control — disable the admin-ajax mini-cart sync request site-wide or only on non-shop pages, often the single biggest TTFB win on cached stores. Strip WooCommerce scripts, styles, and block assets from non-shop pages. Stop the heavy `wc-admin` React bundles loading across unrelated admin screens. Configurable Action Scheduler retention (default 30 days; options for 14, 7, or 3) keeps `actionscheduler_actions` from ballooning. Weekly automated cleanup of expired sessions, transients, and Action Scheduler history. Geolocation advisory notice flags settings that interact badly with full-page caching.
+Cart fragments control (often the single biggest TTFB win on cached stores), conditional asset loading on non-shop pages, wc-admin bundle suppression on unrelated admin screens, configurable Action Scheduler retention, weekly automated cleanup, and a geolocation-vs-page-cache advisory.
 
 ### 🌐 Multisite Network Support
-Network-activate and manage defaults from the Network Admin. Push settings to all (or selected) sites in one click, import settings from any existing site as the network default, and control whether site admins can override or are locked to network configuration. New sites automatically inherit network defaults on creation.
+Network-activate and manage defaults from the Network Admin. Push settings to all (or selected) sites in one click, import settings from any site as the network default, control per-site overrides, and new sites inherit network defaults automatically.
 
 ---
 
@@ -235,15 +232,7 @@ Optimisations are auto-disabled inside:
 - Bricks Builder
 - WPBakery Page Builder
 
-No configuration needed. Upload-pipeline modules (WebP, AVIF, EXIF strip, resize) still run regardless of editor context *(fixed in 1.12.2)*, so images uploaded through Elementor's media picker get the same treatment as direct Media Library uploads.
-
----
-
-## 🔄 Upgrading from earlier versions
-
-**From v1.11.0 or earlier:** Settings are preserved through the update. v1.12.0 includes a migration block that seeds the new option sections (`preloading`, `lazy_loading`, `third_party`, `server_headers`) automatically. v1.13.5 includes a further migration that moves `disable_elementor_fonts` from `[css]` to `[fonts]` if it was previously set. No manual configuration required for the migrations themselves, but you'll want to visit the new Diagnostics, Server, and Third-Party tabs to opt in to their settings.
-
-**From the standalone MBR WebP Converter plugin:** Deactivate it after upgrading to v1.6.0 or later — your conversion history and WebP file registry migrate automatically on first load. All existing WebP files stay in place and continue to be served.
+No configuration needed. Upload-pipeline modules (WebP, AVIF, EXIF strip, resize) still run regardless of editor context, so images uploaded through Elementor's media picker get the same treatment as direct Media Library uploads.
 
 ---
 
@@ -256,33 +245,57 @@ It's designed to be safe, but always back up first, test on staging, and enable 
 </details>
 
 <details>
+<summary><strong>Does RUM send my visitors' data anywhere?</strong></summary>
+
+No. The measurement library is bundled with the plugin and served from your own domain, and every reading is posted to an endpoint on your own site and stored in your own database. No cookies are set, no IP addresses are stored, and the user agent is reduced to a coarse device class and browser family before anything is written. There is no external service involved at all — which also means no account to create and no subscription to pay.
+</details>
+
+<details>
+<summary><strong>I enabled RUM but the tab shows no data.</strong></summary>
+
+Three things to check. First, logged-in visits are excluded by default — browse your site logged out or in a private window. Second, readings appear once they've been rolled up, and opening the RUM tab triggers that roll-up for you, so a reload is usually enough. Third, below ten samples a metric is marked *provisional* rather than treated as a measurement. Give it real traffic for a few days.
+</details>
+
+<details>
+<summary><strong>Why should I care about INP when PageSpeed already gives me a score?</strong></summary>
+
+Because PageSpeed can't see it. INP — Interaction to Next Paint — only exists when a real person taps, clicks or types, so no synthetic test can measure it, however sophisticated. It's also the metric that best matches "this site feels sluggish." If your lab scores are green but visitors complain, INP is usually the answer, and RUM is the only way to find it — complete with the specific handler responsible.
+</details>
+
+<details>
+<summary><strong>Do the defer/delay/combine settings affect Script Modules?</strong></summary>
+
+No, and they shouldn't. Modules used by the Interactivity API are printed separately by WordPress and defer by specification; combining them would break the import map that resolves their imports. The plugin leaves them strictly alone — there's not even an exclusion list to maintain, because the classic passes structurally can't reach them. The one module setting that *does* something is preload hoisting, and only on classic themes (block themes already get head preloads from core).
+</details>
+
+<details>
+<summary><strong>I enabled module preload hoisting but nothing appeared in the head.</strong></summary>
+
+Hoisting learns before it acts: the first visit to a URL records its modules, and the hints appear from the second visit onwards. It's also a deliberate no-op on block themes and on WordPress below 6.5. If you've recently changed theme or plugins, press **Clear learned modules** so the set is relearned rather than pointing at files that have moved.
+</details>
+
+<details>
 <summary><strong>Does it work with my caching plugin?</strong></summary>
 
-Yes — and the Diagnostics tab has a built-in conflict detector specifically for this. There's deliberately no overlap with full-page caching; this plugin provides complementary optimisations alongside WP Rocket, LiteSpeed, W3 Total Cache, FlyingPress, WP Super Cache, Perfmatters, Autoptimize, and others. Open the Diagnostics tab to see exactly which MBR options overlap with any active caching plugin, and pick one or the other.
+Yes — and the Diagnostics tab has a built-in conflict detector specifically for this. There's deliberately no overlap with full-page caching; this plugin provides complementary optimisations alongside WP Rocket, LiteSpeed, W3 Total Cache, FlyingPress, WP Super Cache, Perfmatters, Autoptimize, and others. The RUM beacon is POST-only, so page caches never interfere with it either.
+</details>
+
+<details>
+<summary><strong>Combine JavaScript merged far fewer files than Combine CSS. Is it broken?</strong></summary>
+
+No — that's correct behaviour. CSS can be merged freely, but a script carrying inline data (which often includes per-request security nonces) can't be safely baked into a shared cached file, so it stays separate. You still get the main benefit — jQuery and the cluster of vanilla libraries folded together — just with more standalone files on the JS side. If a combined script misbehaves, add it to the Exclude list.
 </details>
 
 <details>
 <summary><strong>What's the difference between WebP and AVIF?</strong></summary>
 
-Both are next-generation image formats designed to replace JPEG and PNG. AVIF (2019) is typically 20–30% smaller than WebP (2010) at equivalent perceived quality, but needs more recent browser support (Chrome 85+, Firefox 93+, Safari 16.4+) and stricter server-side encoding (PHP 8.1+ with libavif, or Imagick 7.0.25+). Enable both — the `<picture>` wrapper sends AVIF to capable browsers, WebP to the next tier, and the original format as fallback.
-</details>
-
-<details>
-<summary><strong>Does AVIF require anything special on the server?</strong></summary>
-
-Yes — server-side AVIF encoding needs PHP 8.1+ compiled with libavif (for the GD path) or Imagick 7.0.25+ with libheif. The WebP / AVIF tab includes a capability check showing whether each is available; the AVIF section is hidden in the UI if neither is present. **A common gotcha:** `function_exists('imageavif')` returns true on PHP 8.1+ even when libgd was built *without* libavif, so historic detection was unreliable. v1.13.7 onwards uses `gd_info()['AVIF Support']` instead, which reflects what libgd was actually compiled with. If your site previously had AVIF "enabled" but no `.avif` files appearing, you were almost certainly hitting that false positive.
+Both are next-generation image formats designed to replace JPEG and PNG. AVIF is typically 20–30% smaller than WebP at equivalent perceived quality, but needs more recent browser support and stricter server-side encoding (PHP 8.1+ with libavif, or Imagick 7.0.25+). Enable both — the `<picture>` wrapper sends AVIF to capable browsers, WebP to the next tier, and the original as fallback.
 </details>
 
 <details>
 <summary><strong>Does it touch my original images?</strong></summary>
 
-Never. WebP and AVIF files are parallel files (same name, different extension). Resize-on-upload uses the WordPress core scaling pipeline. EXIF stripping only affects new JPEG uploads — existing files are not touched. Only the **Bulk Resize tool** and **Orphaned Media deletion** modify or remove files on disk — both are clearly flagged as destructive and require manual confirmation.
-</details>
-
-<details>
-<summary><strong>Does the Orphaned Media scanner check all media types by default?</strong></summary>
-
-No — it defaults to images-only, matching v1.10.0 behaviour. To include videos, audio, documents, or archives, tick the relevant boxes in the tab settings and click **Save Settings** before running a scan.
+Never. WebP and AVIF files are parallel files. Resize-on-upload uses the WordPress core scaling pipeline. EXIF stripping only affects new JPEG uploads. Only the **Bulk Resize tool** and **Orphaned Media deletion** modify or remove files on disk — both are clearly flagged as destructive and require manual confirmation.
 </details>
 
 <details>
@@ -292,208 +305,88 @@ Bulk deletion is restricted to **high-confidence** orphans (no references found 
 </details>
 
 <details>
-<summary><strong>Why do attachments with <code>post_parent</code> matches show in Review tier instead of being skipped?</strong></summary>
-
-WordPress sets `post_parent` on attachments uploaded via the post editor, but it never clears the link when you remove the attachment from the post's content. An attachment can have a "live parent" but not actually appear anywhere in that parent's content. v1.11.0 onwards treats `post_parent` as suggestive evidence rather than definitive — those candidates surface in Review tier so you can open the parent post, confirm the attachment is genuinely unused, and delete it manually.
-</details>
-
-<details>
-<summary><strong>What about page builder content?</strong></summary>
-
-Page-builder data stores (Elementor `_elementor_data`, Bricks `_bricks_page_content_2`, Beaver Builder, Oxygen, WPBakery) aren't yet directly inspected by the Orphaned Media scanner — the postmeta string-search picks up most references but not all. URL-only references inside builder layouts can slip through, so treat candidates as Review-equivalent until you've scanned a staging copy if you rely heavily on a builder. Builder-aware detection remains on the roadmap.
-</details>
-
-<details>
-<summary><strong>Why does Combine JavaScript do nothing — and what about Combine CSS / Remove Unused CSS?</strong></summary>
-
-**Combine CSS** and **Remove Unused CSS (Used CSS / Mode A)** are now fully implemented as of 1.18.0 — see the CSS tab. They're two approaches to the same problem (render-blocking CSS) and shouldn't both run, so Combine automatically stands down whenever Used CSS is enabled, and the Performance Doctor recommends one or the other rather than both. **Combine JavaScript** is still preserved in the UI as a no-op with a clear admin notice — a safe implementation is scheduled for a future release. In the meantime, use Defer and Delay JS for real-world script wins, and the [MBR Advanced Asset Manager](https://github.com/harbourbob/mbr-advanced-asset-manager) plugin for per-URL asset control.
-</details>
-
-<details>
-<summary><strong>Why was the Auto-Generate Critical CSS button removed in 1.13.4?</strong></summary>
-
-Because the only safe way to produce critical CSS is to render the page in a headless browser at a target viewport and extract rules that apply to elements actually above the fold. Doing that in PHP via regex extraction across hardcoded selectors — which is what the button did — has too many failure modes to ship as a default user-facing feature: it stripped `@media` wrappers off rules, matched anything starting with a single-letter target like `p` or `a`, and ignored CSS variables on `:root`. The Critical CSS Code textarea remains; paste critical CSS produced by Penthouse, Critical, Critters, or any of the online critical-CSS generators into it.
-</details>
-
-<details>
-<summary><strong>Self-hosting third-party scripts — does that affect tracking?</strong></summary>
-
-Self-hosting addresses the *delivery* cost (no DNS / TLS / round-trip to googletagmanager.com on first paint, no visitor IP sent to Google or Meta just to fetch the script). It does not change the tracking behaviour itself — once the local copy executes, Google / Meta still receive analytics events as normal. For consent-gated tracking you also need a cookie consent banner like [MBR Cookie Consent](https://github.com/harbourbob/mbr-cookie-consent).
-</details>
-
-<details>
-<summary><strong>What's the difference between WebP and Image Sizing?</strong></summary>
-
-WebP and AVIF create smaller-format copies of each image without changing dimensions. Image Sizing changes the actual pixel dimensions so browsers don't download files larger than they need. They're complementary — use both for the biggest PageSpeed wins.
-</details>
-
-<details>
-<summary><strong>Does Minify HTML work with page builders?</strong></summary>
-
-Yes. It preserves `<pre>`, `<textarea>`, `<script>`, `<style>` and `<svg>` contents intact, only collapses whitespace runs that span a line break (so inline-element spacing and attribute values are kept), and skips AMP / REST / AJAX responses. It also detects pages that embed a *complete* HTML document inside a builder HTML widget (a nested `<!doctype>` / `<html>` / `<head>`) and skips those automatically, since collapsing whitespace across a nested document can confuse the browser's parser. One honest caveat: with Brotli / Gzip compression enabled (see the Server tab), HTML minification saves very little of the *compressed* transfer — it's the lowest-impact optimisation here, so don't feel obliged to use it.
-</details>
-
-<details>
 <summary><strong>What does "Disable AI Features (WordPress 7.0+)" actually do?</strong></summary>
 
-WordPress 7.0 ships a built-in AI subsystem — an AI Client, the Abilities API, and a Settings → Connectors screen for wiring the site to AI providers. It stays dormant until a provider connector is configured, so the default-install cost is minimal. This toggle switches the whole subsystem off via core's own kill switch (`wp_supports_ai` → `__return_false` at `PHP_INT_MAX`), with `wp_ai_client_prevent_prompt` as a second guard. It's off by default, has no effect on WordPress 6.x (the filter doesn't exist there), and is safe to leave enabled across mixed-version sites. It's a surface-area control, not a dashboard-hiding tool — the Connectors screen stays in place.
+WordPress 7.0 ships a built-in AI subsystem — an AI Client, the Abilities API, and a Settings → Connectors screen. It stays dormant until a provider is configured. This toggle switches the whole subsystem off via core's own kill switch (`wp_supports_ai` → `__return_false`), is off by default, and has no effect on WordPress 6.x, so it's safe across mixed-version sites.
 </details>
 
 ---
 
 ## 📝 Changelog
 
+### 1.22.0
+- 🧩 **New: Script Modules & Interactivity API support (WordPress 6.5+).** Modules are printed by WordPress separately from ordinary scripts, so the classic defer/delay/combine passes never see them — correctly, but it meant the plugin had nothing to offer module-using pages. This release adds the piece core leaves on the table
+- ✨ **New: module preload hoisting.** On classic themes WordPress discovers modules during body rendering, so it prints every `modulepreload` hint in the footer — where a hint arrives at the same moment as the script it was meant to front-run. The plugin now learns each URL's module set on first visit and emits the hints in the head from then on. Block themes already receive head hints from core and are left untouched
+- ✨ Static dependency-graph walking (a module's imports are hinted too; dynamic imports deliberately excluded), optional high `fetchpriority` via the core 6.9+ API, per-page preload cap, exclusion list, and a Clear learned modules control
+- ℹ️ Preload URLs are resolved exactly as core resolves them — including the `version: null` case — because a mismatched preload URL makes the browser download a module twice. Off by default; complete no-op below WordPress 6.5
+
+### 1.21.3
+- 🖨️ **Fix: the Doctor's PDF report preview** no longer stretches to the full browser width — it now previews as a centred A4 sheet on a grey backdrop and resets cleanly for printing, so `@page` margins aren't doubled
+- 🎨 Fix: "Note" badge styling in reports; recommendation buttons now use proper tab names ("Open RUM settings", not "Open rum settings")
+
+### 1.21.2
+- 🐛 **Fix: real-user field data now appears in the Doctor's site-scan view.** The site roll-up strips info-tier notes by design, which silently discarded the RUM status note — a scan could report "no actionable recommendations" while RUM sat on real data. Field data is now attached once at the site level, after that filter
+- 🔧 Field data reported once site-wide rather than repeated under every template (a global metric isn't a property of one template), and provisional notes now show the actual readings
+
+### 1.21.1
+- 🐛 **Fix: RUM data now reaches the Doctor and scorecard immediately** rather than waiting up to 24 hours for the nightly cron — aggregation also runs on demand (throttled) whenever the RUM tab or the Doctor is opened, plus a manual "Run aggregation now" button
+- 🔧 The Doctor is never silent when RUM is enabled: it reports still-collecting, provisional, or passing status instead of an ambiguous blank. Sample threshold lowered from 20 to 10, with provisional p75s shown greyed rather than hidden
+
+### 1.21.0
+- 📡 **New: Real User Monitoring.** Collects real-user Core Web Vitals — LCP, CLS and INP — into two local tables via a first-party REST endpoint (POST-only, so page caches never touch it) and a tiny beacon built on the bundled `web-vitals` attribution library (Apache-2.0, never loaded from a CDN). Nightly aggregation into per-template and per-URL daily p75s with automatic raw purge and aggregate retention
+- ✨ **New: RUM tab** — Core Web Vitals scorecard with distribution bars, per-template breakdown by device, worst-offenders table naming the culprit element or handler, data-health row, Clear control
+- 🩺 **New: Doctor field integration** — recommendations lead with what real visitors experienced, including INP, which a synthetic scan cannot see at all
+- 🔒 **Privacy:** no cookies, no IP storage, no UA retention (reduced to device class + browser family at write time), configurable sampling, logged-in sessions excluded by default. Nothing leaves your server
+- 🔧 The plugin's own `mbrpe/v1` REST namespace is now always permitted through the Core tab's REST hardening, so the beacon keeps working for logged-out visitors even under "Disable When Logged Out"
+
+### 1.20.1
+- 🐛 **Fix: "Move scripts to footer" no longer relocates the jQuery foundation** (jquery, jquery-core, jquery-migrate). Moving these split the dependency graph — jquery-migrate could be left in the head while jquery-core dropped to the footer, producing "jQuery is not defined" and silently breaking jQuery-dependent widgets (Elementor accordions, ElementsKit, and other page-builder handlers). jQuery now always stays in the head; a new `mbrpe_footer_protected_handles` filter lets advanced users adjust the protected set
+
 ### 1.19.0
-- 🩺 **New: MBR Performance Doctor.** A new advisory tab that analyses a real front-end page and recommends, in priority order, which settings will actually help this site — including which to leave **off** — instead of presenting a wall of switches. v1 diagnoses the render-blocking CSS-vs-JavaScript split (the most decisive factor), links each recommendation straight to the relevant setting, and skips anything already enabled. Advisory only; it never changes settings automatically
-- ✨ **New: Doctor image pass.** Flags images missing `width`/`height` (layout shift), JPEG/PNG that next-gen formats would shrink, and below-the-fold images that aren't lazy-loaded — each routed to the setting that fixes it
-- ✨ **New: Doctor multi-template scan.** Auto-detects key templates (home, blog index, a post, a page, WooCommerce shop/product) and aggregates findings into **site-wide vs page-specific** recommendations, with a per-template breakdown
-- ✨ **New: branded PDF report.** One-click, print-ready report of the site scan for client hand-off. Generated client-side, so it adds no plugin weight and works on any host; all data is HTML-escaped before rendering
-- ✨ **New: first-run nudge.** Steers new users to the Doctor before the toggle wall. Dismissed per-user (stored in user meta), and auto-dismissed once a scan is run; never shown on other admin screens, no tracking
-- 🐛 **Fix (Disable Google Fonts):** the toggle now also strips Google Fonts that bypass WordPress's enqueue system entirely — hardcoded `<link>` tags and preconnects in a theme header, inline `@font-face`, and `@import` — via a guarded final-output pass that runs only on front-end GET requests and bails instantly when no Google-font reference is present. The previous handle-based removal could only see fonts enqueued through `wp_enqueue_style`, so a hardcoded `<link>` slipped through untouched
-- 🔧 **Improvement: Combine CSS / Used CSS coordination.** The two are alternatives, so Combine is now automatically stood down when Used CSS (Mode A) is active — Mode A already inlines the critical CSS and defers every sheet itself, making Combine redundant. The CSS panel shows a note explaining the pause, and the Doctor recommends one or the other rather than both
+- 🩺 **New: MBR Performance Doctor.** Analyses a real front-end page and recommends, in priority order, which settings will actually help this site — including which to leave **off**. Diagnoses the render-blocking CSS-vs-JavaScript split, links each recommendation straight to the relevant setting, skips anything already enabled. Advisory only
+- ✨ Doctor image pass (missing dimensions → CLS, next-gen candidates, lazy-loading gaps), multi-template scan with site-wide vs page-specific aggregation, branded client-side PDF report, and a first-run nudge
+- 🐛 Fix: Disable Google Fonts now also strips hardcoded fonts (theme-header `<link>` tags, preconnects, inline `@font-face` and `@import`) via a guarded final-output pass
+- 🔧 Combine CSS automatically stands down while Used CSS (Mode A) is active — they're alternatives, and the Doctor recommends one or the other, never both
 
 ### 1.18.0
-- ✨ **New: Used CSS (Mode A).** Extracts the CSS each page actually uses, inlines it into the `<head>`, and async-defers the original stylesheets as a safe fallback — eliminating render-blocking CSS without a flash of unstyled content. The kind of feature usually reserved for paid plugins
-- 🔒 **Fully self-hosted.** Extraction runs through a bundled, MIT-licensed CSS parser — no external service, no API key, nothing phones home. Custom-property, `:root`/`html`, and JS-toggled (`[aria-*]` / `[data-*]`) rules are always kept so dynamic states and CSS variables don't break
-- ⚡ **Per-URL cache + page-cache coordination.** Used CSS is generated after the response, cached per URL, and served inline on subsequent loads; the just-generated URL is purged from the page cache so the inlined version is served next. Skipped for logged-in users (who have the admin bar and per-user CSS) and on admin/AJAX/REST/feed/preview requests
-
-### 1.13.9
-- 🎨 **Fix (UI):** The "Compression" column header on the Conversion History table was 110px wide, just narrow enough that the word wrapped onto a second line at the standard wp-list-table header font weight. Bumped to 140px so the label sits cleanly on one line
-
-### 1.13.8
-- ✨ **New: Bulk AVIF Converter.** The WebP tab now has an AVIF Bulk Converter section alongside the existing WebP one (Start AVIF Conversion / Clear AVIF History / Revert All AVIF Files), and only renders when the server has a real AVIF encoder available. Mirrors the WebP converter's architecture: per-image AJAX with progress bar, history option (`mbr_avif_converted_images`) parallel to the WebP one, and a registry-driven Revert All that deletes every `.avif` this plugin created without touching originals or WebP variants
-- ✨ **New: AVIF Size column** on the Conversion History table, alongside the existing WebP Size column. The table now merges records from both `mbr_webp_converted_images` and `mbr_avif_converted_images` keyed by original path, so each image appears as a single row with whichever format data exists (a dash shown where a format hasn't been generated for that image). The Compression column reports savings against whichever recorded format is smallest — AVIF when present (typically 20–30% smaller than WebP at equivalent perceived quality), otherwise WebP
-- ✨ Auto-convert on upload now also writes to the AVIF history option, so newly-uploaded images appear in the table alongside bulk-converted ones
-
-### 1.13.7
-- 🐛 **Fix (AVIF false-positive detection):** Server AVIF support was being detected via `function_exists('imageavif')`, which is unreliable. From PHP 8.1 onwards the `imageavif()` function is declared whether or not libgd was actually compiled against libavif; on the very common shared-host configuration where it wasn't, the function exists but calls fail silently at runtime, no `.avif` files are produced, and visitors are served WebP (or the original) regardless of how aggressively the user has toggled AVIF on. Detection now uses `gd_info()['AVIF Support']`, which reflects what libgd was actually built with — the same reliable pattern the plugin's WebP detection has always used via `gd_info()['WebP Support']`
-- ✨ When AVIF is enabled in settings but the server can't actually encode AVIF, the plugin now (a) does NOT register the upload-conversion filter (so it won't trigger per-upload warnings), (b) shows an admin notice on its own admin pages explaining the mismatch, and (c) always renders the AVIF capability diagnostic on the WebP tab — both when supported (info notice with a quick confirmation) and when unsupported (warning notice with the GD / Imagick breakdown). Previously the diagnostic was only shown in the unsupported case, and the supported case showed nothing at all
-
-### 1.13.6
-- 🎨 **Fix (UI contrast):** Inline status messages rendered by AJAX handlers — visible on the Database panel and elsewhere — appeared with WordPress core's near-black `.notice` text colour on the plugin's dark-themed success / error / warning / info backgrounds, producing a low-contrast pill that was hard to read against the green tint. The plugin's `.notice-success`, `.notice-warning`, `.notice-error` and `.notice-info` rules now set `color: var(--mbr-text-primary)` (the same light text colour already used by the equivalent `.mbr-wp-performance-message.success/error` rules) and apply it to nested `<p>` elements too so it wins over any descendant rules WP core may inject
-
-### 1.13.5
-- 🐛 **Fix (the actual root cause of the "CSS toggles revert" bug):** Three font-related fields on the Fonts tab — Optimize Google Fonts, Font Display Strategy (duplicate), and Disable Elementor Google Fonts — had their form inputs scoped to `mbr_wp_performance_options[css][...]` instead of `[fonts][...]`. Submitting the Fonts tab therefore POSTed a partial `css` section, and the CSS sanitiser — doing exactly what a section sanitiser should do — replaced the entire stored `css` section with the partial input, setting every CSS boolean not present in the form to `false` and dropping the textareas. This is what users were observing as "the CSS settings all return to default (switched off) without warning" after some unknown period of time: the unknown period was the time between saving the CSS tab and saving the Fonts tab. The earlier v1.13.4 async-CSS safety interlock papered over the visual symptom (no FOUC even when toggles got wiped); this release fixes the cause
-- 🧹 **Removed:** The "Optimize Google Fonts" radio (default / combine) and the duplicate "Font Display Strategy" select on the Fonts tab. Both were dead UI — the radio had no runtime consumer and the select was a redundant duplicate of the legitimate, properly-scoped `[fonts][font_display]` select already present higher up the same tab
-- 🔧 **Moved:** The Disable Elementor Google Fonts checkbox now writes to `[fonts][disable_elementor_fonts]` (was `[css][disable_elementor_fonts]`), and its runtime hook (`elementor/frontend/print_google_fonts` filter) moves from the CSS optimisations class to the font optimisations class where it belongs
-- 📦 **Migration:** on upgrade, any existing `[css][disable_elementor_fonts]` value is moved to `[fonts][disable_elementor_fonts]` (only if `[fonts]` doesn't already have a deliberate value, so a real user choice isn't clobbered). Any stale `[css][font_display]` is similarly migrated. The orphan `[css][google_fonts_mode]` key is dropped. Migration is idempotent
-
-### 1.13.4
-- 🧹 **Removed: Auto-Generate Critical CSS button.** The generator used regex-based extraction across hard-coded selectors (`body`, `header`, `h1`, `a` and similar), which is structurally too crude to produce safe critical CSS for a modern WordPress site. Failure modes included stripping `@media` wrappers off rules (extracting `body { padding: 0 }` from inside a viewport-conditional block and applying it at all viewports), matching unrelated selectors when one starts with a single-letter target (`a` matched `.article`, `p` matched `.product` etc.), blind inlining of every `@font-face` block on the site, and ignoring CSS variables defined on `:root`. The Critical CSS Code textarea remains; users who want this feature should paste in critical CSS produced by a proper viewport-aware tool such as Penthouse, Critical, Critters, or any of the online critical-CSS generators
-- ✨ **New: Async-CSS safety interlock.** If "Load CSS Asynchronously" is enabled WITHOUT a critical-CSS bridge (Inline Critical CSS on + Critical CSS Code populated), the first two render-blocking-eligible stylesheets now stay render-blocking and the rest are still async'd. This guarantees the page paints with real CSS at first paint regardless of how the rest of the chain is configured. With a critical-CSS bridge in place, every stylesheet is async'd as before
-- ℹ️ Note on upgrade: if your site has Load CSS Asynchronously on but no critical CSS provided, the first 2 stylesheets will become render-blocking again on upgrade. This is the correct behaviour — that configuration was previously causing a flash-of-unstyled-content window on first paint
-
-### 1.13.3
-- 🐛 **Fix (Critical CSS):** The "Auto-Generate Critical CSS" button stored its output under an internal key (`[css][critical_css_content]`) that was not in the CSS sanitiser's whitelist, so the sanitiser stripped it on every save. Generated CSS only survived at all because the admin JS also drops it into the editable textarea, which does persist. The generator now writes straight to the canonical `[css][critical_css]` field
-- 🐛 **Fix (Reset to Defaults):** The "Reset to Defaults" button did nothing. It navigated to `?...&reset=1`, but no handler ever read that parameter. It now runs a proper nonce- and capability-checked POST request that resets every section to its defaults and reloads the page. Implemented as POST rather than a GET link so it can't be triggered by a crawler, prefetch, or a stray bookmark
-- 🐛 **Fix (Autoload Audit):** The Diagnostics → Autoloaded Options audit claimed in code to exclude the plugin's own options but the query didn't, so MBR WP Performance's own options could appear in the list and be offered for autoload-disabling. The query now excludes the `mbr_wp_performance_` namespace as documented
-- 🧹 First-install defaults and the new reset routine now share a single `default_options()` definition rather than duplicating the structure
-
-### 1.13.2
-- 🐛 **Fix (HTML minify):** pages that embed a complete HTML document inside a page-builder HTML widget (e.g. an Elementor "HTML" widget holding a full `<!doctype html>…</html>` landing page) could lose their layout — the nested, doubly-declared document re-parsed differently in the browser once its whitespace was collapsed, dropping the container boundaries and letting content run full-width. The minifier now detects a nested/embedded document (a second `<!doctype>`, `<html>`, or `<head>`) and skips those pages entirely, byte-for-byte. Normal single-document pages are minified as before
-
-### 1.13.1
-- 🐛 Carries the v1.12.1–v1.12.3 fixes forward into the 1.13.x line — they were made against the v1.12.0 base and had not yet reached the v1.13.0 branch. See the 1.12.1–1.12.3 entries below for detail
-
-### 1.13.0
-- ✨ **New "Disable AI Features (WordPress 7.0+)" toggle** on the Core tab (under WordPress Features). WordPress 7.0 ships a built-in AI Client, the Abilities API, and a Settings → Connectors screen for wiring a site to AI providers. The toggle switches the whole subsystem off via core's own kill switch — `wp_supports_ai` → `__return_false` at `PHP_INT_MAX`, plus `wp_ai_client_prevent_prompt` as a second guard — so the AI Client and Abilities API never bootstrap
-- ℹ️ Off by default; existing behaviour unchanged on upgrade. No effect on WordPress 6.x (the `wp_supports_ai` filter doesn't exist there), so it's safe across mixed-version sites
-- ✅ Tested up to WordPress 7.0
+- ✨ **New: Used CSS (Mode A).** Extracts the CSS each page actually uses, inlines it into the `<head>`, and async-defers the original stylesheets as a safe fallback — eliminating render-blocking CSS without a flash of unstyled content. Fully self-hosted (bundled MIT CSS parser, no external service), cached per URL, page-cache coordinated
 
 <details>
-<summary><strong>Earlier releases (1.12.x and below)</strong></summary>
+<summary><strong>Earlier releases (1.13.x and below)</strong></summary>
 
-### 1.12.3
-- 🐛 **Fix (HTML minify):** Minify HTML broke the front end of every site it was enabled on. The placeholder used to protect `<script>` / `<style>` / `<pre>` / `<textarea>` blocks was itself an HTML comment (`<!--MBR_PLACEHOLDER_0-->`), so the comment-stripping pass deleted the placeholders and the protected blocks were never restored — every inline script and stylesheet was silently dropped. Placeholders are now a collision-free per-request token. Whitespace handling is also more conservative (only newline-spanning runs collapse to a single space) so inline-element spacing and attribute values survive; inline `<svg>` is protected; AMP / REST / AJAX responses are skipped; and each regex pass falls back to the un-minified buffer if PCRE bails
+### 1.13.9
+- 🎨 Fix (UI): Conversion History "Compression" column widened so the header sits on one line
 
-### 1.12.2
-- 🐛 **Fix (Elementor uploads):** WebP / AVIF conversion, EXIF stripping, and resize-on-upload were silently bypassed when uploading through Elementor's media picker (or any page-builder media interface that triggers editor-context detection). The editor-context early-return was disabling upload-pipeline optimisations as collateral damage. Upload-pipeline modules (WebP, AVIF, Image Dimensions, Image Enhancements) now initialise regardless of editor context; each still self-gates its editor-sensitive front-end filters, so front-end optimisations remain suppressed inside editors as before
+### 1.13.8
+- ✨ New: Bulk AVIF Converter alongside the WebP one, with per-image AJAX progress, its own history and registry-driven Revert All, and a unified Conversion History table showing both WebP and AVIF sizes
 
-### 1.12.1
-- 🐛 **Fix (Orphaned Media):** the scanner failed to detect orphan PDF, Word, video, audio, and archive files because the post_content reference check stripped the file extension before matching. Stem-only matching is correct for images (so `image-300x200.jpg` matches `image.jpg`) but for non-image media it caused unrelated URLs to match — a PDF called `pricing.pdf` was treated as referenced whenever any post linked to `/pricing-page/`. Non-image media now match against the full filename including extension; images keep the stem-based logic so sized-variant detection is unchanged
-- 🐛 Fix: the Type = Documents / Videos / Audio / Archives filter on the candidate list returned nothing, because it queried `post_mime_type` against the staging table (whose column is `mime_type`). `build_mime_where()` now takes a column-name parameter and the staging-table caller passes the correct value
+### 1.13.7
+- 🐛 Fix: AVIF capability detection now uses `gd_info()['AVIF Support']` instead of `function_exists('imageavif')`, which returns true on PHP 8.1+ even when libgd was built without libavif — the cause of "AVIF enabled but no .avif files ever appear"
 
-### 1.12.0
-- ✨ **Three new tabs:** Server (browser cache headers + Brotli / Gzip via `.htaccess`, Nginx snippet for non-Apache hosts), Third-Party (self-host gtag.js / gtm.js / analytics.js / fbevents.js with daily refresh cron and URL rewriting), Diagnostics (Autoloaded Options Audit, WP-Cron Viewer with orphan detection, Caching Plugin Conflict Detector)
-- ✨ **AVIF image conversion** alongside WebP. `<picture>` wrapper emits AVIF first, WebP second, original third. Configurable AVIF quality (default 60). Capability diagnostics shown on the WebP / AVIF tab; toggle disabled if neither GD AVIF (PHP 8.1+) nor Imagick AVIF (7.0.25+) is available
-- 🔧 **JavaScript optimisations module fully wired up** (previously a placeholder class). Defer, Defer jQuery, Move-to-Footer, Remove jQuery (with test mode), inline-JS minification, Delay JS with interaction runtime + configurable timeout, Disable Concatenation, Remove Script Versions all functional with their own exclusion lists
-- 🔧 **CSS optimisations module fully wired up** (previously a placeholder class). Inline Critical CSS, Async CSS (preload + onload + loadCSS polyfill), inline-CSS minification, Conditional Block Styles, Remove CSS Versions, Disable Elementor Google Fonts, Disable WooCommerce CSS on non-shop pages
-- 🔧 **Database scheduled cleanup now runs** (cron event was registered in earlier releases but had no listener). Auto-draft purge, trash emptying, spam / unapproved comment cleanup, expired transient cleanup (multisite-aware), and revision trimming all execute on schedule
-- ✨ Minify HTML toggle on the Core tab
-- ✨ Hover Prefetch toggle on the Preloading tab — instant.page v5.2.0 runtime (MIT)
-- ✨ YouTube / Vimeo Facade on the Lazy Loading tab — embedded video iframes replaced with thumbnail + play button; real iframe only loads on click
-- ✨ `decoding="async"` toggle in the Image Sizing & Dimensions section
-- ✨ Strip EXIF Metadata on JPEG Upload toggle in the Image Sizing & Dimensions section
-- 🐛 Fix: `crossorigin="anonymous"` is now explicit on all preload and preconnect tags
-- 📦 Migration: four new option sections (`preloading`, `lazy_loading`, `third_party`, `server_headers`) seeded on upgrade. Idempotent — safe to run repeatedly
-- 🧹 On deactivation: all v1.12.0 `.htaccess` marker blocks (*MBR AVIF*, *MBR Browser Cache*, *MBR Compression*) are removed cleanly. Third-party script refresh cron is unscheduled. AVIF file registry is purged
+### 1.13.6
+- 🎨 Fix (UI contrast): inline AJAX status notices now use the plugin's light text colour on its dark-themed backgrounds
 
-### 1.11.0
-- ✨ **Orphaned Images tab renamed to Orphaned Media** — scope expanded to cover videos, audio, documents, and archives alongside images
-- Type checkbox group in tab settings — opt in per type (Images / Videos / Audio / Documents / Archives); defaults to images-only on upgrade so v1.10.0 behaviour is preserved
-- New Type column in the candidate list with category icons for quick visual scanning
-- Behaviour change: `post_parent` is no longer treated as definitive proof an attachment is in use. WordPress sets `post_parent` on upload via the post editor and never clears it on content edits, so attachments uploaded into a post and later removed from content stayed hidden under v1.10.0. Parent-only matches now drop to Review tier so they can be inspected and deleted manually. Featured-image and post-content matches remain definitive
+### 1.13.5
+- 🐛 Fix (root cause of "CSS toggles revert"): three Fonts-tab fields were scoped to the `[css]` section, so saving the Fonts tab replaced the stored CSS section with a partial one, wiping every CSS boolean. Fields re-scoped to `[fonts]`, dead UI removed, idempotent migration included
 
-### 1.10.0
-- ✨ **New "Orphaned Images" tab** — scan the Media Library for image attachments no longer referenced anywhere, with a safe two-stage deletion workflow and configurable restore window
-- Two confidence tiers: **High** (no references found, eligible for bulk-delete) and **Review** (matched only in postmeta, manual inspection required)
-- Custom staging table records the full attachment post row, postmeta, and file manifest before deletion — restore from queue within the configured window
+### 1.13.4
+- 🧹 Removed the regex-based Auto-Generate Critical CSS button (structurally unsafe); the Critical CSS textarea remains for output from proper viewport-aware tools
+- ✨ New async-CSS safety interlock: without a critical-CSS bridge, the first two stylesheets stay render-blocking to prevent FOUC
 
-### 1.9.3
-- REST API namespace allowlist on the Core tab — when "Disable REST API" is set to a non-default mode, admins can whitelist specific namespaces that should remain accessible
-- Fix: public REST endpoints registered with `permission_callback => '__return_true'` are no longer indiscriminately blocked when their namespace is in the allowlist
+### 1.13.3
+- 🐛 Fixes: Critical CSS persistence, Reset to Defaults (now a nonce-checked POST), Autoload Audit excluding the plugin's own options as documented
 
-### 1.9.2
-- Fix: "Remove Global Styles" no longer breaks the front end of Full Site Editing (block) themes — auto-skipped when a block theme is active
-- Removed the duplicate, previously non-functional "Remove Global Styles" checkbox from the CSS tab; the Core tab toggle is now the canonical home
-- Migration: any existing `[css][remove_global_styles]` truthy value is automatically copied to `[core][remove_global_styles]` on update
+### 1.13.2
+- 🐛 Fix (HTML minify): pages embedding a complete nested HTML document are now skipped byte-for-byte
 
-### 1.9.1
-- Weekly automated cleanup toggle in the WooCommerce tab — runs expired sessions, WooCommerce transients, and Action Scheduler cleanup on the plugin's existing weekly cron hook
-- Geolocation and page cache advisory notice — warns when WooCommerce's default customer location interacts badly with full-page caching
-- Fix: the `mbr_wp_performance_database_cleanup` weekly cron event now has an actual listener
+### 1.13.0
+- ✨ New "Disable AI Features (WordPress 7.0+)" toggle using core's own `wp_supports_ai` kill switch. Tested up to WordPress 7.0
 
-### 1.9.0
-- New dedicated WooCommerce tab consolidating all store-specific optimisations
-- Cart fragments control — disable the admin-ajax `get_refreshed_fragments` request site-wide or only on non-shop pages
-- Expanded conditional asset loading — dequeues WooCommerce scripts, styles, block assets, selectWoo, blockUI, and related libraries on non-shop pages
-- Configurable Action Scheduler retention period (default 30 days, options for 14, 7, or 3)
+### 1.12.x
+- ✨ Server, Diagnostics tabs; AVIF conversion; JavaScript and CSS modules fully wired; scheduled database cleanup live; HTML minify; Hover Prefetch; YouTube/Vimeo facade; `decoding="async"`; EXIF stripping — plus the fixes that hardened them (placeholder-safe minify, Elementor upload pipeline, orphaned-media extension matching)
 
-### 1.8.0
-- Bulk resize tool for existing Media Library images — scan, then downscale in place
-- Two-phase workflow (Scan → Start Resize) with progress bar, live log, and running savings total
-- Automatic sub-size regeneration after each resize using the WordPress core pipeline
-
-### 1.7.0
-- New "Image Sizing & Dimensions" section in the WebP tab
-- Automatic resize-on-upload with configurable maximum dimension (default 2560px)
-- Automatic injection of missing `width` and `height` attributes on front-end images to reduce Cumulative Layout Shift
-
-### 1.6.0
-- Integrated WebP image conversion (previously the standalone MBR WebP Converter plugin)
-- New "WebP" tab with settings, server diagnostics, and bulk converter
-- Automatic WebP conversion on image upload
-- HTML `<picture>` tag delivery with automatic browser fallback
-- Apache / LiteSpeed `.htaccess` rewrite rules for transparent WebP serving
-- Automatic migration of data from the standalone MBR WebP Converter plugin
-- Redesigned admin UI with pill-style tab navigation and dark mode
-
-### 1.5.0
-- Full WordPress Multisite network support
-- Network Admin settings page with one-click push to all sites
-- Import settings from any site as network defaults
-- Per-site override toggle for super admins
-
-### 1.4.9
-- Comprehensive lazy loading controls
-- Preloading and speculative loading options
-- Self-host Google Fonts with manual management
-- CSS scanner for unused styles
-- Toolbar menu access (moved from sidebar)
-- Page builder compatibility (Elementor, Divi, etc.)
-
-### 1.0.0
-- Initial release
+### 1.11.0 and earlier
+- Orphaned Media (expanded from Orphaned Images), REST namespace allowlist, block-theme global-styles safety, WooCommerce tab, bulk resize, image sizing, WebP integration, multisite support, initial release
 
 </details>
 
@@ -525,6 +418,8 @@ For code contributions:
 ## 📄 License
 
 Licensed under the [GPL v2 or later](https://www.gnu.org/licenses/gpl-2.0.html).
+
+Bundled libraries: [web-vitals](https://github.com/GoogleChrome/web-vitals) (Apache-2.0, GPL-compatible) for Real User Monitoring — vendored locally, never loaded from a CDN.
 
 <div align="center">
 
