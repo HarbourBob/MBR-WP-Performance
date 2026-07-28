@@ -232,5 +232,13 @@ $css_options = isset( $options['css'] ) ? $options['css'] : array();
             <?php endif; ?>
         </table>
     </div>
-    
+
+    <?php
+    // Critical CSS (XL). Rendered only when the module is present, so the lite
+    // build (which omits the class) shows this tab unchanged.
+    if ( class_exists( 'MBRPE_Critical_CSS' ) ) {
+        MBRPE_Critical_CSS::render_settings( $css_options );
+    }
+    ?>
+
 </div>

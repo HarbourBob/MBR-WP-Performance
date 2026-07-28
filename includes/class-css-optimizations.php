@@ -257,6 +257,12 @@ class MBRPE_CSS_Optimizations {
         if ( $this->should_skip() ) {
             return $tag;
         }
+        // Critical CSS (XL) owns this page when active — it defers sheets itself,
+        // so don't also rewrite them here. class_exists keeps this identical in
+        // the lite build.
+        if ( class_exists( 'MBRPE_Critical_CSS' ) && MBRPE_Critical_CSS::is_active() ) {
+            return $tag;
+        }
         if ( '' === $href ) {
             return $tag;
         }
@@ -405,6 +411,9 @@ class MBRPE_CSS_Optimizations {
      */
     public function combine_styles() {
         if ( $this->should_skip() ) {
+            return;
+        }
+        if ( class_exists( 'MBRPE_Critical_CSS' ) && MBRPE_Critical_CSS::is_active() ) {
             return;
         }
         if ( is_feed() || is_embed() ) {
@@ -1065,6 +1074,9 @@ class MBRPE_CSS_Optimizations {
      * @return void
      */
     public function print_combine_preloads() {
+        if ( class_exists( 'MBRPE_Critical_CSS' ) && MBRPE_Critical_CSS::is_active() ) {
+            return;
+        }
         if ( empty( $this->combine_preload_urls ) ) {
             return;
         }

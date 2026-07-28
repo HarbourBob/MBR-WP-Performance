@@ -468,6 +468,14 @@ class MBRPE_Core_Optimizations {
             return false;
         }
 
+        // The plugin's own namespace is always allowed, regardless of the
+        // user's allowlist. This keeps first-party endpoints — notably the RUM
+        // beacon (mbrpe/v1/rum), which is hit by logged-out real visitors —
+        // working even when REST hardening is set to block logged-out access.
+        if ( 'mbrpe/v1' === $route || 0 === strpos( $route, 'mbrpe/v1/' ) ) {
+            return true;
+        }
+
         $allowed = $this->get_allowed_rest_namespaces();
         if ( empty( $allowed ) ) {
             return false;

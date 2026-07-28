@@ -223,7 +223,7 @@ class MBRPE_Performance_Doctor {
 	private function run_site( $templates ) {
 		$results = array();
 		foreach ( $templates as $tpl ) {
-			$r         = $this->run( $tpl['url'] );
+			$r         = $this->run( $tpl['url'], false );
 			$results[] = array(
 				'label'           => $tpl['label'],
 				'url'             => $tpl['url'],
@@ -331,6 +331,24 @@ class MBRPE_Performance_Doctor {
 			}
 		);
 
+		// Real-user field data is site-wide rather than per-template, so it is
+		// attached once here rather than being deduplicated across templates.
+		// It is also added after the sort and the info-tier filter above, which
+		// strips contextual notes from the roll-up — field status notes must
+		// survive that filter, otherwise the scan reports "no recommendations"
+		// while RUM is sitting on real data.
+		$field = $this->field_recommendations();
+		if ( ! empty( $field ) ) {
+			foreach ( $field as &$f ) {
+				$f['coverage'] = $total;
+				$f['total']    = $total;
+				$f['scope']    = 'site-wide';
+				$f['labels']   = array();
+			}
+			unset( $f );
+			$site_recs = array_merge( $field, $site_recs );
+		}
+
 		switch ( $top ) {
 			case 'js':
 				$verdict = __( 'JavaScript is the recurring render-blocking bottleneck across your templates.', 'mbr-performance' );
@@ -359,7 +377,7 @@ class MBRPE_Performance_Doctor {
 	 * @param string $url Front-end URL to analyse.
 	 * @return array Structured result.
 	 */
-	public function run( $url ) {
+	public function run( $url, $include_field = true ) {
 		$html = $this->capture( $url );
 		if ( is_wp_error( $html ) ) {
 			return array(
@@ -375,6 +393,20 @@ class MBRPE_Performance_Doctor {
 
 		$summary         = $this->summarise( $blocking, $images );
 		$recommendations = $this->build_recommendations( $blocking, $images, $summary, $options );
+
+		// Prepend real-user field data when RUM is collecting. Field beats
+		// synthetic: these are what actual visitors experienced, and they
+		// surface INP, which a static scan cannot see at all.
+		//
+		// Skipped during a site scan ($include_field = false) because field
+		// data is site-wide, not per-template — the scan attaches it once at
+		// the site level instead of repeating it under every template.
+		if ( $include_field ) {
+			$field = $this->field_recommendations();
+			if ( ! empty( $field ) ) {
+				$recommendations = array_merge( $field, $recommendations );
+			}
+		}
 
 		return array(
 			'ok'              => true,
@@ -625,6 +657,190 @@ class MBRPE_Performance_Doctor {
 			'js_bytes_human'  => size_format( $js_bytes ),
 			'images'          => $images,
 		);
+	}
+
+	/**
+	 * Build recommendations from real-user field data (RUM), when available.
+	 *
+	 * Returns high/medium-tier recommendations naming the actual metric, its
+	 * p75, and the most common culprit element/handler. Degrades to an empty
+	 * array when RUM is off, missing, or has too few samples — so the Doctor
+	 * falls back cleanly to synthetic-only.
+	 *
+	 * @return array[]
+	 */
+	private function field_recommendations() {
+		if ( ! class_exists( 'MBRPE_RUM' ) ) {
+			return array();
+		}
+		$rum = mbrpe()->get_options( 'rum' );
+		if ( empty( $rum['enabled'] ) ) {
+			return array();
+		}
+
+		// Roll any raw samples that have arrived since the last aggregation, so
+		// the Doctor reflects traffic from minutes ago rather than waiting for
+		// the nightly cron. Throttled internally.
+		MBRPE_RUM::maybe_aggregate();
+
+		$scores = MBRPE_RUM::scorecard();
+		if ( empty( $scores ) ) {
+			// RUM is on but nothing has been aggregated yet. Say so rather than
+			// staying silent, which is indistinguishable from a broken feature.
+			$pending = MBRPE_RUM::row_counts();
+			return array(
+				array(
+					'tier'    => 'info',
+					'title'   => __( 'Real-user data: still collecting', 'mbr-performance' ),
+					'detail'  => $pending['raw'] > 0
+						? sprintf(
+							/* translators: %s: number of raw samples */
+							__( 'RUM is enabled and has %s raw sample(s) recorded, but no daily aggregates yet. Field-based advice appears here once aggregation has run — open the RUM tab, which aggregates on demand.', 'mbr-performance' ),
+							number_format_i18n( $pending['raw'] )
+						)
+						: __( 'RUM is enabled but no samples have arrived yet. Visit a few pages on the front end as a logged-out visitor, then re-run this scan.', 'mbr-performance' ),
+					'tab'     => 'rum',
+					'warning' => '',
+				),
+			);
+		}
+
+		$thr  = MBRPE_RUM::thresholds();
+		$min  = MBRPE_RUM::MIN_SAMPLES;
+		$recs = array();
+
+		// INP — the metric a synthetic scan literally cannot measure.
+		if ( isset( $scores['INP'] ) && (int) $scores['INP']['samples'] >= $min ) {
+			$p75 = (float) $scores['INP']['p75'];
+			if ( $p75 > $thr['INP']['good'] ) {
+				$culprit = MBRPE_RUM::worst_target( 'INP' );
+				$recs[]  = array(
+					'tier'    => $p75 > $thr['INP']['poor'] ? 'high' : 'medium',
+					'title'   => __( 'Real-user data: INP needs work', 'mbr-performance' ),
+					'detail'  => sprintf(
+						/* translators: 1: INP in ms, 2: optional culprit clause */
+						__( 'Your real p75 INP is %1$dms%2$s. INP only exists when someone interacts, so a static scan cannot see it — this is field-only. Delaying non-critical JavaScript (and loading heavy widgets on interaction) is the lever.', 'mbr-performance' ),
+						(int) round( $p75 ),
+						$culprit ? sprintf(
+							/* translators: %s: element/handler selector */
+							__( ', most often on %s', 'mbr-performance' ),
+							$culprit
+						) : ''
+					),
+					'tab'     => 'javascript',
+					'warning' => '',
+				);
+			}
+		}
+
+		// LCP.
+		if ( isset( $scores['LCP'] ) && (int) $scores['LCP']['samples'] >= $min ) {
+			$p75 = (float) $scores['LCP']['p75'];
+			if ( $p75 > $thr['LCP']['good'] ) {
+				$culprit = MBRPE_RUM::worst_target( 'LCP' );
+				$recs[]  = array(
+					'tier'    => $p75 > $thr['LCP']['poor'] ? 'high' : 'medium',
+					'title'   => __( 'Real-user data: LCP needs work', 'mbr-performance' ),
+					'detail'  => sprintf(
+						/* translators: 1: LCP in seconds, 2: optional culprit clause */
+						__( 'Your real p75 LCP is %1$ss%2$s. Preload the LCP image, serve it as AVIF/WebP, and set fetchpriority=high — those are the levers that move it.', 'mbr-performance' ),
+						number_format( $p75 / 1000, 2 ),
+						$culprit ? sprintf(
+							/* translators: %s: element selector */
+							__( ', and the LCP element is usually %s', 'mbr-performance' ),
+							$culprit
+						) : ''
+					),
+					'tab'     => 'preloading',
+					'warning' => '',
+				);
+			}
+		}
+
+		// CLS.
+		if ( isset( $scores['CLS'] ) && (int) $scores['CLS']['samples'] >= $min ) {
+			$p75 = (float) $scores['CLS']['p75'];
+			if ( $p75 > $thr['CLS']['good'] ) {
+				$culprit = MBRPE_RUM::worst_target( 'CLS' );
+				$recs[]  = array(
+					'tier'    => $p75 > $thr['CLS']['poor'] ? 'high' : 'medium',
+					'title'   => __( 'Real-user data: CLS needs work', 'mbr-performance' ),
+					'detail'  => sprintf(
+						/* translators: 1: CLS value, 2: optional culprit clause */
+						__( 'Your real p75 CLS is %1$s%2$s. Adding width/height to images is the usual fix; a font swapping to different metrics is the other common cause.', 'mbr-performance' ),
+						number_format( $p75, 3 ),
+						$culprit ? sprintf(
+							/* translators: %s: element selector */
+							__( ', with the largest shift usually from %s', 'mbr-performance' ),
+							$culprit
+						) : ''
+					),
+					'tab'     => 'webp',
+					'warning' => '',
+				);
+			}
+		}
+
+		// If aggregates exist but nothing actionable fired, explain why —
+		// either the metrics are genuinely fine, or there aren't enough
+		// samples yet to trust them.
+		if ( empty( $recs ) ) {
+			$thin = array();
+			foreach ( $scores as $metric => $card ) {
+				if ( (int) $card['samples'] < $min ) {
+					$thin[] = $metric;
+				}
+			}
+
+			if ( ! empty( $thin ) ) {
+				// Show the actual readings — even provisional numbers are worth
+				// seeing, they just aren't a basis for action yet.
+				$readings = array();
+				foreach ( array( 'LCP', 'INP', 'CLS' ) as $metric ) {
+					if ( ! isset( $scores[ $metric ] ) ) {
+						continue;
+					}
+					$val = (float) $scores[ $metric ]['p75'];
+					if ( 'CLS' === $metric ) {
+						$shown = number_format( $val, 3 );
+					} elseif ( 'LCP' === $metric ) {
+						$shown = number_format( $val / 1000, 2 ) . 's';
+					} else {
+						$shown = (int) round( $val ) . 'ms';
+					}
+					$readings[] = sprintf(
+						/* translators: 1: metric name, 2: value, 3: sample count */
+						__( '%1$s %2$s (%3$d samples)', 'mbr-performance' ),
+						$metric,
+						$shown,
+						(int) $scores[ $metric ]['samples']
+					);
+				}
+
+				$recs[] = array(
+					'tier'    => 'info',
+					'title'   => __( 'Real-user data: provisional', 'mbr-performance' ),
+					'detail'  => sprintf(
+						/* translators: 1: readings list, 2: minimum sample count */
+						__( 'Field data so far — %1$s. That is under %2$d samples, so it is too thin to act on yet, but collection is working. Send more real traffic and these become actionable.', 'mbr-performance' ),
+						implode( ', ', $readings ),
+						$min
+					),
+					'tab'     => 'rum',
+					'warning' => '',
+				);
+			} else {
+				$recs[] = array(
+					'tier'    => 'info',
+					'title'   => __( 'Real-user data: Core Web Vitals are passing', 'mbr-performance' ),
+					'detail'  => __( 'Your real visitors are seeing LCP, CLS and INP within the "good" thresholds. Anything below is synthetic analysis — worth doing, but your field data says the page is already performing well for actual users.', 'mbr-performance' ),
+					'tab'     => 'rum',
+					'warning' => '',
+				);
+			}
+		}
+
+		return $recs;
 	}
 
 	/**

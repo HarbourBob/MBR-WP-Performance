@@ -147,7 +147,8 @@ class MBRPE_Admin {
             'preloading' => __( 'Preloading', 'mbr-performance' ),
             'lazy-loading' => __( 'Lazy Loading', 'mbr-performance' ),
             'database' => __( 'Database', 'mbr-performance' ),
-            'webp' => __( 'WebP', 'mbr-performance' ),
+            'webp' => __( 'WebP / AVIF', 'mbr-performance' ),
+            'rum' => __( 'RUM', 'mbr-performance' ),
             'orphaned-media' => __( 'Orphaned Media', 'mbr-performance' ),
             'woocommerce' => __( 'WooCommerce', 'mbr-performance' ),
         );
@@ -261,6 +262,16 @@ class MBRPE_Admin {
         // v1.12.0 — server headers.
         if ( isset( $options['server_headers'] ) && is_array( $options['server_headers'] ) ) {
             $sanitized['server_headers'] = $this->sanitize_server_headers_options( $options['server_headers'] );
+        }
+
+        // v1.21.0 — RUM.
+        if ( isset( $options['rum'] ) && is_array( $options['rum'] ) ) {
+            $sanitized['rum'] = $this->sanitize_rum_options( $options['rum'] );
+        }
+
+        // v1.22.0 — Script Modules.
+        if ( isset( $options['modules'] ) && is_array( $options['modules'] ) ) {
+            $sanitized['modules'] = $this->sanitize_modules_options( $options['modules'] );
         }
 
         return $sanitized;
@@ -428,7 +439,13 @@ class MBRPE_Admin {
                 $sanitized[ $field ] = sanitize_textarea_field( $options[ $field ] );
             }
         }
-        
+
+        // Critical CSS (XL): delegate sanitisation of its critical_* keys. Guarded
+        // so the lite build (without the class) leaves this sanitiser unchanged.
+        if ( class_exists( 'MBRPE_Critical_CSS' ) ) {
+            $sanitized = array_merge( $sanitized, MBRPE_Critical_CSS::sanitize( $options ) );
+        }
+
         return $sanitized;
     }
 
@@ -931,6 +948,9 @@ class MBRPE_Admin {
                     case 'diagnostics':
                         $this->render_diagnostics_tab( $options );
                         break;
+                    case 'rum':
+                        $this->render_rum_tab( $options );
+                        break;
                     case 'orphaned-media':
                     case 'orphaned-images':
                         // Old slug aliased to the new tab for one release so
@@ -1011,6 +1031,7 @@ class MBRPE_Admin {
             'webp' => __( 'WebP / AVIF', 'mbr-performance' ),
             'server-headers' => __( 'Server', 'mbr-performance' ),
             'diagnostics' => __( 'Diagnostics', 'mbr-performance' ),
+            'rum' => __( 'RUM', 'mbr-performance' ),
             'orphaned-media' => __( 'Orphaned Media', 'mbr-performance' ),
             'woocommerce' => __( 'WooCommerce', 'mbr-performance' ),
         );
@@ -1128,6 +1149,15 @@ class MBRPE_Admin {
     }
 
     /**
+     * Render RUM (Real User Monitoring) tab.
+     *
+     * @param array $options
+     */
+    private function render_rum_tab( $options ) {
+        require_once MBRPE_PLUGIN_DIR . 'includes/admin/tabs/rum.php';
+    }
+
+    /**
      * Render Orphaned Media tab. Renamed from render_orphaned_images_tab()
      * in v1.11.0 when scope expanded beyond images.
      *
@@ -1201,6 +1231,80 @@ class MBRPE_Admin {
             'gzip_compression' => ! empty( $options['gzip_compression'] ) ? 1 : 0,
         );
         return $sanitized;
+    }
+
+    /**
+     * Sanitize RUM options.
+     *
+     * @param array $options
+     * @return array
+     */
+    private function sanitize_rum_options( $options ) {
+        $sample = isset( $options['sample_rate'] ) ? (int) $options['sample_rate'] : 100;
+        $sample = max( 1, min( 100, $sample ) );
+
+        $raw_days = isset( $options['raw_retention_days'] ) ? (int) $options['raw_retention_days'] : 3;
+        $raw_days = max( 1, min( 30, $raw_days ) );
+
+        $agg_days = isset( $options['agg_retention_days'] ) ? (int) $options['agg_retention_days'] : 60;
+        $agg_days = max( 7, min( 365, $agg_days ) );
+
+        // Metrics: intersect the submitted set with the known allowlist.
+        $known   = array( 'LCP', 'CLS', 'INP' );
+        $metrics = array();
+        if ( isset( $options['metrics'] ) && is_array( $options['metrics'] ) ) {
+            foreach ( $options['metrics'] as $m ) {
+                $m = strtoupper( sanitize_text_field( (string) $m ) );
+                if ( in_array( $m, $known, true ) && ! in_array( $m, $metrics, true ) ) {
+                    $metrics[] = $m;
+                }
+            }
+        }
+        if ( empty( $metrics ) ) {
+            $metrics = $known; // Never store an empty set — treat as "all".
+        }
+
+        return array(
+            'enabled'            => ! empty( $options['enabled'] ) ? 1 : 0,
+            'sample_rate'        => $sample,
+            'exclude_logged_in'  => ! empty( $options['exclude_logged_in'] ) ? 1 : 0,
+            'raw_retention_days' => $raw_days,
+            'agg_retention_days' => $agg_days,
+            'metrics'            => $metrics,
+        );
+    }
+
+    /**
+     * Sanitize Script Modules options.
+     *
+     * @param array $options
+     * @return array
+     */
+    private function sanitize_modules_options( $options ) {
+        $max = isset( $options['max_preloads'] ) ? (int) $options['max_preloads'] : 10;
+        $max = max( 1, min( 50, $max ) );
+
+        // Module IDs are free-form strings (e.g. "@wordpress/interactivity"),
+        // one per line. Strip tags and normalise line endings; never allow HTML.
+        $clean_list = function ( $raw ) {
+            $raw   = is_string( $raw ) ? $raw : '';
+            $lines = preg_split( '/[\r\n]+/', $raw );
+            $out   = array();
+            foreach ( (array) $lines as $line ) {
+                $line = trim( wp_strip_all_tags( $line ) );
+                if ( '' !== $line ) {
+                    $out[] = $line;
+                }
+            }
+            return implode( "\n", array_unique( $out ) );
+        };
+
+        return array(
+            'preload_hoist'      => ! empty( $options['preload_hoist'] ) ? 1 : 0,
+            'max_preloads'       => $max,
+            'fetchpriority_high' => $clean_list( isset( $options['fetchpriority_high'] ) ? $options['fetchpriority_high'] : '' ),
+            'exclude'            => $clean_list( isset( $options['exclude'] ) ? $options['exclude'] : '' ),
+        );
     }
 
     /**

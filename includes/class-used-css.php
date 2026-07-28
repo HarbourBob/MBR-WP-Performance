@@ -21,6 +21,11 @@ class MBRPE_Used_CSS {
 	const DIRNAME = 'mbr-performance-usedcss';
 
 	/**
+	 * Transient holding the installed plugin/theme fingerprint.
+	 */
+	const EPOCH_TRANSIENT = 'mbrpe_used_css_epoch';
+
+	/**
 	 * @var MBRPE_Used_CSS
 	 */
 	private static $instance;
@@ -72,6 +77,10 @@ class MBRPE_Used_CSS {
 		add_action( 'save_post', array( $this, 'purge_for_post' ), 10, 1 );
 		add_action( 'switch_theme', array( __CLASS__, 'purge_all' ) );
 		add_action( 'upgrader_process_complete', array( __CLASS__, 'purge_all' ) );
+		// Activating or deactivating any plugin can add or remove CSS that the
+		// static pass has already decided about, so treat it as invalidating.
+		add_action( 'activated_plugin', array( __CLASS__, 'purge_all' ) );
+		add_action( 'deactivated_plugin', array( __CLASS__, 'purge_all' ) );
 
 		// Front-end serve/generate.
 		add_action( 'template_redirect', array( $this, 'on_template_redirect' ), 1 );
@@ -127,8 +136,73 @@ class MBRPE_Used_CSS {
 	}
 
 	/**
-	 * Cache key for the current request: a hash of the normalised path plus the
-	 * plugin version (so the cache busts on upgrade).
+	 * Fingerprint of the installed plugin and theme set.
+	 *
+	 * The cache key was previously the page path plus this plugin's own
+	 * version, which does not change when *another* plugin's CSS changes — so
+	 * used CSS could keep being served after an update, with rules the static
+	 * pass had stripped as "unused" still missing. `upgrader_process_complete`
+	 * covers updates made through the WordPress updater, but nothing fires at
+	 * all when files are replaced over SFTP or a host file manager.
+	 *
+	 * This hashes the top-level plugin and theme directory names and their
+	 * modification times, which change when a plugin or theme is added,
+	 * removed, or replaced wholesale — including extracting a ZIP over it.
+	 * Deliberately shallow: it stays cheap, and it will not thrash when a
+	 * plugin writes into its own subdirectories at runtime.
+	 *
+	 * Cached briefly, so this costs one directory stat every few minutes
+	 * rather than one per request.
+	 *
+	 * @return string
+	 */
+	private static function asset_epoch() {
+		$cached = get_transient( self::EPOCH_TRANSIENT );
+		if ( is_string( $cached ) && '' !== $cached ) {
+			return $cached;
+		}
+
+		$parts = array();
+		$roots = array( WP_PLUGIN_DIR, get_theme_root() );
+
+		foreach ( $roots as $root ) {
+			if ( ! is_string( $root ) || '' === $root || ! is_dir( $root ) ) {
+				continue;
+			}
+			$items = scandir( $root );
+			if ( ! is_array( $items ) ) {
+				continue;
+			}
+			sort( $items );
+			foreach ( $items as $item ) {
+				if ( '.' === $item || '..' === $item ) {
+					continue;
+				}
+				$parts[] = $item . ':' . (int) filemtime( $root . '/' . $item );
+			}
+		}
+
+		$epoch = substr( md5( implode( '|', $parts ) ), 0, 12 );
+		set_transient( self::EPOCH_TRANSIENT, $epoch, 5 * MINUTE_IN_SECONDS );
+
+		return $epoch;
+	}
+
+	/**
+	 * Cache key for a normalised path.
+	 *
+	 * Single source of truth: the serve path and the per-post purge path must
+	 * agree, or a purge silently deletes nothing.
+	 *
+	 * @param string $path Normalised, lower-cased path.
+	 * @return string
+	 */
+	private static function cache_key_for_path( $path ) {
+		return md5( $path . '|' . MBRPE_VERSION . '|' . self::asset_epoch() );
+	}
+
+	/**
+	 * Cache key for the current request.
 	 */
 	private function compute_key() {
 		$path = '/';
@@ -141,11 +215,18 @@ class MBRPE_Used_CSS {
 		if ( '' === $path ) {
 			$path = '/';
 		}
-		return md5( $path . '|' . MBRPE_VERSION );
+		return self::cache_key_for_path( $path );
 	}
 
 	public function on_template_redirect() {
 		if ( $this->should_skip() ) {
+			return;
+		}
+
+		// Critical CSS (XL) owns pages with a matching slot — stand down there.
+		// class_exists keeps this file identical in the lite build, where the
+		// critical-CSS class is absent and this guard is simply false.
+		if ( class_exists( 'MBRPE_Critical_CSS' ) && MBRPE_Critical_CSS::is_active() ) {
 			return;
 		}
 
@@ -474,6 +555,9 @@ class MBRPE_Used_CSS {
 		foreach ( (array) glob( $dir['path'] . '/*.lock' ) as $lock ) {
 			wp_delete_file( $lock );
 		}
+		// Force the plugin/theme fingerprint to be recalculated on the next
+		// request, so a manual purge cannot be undone by a stale epoch.
+		delete_transient( self::EPOCH_TRANSIENT );
 		return $count;
 	}
 
@@ -499,7 +583,7 @@ class MBRPE_Used_CSS {
 		if ( ! is_array( $dir ) ) {
 			return;
 		}
-		$file = $dir['path'] . '/' . md5( $path . '|' . MBRPE_VERSION ) . '.css';
+		$file = $dir['path'] . '/' . self::cache_key_for_path( $path ) . '.css';
 		if ( is_file( $file ) ) {
 			wp_delete_file( $file );
 		}

@@ -245,7 +245,7 @@ class MBRPE_JavaScript_Optimizations {
      *
      * @return array List of protected script handles.
      */
-    protected function get_footer_protected_handles() {
+    private function get_footer_protected_handles() {
         /**
          * Filter the handles that are never moved to the footer.
          *

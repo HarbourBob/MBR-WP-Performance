@@ -247,5 +247,102 @@ $js_options = isset( $options['javascript'] ) ? $options['javascript'] : array()
             </tr>
         </table>
     </div>
+
+    <?php
+    // ------------------------------------------------------------------
+    // Script Modules (WP 6.5+). Hidden entirely on older WordPress, where
+    // the API does not exist and every control here would be meaningless.
+    // ------------------------------------------------------------------
+    $modules_available = class_exists( 'MBRPE_Module_Scripts' ) && MBRPE_Module_Scripts::api_available();
+    $mod               = isset( $options['modules'] ) && is_array( $options['modules'] ) ? $options['modules'] : array();
+    $is_block_theme    = function_exists( 'wp_is_block_theme' ) && wp_is_block_theme();
+    ?>
+
+    <div class="mbr-performance-section">
+        <h2><?php esc_html_e( 'Script Modules & Interactivity API', 'mbr-performance' ); ?></h2>
+
+        <?php if ( isset( $_GET['modules_cleared'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+            <div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Learned module data cleared. It will be relearned on the next front-end visits.', 'mbr-performance' ); ?></p></div>
+        <?php endif; ?>
+
+        <?php if ( ! $modules_available ) : ?>
+
+            <p class="description">
+                <?php esc_html_e( 'Your WordPress version does not provide the Script Modules API (added in WordPress 6.5), so there is nothing to configure here. The settings appear automatically once you are running a version that supports it.', 'mbr-performance' ); ?>
+            </p>
+
+        <?php else : ?>
+
+            <p class="description">
+                <?php esc_html_e( 'WordPress 6.5+ loads some scripts as ES modules — the Interactivity API and interactive blocks use them. These are printed separately from ordinary scripts, so the defer, delay and combine options above never touch them. Modules already defer by specification, and combining them would break the import map that resolves their imports.', 'mbr-performance' ); ?>
+            </p>
+
+            <?php if ( $is_block_theme ) : ?>
+                <p class="description" style="padding:10px 12px;border-left:3px solid #72aee6;background:rgba(114,174,230,.08);">
+                    <?php esc_html_e( 'You are running a block theme. WordPress already prints module preload hints in the head on block themes, which is the right place for them — so preload hoisting below will stay inactive. Nothing to do here.', 'mbr-performance' ); ?>
+                </p>
+            <?php else : ?>
+                <p class="description" style="padding:10px 12px;border-left:3px solid #dba617;background:rgba(219,166,23,.08);">
+                    <?php esc_html_e( 'You are running a classic theme. On classic themes WordPress discovers modules while the page body renders, so it prints the import map and every module preload hint in the footer — by which point the hints arrive at the same moment as the scripts they were meant to front-run. Preload hoisting fixes that.', 'mbr-performance' ); ?>
+                </p>
+            <?php endif; ?>
+
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'Hoist module preloads', 'mbr-performance' ); ?></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="mbrpe_options[modules][preload_hoist]" value="1" <?php checked( ! empty( $mod['preload_hoist'] ) ); ?>>
+                            <?php esc_html_e( 'Emit modulepreload hints in the head', 'mbr-performance' ); ?>
+                        </label>
+                        <p class="description">
+                            <?php esc_html_e( 'Learns which modules each URL loads, then hints them early on subsequent visits so the browser fetches the module graph while it is still parsing the head. The first visit to a URL teaches it; the benefit starts from the second. Has no effect on block themes.', 'mbr-performance' ); ?>
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'Maximum preloads', 'mbr-performance' ); ?></th>
+                    <td>
+                        <input type="number" name="mbrpe_options[modules][max_preloads]" value="<?php echo esc_attr( isset( $mod['max_preloads'] ) ? (int) $mod['max_preloads'] : 10 ); ?>" min="1" max="50" step="1" class="small-text">
+                        <p class="description"><?php esc_html_e( 'A cap per page. Preloading everything competes for bandwidth with the resources that matter, so keep this modest.', 'mbr-performance' ); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'High priority modules', 'mbr-performance' ); ?></th>
+                    <td>
+                        <textarea name="mbrpe_options[modules][fetchpriority_high]" rows="3" class="large-text code" placeholder="@wordpress/interactivity"><?php echo esc_textarea( isset( $mod['fetchpriority_high'] ) ? $mod['fetchpriority_high'] : '' ); ?></textarea>
+                        <p class="description"><?php esc_html_e( 'One module ID per line, marked as high fetch priority. Requires WordPress 6.9 or later, where the core API for this exists; ignored safely on earlier versions.', 'mbr-performance' ); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'Never preload', 'mbr-performance' ); ?></th>
+                    <td>
+                        <textarea name="mbrpe_options[modules][exclude]" rows="3" class="large-text code"><?php echo esc_textarea( isset( $mod['exclude'] ) ? $mod['exclude'] : '' ); ?></textarea>
+                        <p class="description"><?php esc_html_e( 'One module ID per line to leave out of the preload hints.', 'mbr-performance' ); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'Learned URLs', 'mbr-performance' ); ?></th>
+                    <td>
+                        <p class="description">
+                            <?php
+                            /* translators: %s: number of URLs */
+                            echo esc_html( sprintf( __( '%s URL(s) learned.', 'mbr-performance' ), number_format_i18n( MBRPE_Module_Scripts::learned_count() ) ) );
+                            ?>
+                        </p>
+                        <?php
+                        $mod_clear = wp_nonce_url(
+                            admin_url( 'admin-post.php?action=mbrpe_modules_clear' ),
+                            'mbrpe_modules_clear'
+                        );
+                        ?>
+                        <a href="<?php echo esc_url( $mod_clear ); ?>" class="button button-secondary"><?php esc_html_e( 'Clear learned modules', 'mbr-performance' ); ?></a>
+                        <p class="description"><?php esc_html_e( 'Clear this after changing themes or plugins, so the hints are relearned from the current module set.', 'mbr-performance' ); ?></p>
+                    </td>
+                </tr>
+            </table>
+
+        <?php endif; ?>
+    </div>
     
 </div>
