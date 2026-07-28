@@ -197,9 +197,15 @@
                 $('<p class="mbr-doctor-warn"/>').text('⚠ ' + rec.warning).appendTo($card);
             }
             if (rec.tab) {
+                var tabNames = {
+                    'rum': 'RUM', 'css': 'CSS', 'javascript': 'JavaScript',
+                    'webp': 'WebP / AVIF', 'lazy-loading': 'Lazy Loading',
+                    'preloading': 'Preloading', 'fonts': 'Fonts',
+                    'database': 'Database', 'core': 'Core Features'
+                };
                 $('<a class="button button-secondary"/>')
                     .attr('href', '?page=mbr-performance&tab=' + encodeURIComponent(rec.tab))
-                    .text('Open ' + rec.tab + ' settings')
+                    .text('Open ' + (tabNames[rec.tab] || rec.tab) + ' settings')
                     .appendTo($card);
             }
             return $card;
@@ -287,19 +293,26 @@
             $verdict.appendTo($wrap);
 
             // Site-wide recommendations (de-duplicated, with coverage).
+            // Info-tier entries are contextual notes — chiefly real-user field
+            // data — and are not "recommendations", so they must not suppress
+            // the all-clear card, nor be suppressed by it.
             var recs = site.recommendations || [];
+            var actionable = recs.filter(function(r) { return r.tier !== 'info'; });
+            if (!actionable.length) {
+                $('<div class="mbr-performance-card"/>')
+                    .append($('<p/>').text('No actionable recommendations — the templates sampled are already in good shape.'))
+                    .appendTo($wrap);
+            }
             if (recs.length) {
-                $('<h3 class="mbr-doctor-section"/>').text('Recommended across your site').appendTo($wrap);
+                $('<h3 class="mbr-doctor-section"/>')
+                    .text(actionable.length ? 'Recommended across your site' : 'Real-user data')
+                    .appendTo($wrap);
                 recs.forEach(function(rec) {
                     var coverage = (rec.scope === 'site-wide')
                         ? ('Site-wide (' + rec.coverage + '/' + rec.total + ')')
                         : (rec.coverage + ' of ' + rec.total + ' templates');
                     self.buildDoctorRec(rec, coverage).appendTo($wrap);
                 });
-            } else {
-                $('<div class="mbr-performance-card"/>')
-                    .append($('<p/>').text('No actionable recommendations — the templates sampled are already in good shape.'))
-                    .appendTo($wrap);
             }
 
             // Per-template breakdown.
@@ -359,7 +372,7 @@
         buildReportHTML: function(data, ctx) {
             var esc = MBRPE_Admin.escReport;
             var site = data.site || {};
-            var tierLabels = { high: 'High impact', medium: 'Worth doing', low: 'Minor' };
+            var tierLabels = { high: 'High impact', medium: 'Worth doing', low: 'Minor', info: 'Note' };
             var now = new Date();
             var dateStr = now.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -399,6 +412,17 @@
             var css = '@page{size:A4;margin:16mm}' +
                 '*{box-sizing:border-box}' +
                 'body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#1e293b;line-height:1.5;font-size:12px}' +
+                // On screen the report is previewed in a browser window, where
+                // @page margins do not apply — without a sheet it stretches to
+                // the full window width. Mirror an A4 page instead: grey
+                // backdrop, centred white sheet, page-width padding.
+                '@media screen{body{background:#eef2f7;padding:24px 16px}' +
+                '.sheet{width:210mm;max-width:100%;margin:0 auto;background:#fff;padding:16mm;' +
+                'box-shadow:0 1px 3px rgba(15,23,42,.1),0 8px 24px rgba(15,23,42,.08);border-radius:2px}' +
+                '.toolbar{width:210mm;max-width:100%;margin:0 auto 16px}}' +
+                // In print the sheet must not double up on the @page margin.
+                '@media print{body{background:#fff;padding:0}' +
+                '.sheet{width:auto;max-width:none;margin:0;padding:0;box-shadow:none;border-radius:0}}' +
                 '.head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #2563eb;padding-bottom:12px;margin-bottom:18px}' +
                 '.brand{font-size:22px;font-weight:800;letter-spacing:-.3px;color:#0f172a}' +
                 '.brand span{color:#2563eb}' +
@@ -413,6 +437,7 @@
                 'table.recs td{padding:9px 8px;border-bottom:1px solid #eef2f7;vertical-align:top}' +
                 '.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:9px;font-weight:700;white-space:nowrap}' +
                 '.badge-high{background:#fee2e2;color:#b91c1c}.badge-medium{background:#fef3c7;color:#a16207}.badge-low{background:#e2e8f0;color:#475569}' +
+                '.badge-info{background:#dbeafe;color:#1d4ed8}' +
                 '.rec-title{font-weight:600;color:#0f172a}.rec-detail{color:#475569;font-size:11px;margin-top:2px}' +
                 '.rec-warn{color:#b45309;font-size:10px;margin-top:3px}' +
                 '.scope{font-size:11px;color:#334155;white-space:nowrap}.setting{font-size:11px;color:#2563eb}' +
@@ -422,18 +447,20 @@
                 '.tpl-url{font-size:10px;color:#2563eb;word-break:break-all;margin-bottom:5px}' +
                 '.tpl-verdict{margin:0;color:#334155;font-size:11px}.tpl-sugg{margin:3px 0 0;font-size:11px;color:#475569}.tpl-warn{color:#b91c1c;font-size:11px;margin:0}' +
                 'footer{margin-top:24px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between}' +
-                '.noprint{margin:0 0 16px}@media print{.noprint{display:none}}' +
+                '@media print{.noprint{display:none}}' +
                 'button{font:inherit;padding:8px 16px;background:#2563eb;color:#fff;border:0;border-radius:6px;cursor:pointer}';
 
             return '<!DOCTYPE html><html><head><meta charset="utf-8">' +
                 '<title>MBR Performance Report — ' + esc(ctx.siteName) + '</title><style>' + css + '</style></head><body>' +
-                '<p class="noprint"><button onclick="window.print()">Print / Save as PDF</button></p>' +
+                '<div class="toolbar noprint"><button onclick="window.print()">Print / Save as PDF</button></div>' +
+                '<div class="sheet">' +
                 '<div class="head"><div><div class="brand">MBR<span>Performance</span></div><div class="kicker">Performance Report</div></div>' +
                 '<div class="meta">' + esc(ctx.siteName) + '<br>' + esc(ctx.siteUrl) + '<br>' + esc(dateStr) + '</div></div>' +
                 '<div class="verdict"><h1>' + esc(site.verdict || 'Site analysis') + '</h1><p>' + (site.templates_ok || 0) + ' template(s) analysed</p></div>' +
                 '<h2>Recommended across your site</h2>' + recTable +
                 '<h2>By template</h2>' + tpls +
                 '<footer><span>Generated by MBR Performance v' + esc(ctx.version) + '</span><span>' + esc(ctx.siteUrl) + '</span></footer>' +
+                '</div>' +
                 '<script>window.onload=function(){setTimeout(function(){window.print();},300);};<\/script>' +
                 '</body></html>';
         },
