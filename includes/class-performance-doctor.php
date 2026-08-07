@@ -389,9 +389,10 @@ class MBRPE_Performance_Doctor {
 		$xpath    = $this->build_xpath( $html );
 		$blocking = $this->find_render_blocking( $xpath );
 		$images   = $this->find_images( $xpath );
+		$modules  = $this->find_modules( $xpath );
 		$options  = mbrpe()->get_options();
 
-		$summary         = $this->summarise( $blocking, $images );
+		$summary         = $this->summarise( $blocking, $images, $modules );
 		$recommendations = $this->build_recommendations( $blocking, $images, $summary, $options );
 
 		// Prepend real-user field data when RUM is collecting. Field beats
@@ -519,6 +520,99 @@ class MBRPE_Performance_Doctor {
 	}
 
 	/**
+	 * Inspect the page's ES module layer: module script tags, the import map,
+	 * and modulepreload hints — recording where in the document each appears.
+	 *
+	 * Position is the whole point here. WordPress prints the import map, the
+	 * module tags and their preload hints in `wp_head` on a block theme and in
+	 * `wp_footer` on a classic one, and the classic case is where hints stop
+	 * being worth anything. This is also the only place we can see whether the
+	 * plugin's own hoisted hints actually reached the head, since that depends
+	 * on the learned map having been populated by an earlier visit.
+	 *
+	 * @param DOMXPath $xpath Document xpath.
+	 * @return array {
+	 *     @type int  $modules           Module script tags found.
+	 *     @type int  $modules_in_head   How many of those are in <head>.
+	 *     @type bool $importmap         An import map is printed.
+	 *     @type bool $importmap_in_head The import map is in <head>.
+	 *     @type int  $preloads          modulepreload hints found.
+	 *     @type int  $preloads_in_head  How many of those are in <head>.
+	 *     @type int  $hoisted           Hints emitted by this plugin.
+	 * }
+	 */
+	private function find_modules( $xpath ) {
+		$out = array(
+			'modules'           => 0,
+			'modules_in_head'   => 0,
+			'importmap'         => false,
+			'importmap_in_head' => false,
+			'preloads'          => 0,
+			'preloads_in_head'  => 0,
+			'hoisted'           => 0,
+		);
+
+		// Attribute *values* are not normalised by the HTML parser, so match
+		// case-insensitively in PHP rather than trusting an XPath equality test.
+		foreach ( $xpath->query( '//script[@type]' ) as $node ) {
+			$type = strtolower( trim( (string) $node->getAttribute( 'type' ) ) );
+
+			if ( 'module' === $type ) {
+				$out['modules']++;
+				if ( $this->in_head( $node ) ) {
+					$out['modules_in_head']++;
+				}
+				continue;
+			}
+
+			if ( 'importmap' === $type ) {
+				$out['importmap'] = true;
+				if ( $this->in_head( $node ) ) {
+					$out['importmap_in_head'] = true;
+				}
+			}
+		}
+
+		foreach ( $xpath->query( '//link[@rel]' ) as $node ) {
+			// rel is a space-separated token list; modulepreload is used alone
+			// in practice, but tokenise rather than assume it.
+			$rels = preg_split( '/\s+/', strtolower( trim( (string) $node->getAttribute( 'rel' ) ) ) );
+			if ( ! in_array( 'modulepreload', (array) $rels, true ) ) {
+				continue;
+			}
+
+			$out['preloads']++;
+			if ( $this->in_head( $node ) ) {
+				$out['preloads_in_head']++;
+			}
+			if ( $node->hasAttribute( 'data-mbrpe-module' ) ) {
+				$out['hoisted']++;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Whether a parsed node sits inside <head>.
+	 *
+	 * The HTML parser closes <head> at the first piece of body content, so
+	 * anything printed by wp_footer lands under <body> — which is exactly the
+	 * distinction we need and cannot get from the raw markup alone.
+	 *
+	 * @param DOMNode $node Node to test.
+	 * @return bool
+	 */
+	private function in_head( $node ) {
+		for ( $parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode ) {
+			if ( 'head' === strtolower( $parent->nodeName ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Inspect <img> elements for common, fixable issues.
 	 *
 	 * @param DOMXPath $xpath Document xpath.
@@ -604,7 +698,7 @@ class MBRPE_Performance_Doctor {
 	 * @param array $blocking Output of find_render_blocking().
 	 * @return array
 	 */
-	private function summarise( $blocking, $images ) {
+	private function summarise( $blocking, $images, $modules = array() ) {
 		$css_bytes = 0;
 		foreach ( $blocking['css'] as $a ) {
 			$css_bytes += $a['bytes'];
@@ -656,6 +750,7 @@ class MBRPE_Performance_Doctor {
 			'css_bytes_human' => size_format( $css_bytes ),
 			'js_bytes_human'  => size_format( $js_bytes ),
 			'images'          => $images,
+			'modules'         => $modules,
 		);
 	}
 
@@ -910,6 +1005,88 @@ class MBRPE_Performance_Doctor {
 					'detail'  => __( 'jQuery is render-blocking. Deferring it can give a real gain, but many themes and inline scripts assume it loads synchronously.', 'mbr-performance' ),
 					'tab'     => 'javascript',
 					'warning' => __( 'Risky — test sliders, menus and forms on a staging copy before enabling.', 'mbr-performance' ),
+				);
+			}
+		}
+
+		// --- Script Modules / Interactivity API ---
+		//
+		// Modules never enter the classic script queue, so none of the checks
+		// above can see them. They are also the one asset class where the
+		// plugin's job is mostly to hint rather than to rewrite: modules defer
+		// by spec, and combining them would break the import map.
+		$mods     = isset( $summary['modules'] ) && is_array( $summary['modules'] ) ? $summary['modules'] : array();
+		$mod_opts = isset( $options['modules'] ) ? $options['modules'] : array();
+		$mod_api  = class_exists( 'MBRPE_Module_Scripts' ) && MBRPE_Module_Scripts::api_available();
+		$block_th = function_exists( 'wp_is_block_theme' ) && wp_is_block_theme();
+		$mod_n    = isset( $mods['modules'] ) ? (int) $mods['modules'] : 0;
+
+		if ( $mod_api && $mod_n > 0 ) {
+
+			// Correctness, not speed: an import map must be parsed before any
+			// module that relies on it. A module in the head with the map in
+			// the footer means bare specifier imports cannot resolve — usually
+			// a theme or plugin printing its own module tag directly into the
+			// head, ahead of where WordPress puts the map on a classic theme.
+			if ( ! empty( $mods['importmap'] ) && empty( $mods['importmap_in_head'] ) && ! empty( $mods['modules_in_head'] ) ) {
+				$recs[] = array(
+					'tier'    => 'high',
+					'title'   => __( 'Module script runs before the import map', 'mbr-performance' ),
+					'detail'  => sprintf(
+						/* translators: %d: number of module scripts in the head */
+						__( '%d module script(s) are printed in the head, but the import map that resolves their imports is printed in the footer. Any bare specifier import in those modules — anything importing @wordpress/interactivity, for example — will fail to resolve. This is a theme or plugin printing a module tag directly rather than registering it, so it needs fixing at source.', 'mbr-performance' ),
+						(int) $mods['modules_in_head']
+					),
+					'tab'     => '',
+					'warning' => __( 'Check the browser console on this page for module resolution errors.', 'mbr-performance' ),
+				);
+			}
+
+			if ( $block_th ) {
+				$recs[] = array(
+					'tier'    => 'info',
+					'title'   => __( 'Module preloading is already handled', 'mbr-performance' ),
+					'detail'  => sprintf(
+						/* translators: %d: number of module scripts */
+						__( 'This page loads %d ES module script(s). You are on a block theme, so WordPress prints the import map and its preload hints in the head already — which is the right place. Nothing to change.', 'mbr-performance' ),
+						$mod_n
+					),
+					'tab'     => '',
+					'warning' => '',
+				);
+			} elseif ( empty( $mod_opts['preload_hoist'] ) ) {
+				$recs[] = array(
+					'tier'    => 'medium',
+					'title'   => __( 'Hoist module preloads', 'mbr-performance' ),
+					'detail'  => sprintf(
+						/* translators: 1: number of module scripts, 2: number of preload hints found in the footer */
+						__( 'This page loads %1$d ES module script(s) — Interactivity API or interactive block code. On a classic theme WordPress only discovers these while the body renders, so it prints all %2$d of their preload hints in the footer, alongside the scripts they were meant to front-run. Preload hoisting learns this URL\'s module set and emits the hints in the head instead, so the browser starts fetching the graph while it is still parsing the head.', 'mbr-performance' ),
+						$mod_n,
+						(int) ( isset( $mods['preloads'] ) ? $mods['preloads'] : 0 ) - (int) ( isset( $mods['preloads_in_head'] ) ? $mods['preloads_in_head'] : 0 )
+					),
+					'tab'     => 'javascript',
+					'warning' => '',
+				);
+			} elseif ( empty( $mods['hoisted'] ) ) {
+				$recs[] = array(
+					'tier'    => 'info',
+					'title'   => __( 'Module preloads are still learning this URL', 'mbr-performance' ),
+					'detail'  => __( 'Preload hoisting is enabled but no hoisted hints appeared on this page, which means this URL has not been learned yet. The scan you just ran counts as the teaching visit, so re-run the Doctor on this page and the hints should show. If they still do not, the page may be served from a full-page cache that predates the setting — clear it and try again.', 'mbr-performance' ),
+					'tab'     => 'javascript',
+					'warning' => '',
+				);
+			} else {
+				$recs[] = array(
+					'tier'    => 'info',
+					'title'   => __( 'Module preloads are being hoisted', 'mbr-performance' ),
+					'detail'  => sprintf(
+						/* translators: 1: number of hoisted hints, 2: number of module scripts */
+						__( '%1$d module preload hint(s) are being emitted in the head for the %2$d module script(s) on this page. This is working as intended — nothing to do.', 'mbr-performance' ),
+						(int) $mods['hoisted'],
+						$mod_n
+					),
+					'tab'     => '',
+					'warning' => '',
 				);
 			}
 		}
