@@ -7,22 +7,23 @@
 [![WordPress](https://img.shields.io/badge/WordPress-5.9%2B-blue.svg)](https://wordpress.org)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
 [![License](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
-[![Version](https://img.shields.io/badge/Version-1.22.0-orange.svg)](https://github.com/harbourbob/mbr-wp-performance/releases)
+[![Version](https://img.shields.io/badge/Version-1.22.1-orange.svg)](https://github.com/harbourbob/mbr-wp-performance/releases)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-%E2%98%95-yellow.svg)](https://buymeacoffee.com/robertpalmer/)
 
 **Fourteen tabs of individually-toggleable optimisations, a Performance Doctor that scans your site and tells you which settings it actually needs — and now Real User Monitoring, so the verdict comes from your actual visitors, not just a lab test.** Image conversion, Used CSS and render-blocking control, script-module preloading, font self-hosting, database cleanup, server-level caching, plus a diagnostics suite that catches conflicts before they bite. Every option is explained in plain language, nothing phones home, and there's no "pro" tier holding features back.
 
-[**📥 Download Latest**](https://github.com/harbourbob/mbr-wp-performance/releases) &nbsp;·&nbsp; [**🐛 Report a Bug**](https://github.com/harbourbob/mbr-wp-performance/issues) &nbsp;·&nbsp; [**💡 Request a Feature**](https://github.com/harbourbob/mbr-wp-performance/issues) &nbsp;·&nbsp; [**📖 User Guide (PDF)**](https://littlewebshack.com/downloads/mbr-performance/MBR-Performance-User-Guide-v1.22.0.pdf)
-<!-- ^ Update this URL once the v1.22.0 guide is uploaded to littlewebshack -->
+[**📥 Download Latest**](https://github.com/harbourbob/mbr-wp-performance/releases) &nbsp;·&nbsp; [**🐛 Report a Bug**](https://github.com/harbourbob/mbr-wp-performance/issues) &nbsp;·&nbsp; [**💡 Request a Feature**](https://github.com/harbourbob/mbr-wp-performance/issues) &nbsp;·&nbsp; [**📖 User Guide (PDF)**](https://littlewebshack.com/downloads/mbr-performance/MBR-Performance-User-Guide-v1.22.1.pdf)
+<!-- ^ Update this URL once the v1.22.1 guide is uploaded to littlewebshack -->
 
 </div>
 
 ---
 
-## 🆕 What's new in 1.22.0
+## 🆕 What's new in 1.22.1
 
-Two big capabilities have landed since 1.19.0. The headline is **Real User Monitoring** — every other measurement in the plugin is synthetic, but this one comes from the people actually using your site. Alongside it, **Script Modules support** brings the plugin up to date with how WordPress 6.5+ loads JavaScript.
+Two big capabilities have landed since 1.19.0 — **Real User Monitoring**, the one measurement in the plugin that comes from actual visitors rather than a lab test, and **Script Modules support**, which brings the plugin up to date with how WordPress 6.5+ loads JavaScript. This release joins them up: the Performance Doctor can now see the module layer it was previously blind to.
 
+- 🩺 **The Doctor now sees script modules** *(1.22.1)*. It used to step over `type="module"` when counting render-blocking scripts — correct, since modules don't block rendering — and then say nothing further, so a classic theme full of Interactivity API code got a clean bill of health while every preload hint sat uselessly in the footer. The Doctor now counts the modules, reports where the import map and each hint actually landed, recommends hoisting when it would help, and flags the one case that's a genuine breakage rather than a slow page: a module printed in the head while the import map is printed in the footer, where its bare-specifier imports cannot resolve at all.
 - 📡 **Real User Monitoring** *(1.21.0)*. Collects Core Web Vitals — LCP, CLS and **INP** — from real visitors and stores every reading **on your own server**. No third-party service, no cookies, no IP addresses; the measurement library is bundled and served from your own domain. A nightly job (plus on-demand roll-up whenever you open the tab) turns raw samples into per-template and per-URL p75s, a scorecard with good/needs-improvement/poor distribution, and a worst-offenders table that names the *element or handler* responsible — turning "your INP is 380ms" into "your INP is 380ms, and it's the menu toggle."
 - 🩺 **The Doctor now leads with field data** *(1.21.x)*. When RUM has enough samples, the Doctor's recommendations open with what visitors actually experienced — and where field and synthetic disagree, field wins, and it says so. INP is the prize here: it only exists when a real person interacts, so no synthetic scan can ever measure it. Thin data is shown as provisional readings rather than acted on, and a passing site gets told so plainly.
 - 🧩 **Script Modules & Interactivity API support** *(1.22.0)*. WordPress 6.5+ loads Interactivity-API code as ES modules, which the classic defer/delay/combine passes never touch — correctly, since modules defer by spec and combining them would break the import map. What the plugin adds is the piece core leaves on the table: on **classic themes**, WordPress prints all its `modulepreload` hints in the footer (it can't know the modules any earlier), where they're near-worthless. **Preload hoisting** learns each URL's module set on first visit and emits the hints in the head from then on, walking the static dependency graph and deliberately skipping dynamic imports. Block themes already get this right from core and are left alone. Complete no-op below WordPress 6.5.
@@ -172,6 +173,8 @@ The advisor that answers "which of these settings does *my* site actually need?"
 
 **With RUM switched on, the Doctor leads with field data.** Real-user recommendations name the p75, name the culprit element or handler, and route to the right tab — INP problems to Delay JS, LCP to preloading, CLS to dimensions or fonts. Where field and synthetic disagree, field wins, and the Doctor says so plainly. Thin field data is reported as provisional readings rather than acted on, and if your Core Web Vitals are passing, it tells you that too — your real visitors' verdict, above the lab's.
 
+**It also reads the module layer.** Script modules never enter the classic script queue, so the render-blocking pass steps over them by design — which used to mean a page full of Interactivity API code produced a clean report and no further comment. The Doctor now reports how many modules the page loads, where the import map landed, and how many `modulepreload` hints made it into the head, then tells you whether hoisting is off, still learning the URL, or working. Module counts are kept out of the render-blocking JavaScript figure — modules defer by spec and never block first paint, so counting them there would overstate the problem. And it flags the one module fault that's a breakage rather than a slowdown: a module in the head with the import map in the footer, where its bare-specifier imports can't resolve.
+
 The multi-template scan rolls everything up into **site-wide vs page-specific** recommendations (field data appears once, site-wide, since a global metric isn't a property of one template), and a one-click **branded PDF report** — previewed as a proper A4 sheet, generated entirely in the browser — gives agencies a client-ready deliverable. Advisory only: the Doctor never changes a setting for you.
 
 ### ⚙️ Core Features
@@ -313,6 +316,14 @@ WordPress 7.0 ships a built-in AI subsystem — an AI Client, the Abilities API,
 ---
 
 ## 📝 Changelog
+
+### 1.22.1
+- 🩺 **New: the Performance Doctor understands script modules.** Until now it skipped them entirely — it stepped over `type="module"` when counting render-blocking scripts (correctly; modules don't block rendering) and then had nothing more to say. On a classic theme loading Interactivity API code it would report a clean bill of health while every preload hint sat uselessly in the footer. It now counts the modules on the page, reports where the import map and each hint actually landed, and recommends hoisting when it would help
+- ⚠️ **New: import map ordering check.** An import map must be parsed before any module that depends on it. If a theme or plugin prints its own module tag into the head while WordPress prints the map in the footer, every bare-specifier import in that module fails to resolve — a genuine breakage, not a slow page. Flagged as a high-priority finding
+- 🔍 The Doctor now distinguishes hoisting **off**, hoisting **on but still learning this URL**, and hoisting **working** — so "I switched it on and nothing happened" is answered on screen. Block themes are told plainly that core already handles it
+- 📊 The Doctor's summary card reports module counts, preload hint placement and import map position alongside the CSS, JS and image figures
+- ℹ️ Module counts stay **separate** from the render-blocking JS figure. Modules defer by spec and never block first paint, so counting them as render-blocking would overstate the problem the rest of the report describes
+- ♻️ The learned module map is keyed on plugin version, so upgrading clears it by design — the first visit to each URL relearns, and hoisted hints resume from the second
 
 ### 1.22.0
 - 🧩 **New: Script Modules & Interactivity API support (WordPress 6.5+).** Modules are printed by WordPress separately from ordinary scripts, so the classic defer/delay/combine passes never see them — correctly, but it meant the plugin had nothing to offer module-using pages. This release adds the piece core leaves on the table

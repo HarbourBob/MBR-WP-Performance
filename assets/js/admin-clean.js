@@ -234,6 +234,20 @@
                     s.images.not_lazy + ' not lazy-loaded'
                 ).appendTo($verdict);
             }
+            // Script modules are counted separately from render-blocking JS —
+            // they never block rendering, so folding them into that figure
+            // would overstate it.
+            if (s.modules && s.modules.modules > 0) {
+                var m = s.modules;
+                var line = 'ES modules: ' + m.modules + ' script(s)  •  ' +
+                    m.preloads + ' preload hint(s), ' + m.preloads_in_head + ' in the head';
+                if (m.hoisted > 0) {
+                    line += ' (' + m.hoisted + ' hoisted by this plugin)';
+                }
+                line += '  •  import map: ' +
+                    (m.importmap ? (m.importmap_in_head ? 'head' : 'footer') : 'none');
+                $('<p class="description"/>').text(line).appendTo($verdict);
+            }
             $verdict.appendTo($wrap);
 
             // Recommendations.
