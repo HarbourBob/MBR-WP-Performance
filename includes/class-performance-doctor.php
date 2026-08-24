@@ -1092,15 +1092,47 @@ class MBRPE_Performance_Doctor {
 		}
 
 		// --- CSS ---
+		//
+		// Mode A and Mode B are alternatives, so the Doctor recommends one or the
+		// other and never both. When Mode B is on it owns CSS delivery outright,
+		// and the interesting question stops being "should you optimise this?" and
+		// becomes "is it actually working on this page?" — because Mode B removes
+		// stylesheets, and a page where it silently did nothing looks identical to
+		// a page it was never enabled for.
 		$css_heavy = ( $summary['css_bytes'] > 30720 || $summary['css_count'] >= 3 );
-		if ( $summary['css_count'] > 0 && $css_heavy ) {
+		$modeb_on  = $on( $css, 'modeb_enabled' );
+
+		if ( $modeb_on ) {
+			if ( 0 === (int) $summary['css_count'] ) {
+				$recs[] = array(
+					'tier'    => 'info',
+					'title'   => __( 'Used CSS Mode B is working here', 'mbr-performance' ),
+					'detail'  => __( 'No render-blocking stylesheets are left on this page — Mode B has learned this template, inlined what it uses and removed the sheets it replaced. Nothing to do.', 'mbr-performance' ),
+					'tab'     => '',
+					'warning' => '',
+				);
+			} else {
+				$recs[] = array(
+					'tier'    => $css_heavy ? 'medium' : 'info',
+					'title'   => __( 'Mode B is on, but this page still has render-blocking CSS', 'mbr-performance' ),
+					'detail'  => sprintf(
+						/* translators: 1: number of stylesheets, 2: human file size */
+						__( '%1$d stylesheet(s) (~%2$s) are still blocking render here. Usually that means this template has not finished learning yet — the first few visits to each template are served untouched, so re-run this scan and the number should fall. If it does not, these are sheets Mode B deliberately leaves alone: ones carrying an @import, ones limited to a narrow media query, ones on your exclusion lists, and ones it never saw while learning. Check the template cache on the CSS tab to see which templates are learned.', 'mbr-performance' ),
+						$summary['css_count'],
+						$summary['css_bytes_human']
+					),
+					'tab'     => 'css',
+					'warning' => '',
+				);
+			}
+		} elseif ( $summary['css_count'] > 0 && $css_heavy ) {
 			if ( ! $on( $css, 'remove_unused_css' ) ) {
 				$recs[] = array(
 					'tier'    => ( 'css' === $summary['dominant'] ) ? 'high' : 'medium',
 					'title'   => __( 'Generate Used CSS (Mode A)', 'mbr-performance' ),
 					'detail'  => sprintf(
 						/* translators: 1: number of stylesheets, 2: human file size */
-						__( '%1$d stylesheets (~%2$s) are render-blocking. Used CSS inlines the critical part and defers the rest. Combine CSS is a simpler, lighter-touch alternative — enable one or the other, not both.', 'mbr-performance' ),
+						__( '%1$d stylesheets (~%2$s) are render-blocking. Used CSS inlines the critical part and defers the rest. Combine CSS is a simpler, lighter-touch alternative, and Mode B is the aggressive one — it removes the sheets rather than deferring them, at the cost of needing testing. Enable one of the three, not several.', 'mbr-performance' ),
 						$summary['css_count'],
 						$summary['css_bytes_human']
 					),

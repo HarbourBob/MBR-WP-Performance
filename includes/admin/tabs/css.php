@@ -155,6 +155,11 @@ $css_options = isset( $options['css'] ) ? $options['css'] : array();
                     <p class="description">
                         <?php esc_html_e( 'Logged-in views are skipped. Test on a staging site first and check interactive elements (menus, sliders, popups). Use the exclusion list above to keep specific stylesheets loading normally.', 'mbr-performance' ); ?>
                     </p>
+                    <?php if ( ! empty( $css_options['modeb_enabled'] ) ) : ?>
+                        <p class="description" style="color: var(--mbr-warning, #d6a700);">
+                            <?php esc_html_e( 'Currently stood down: Mode B is enabled below, and it removes the stylesheets that Mode A would defer. The two are alternatives — enable one or the other, never both. Mode A is paused while Mode B is on.', 'mbr-performance' ); ?>
+                        </p>
+                    <?php endif; ?>
                 </td>
             </tr>
 
@@ -179,8 +184,147 @@ $css_options = isset( $options['css'] ) ? $options['css'] : array();
             </tr>
         </table>
     </div>
-    
-    
+
+    <!-- Used CSS (Mode B) Section -->
+    <div class="mbr-performance-section">
+        <h2><?php esc_html_e( 'Used CSS — Mode B (aggressive)', 'mbr-performance' ); ?></h2>
+
+        <p class="description">
+            <?php esc_html_e( 'Mode B analyses each page template rather than each page, and it genuinely removes the stylesheets it has analysed instead of loading them behind the inlined CSS. That makes it the faster of the two — the bytes stop being downloaded at all — and the riskier, because a rule it wrongly drops has no full stylesheet arriving behind it to put things right. Enable it on staging first and click through every template before you use it on a live site.', 'mbr-performance' ); ?>
+        </p>
+
+        <table class="form-table">
+            <tr>
+                <th scope="row">
+                    <label for="modeb_enabled">
+                        <?php esc_html_e( 'Enable Mode B', 'mbr-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Per-template critical CSS that removes the analysed stylesheets. Replaces Mode A when enabled.', 'mbr-performance' ); ?>">?</span>
+                    </label>
+                </th>
+                <td>
+                    <input type="checkbox" name="mbrpe_options[css][modeb_enabled]" id="modeb_enabled" value="1" <?php checked( isset( $css_options['modeb_enabled'] ) && $css_options['modeb_enabled'] ); ?>>
+                    <p class="description">
+                        <?php esc_html_e( 'Each template — front page, single post, page, archive, shop, product — is learned from the first few URLs visited, and every later visit to that template is served the inlined result with the analysed stylesheets removed. A site with ten thousand posts keeps one cache entry for "single posts", not ten thousand.', 'mbr-performance' ); ?>
+                    </p>
+                    <p class="description">
+                        <?php esc_html_e( 'A stylesheet is only ever removed from a page if that exact file was analysed while learning. Anything else — a plugin stylesheet that only appears on some pages, a sheet containing @import, print and narrow-media sheets, excluded sheets, external sheets — is left loading exactly as it does now.', 'mbr-performance' ); ?>
+                    </p>
+                </td>
+            </tr>
+
+            <tr class="mbr-performance-child-row">
+                <th scope="row">
+                    <label for="modeb_samples">
+                        <?php esc_html_e( 'URLs sampled per template', 'mbr-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'How many distinct URLs teach each template before it is considered learned.', 'mbr-performance' ); ?>">?</span>
+                    </label>
+                </th>
+                <td>
+                    <input type="number" name="mbrpe_options[css][modeb_samples]" id="modeb_samples" min="1" max="10" step="1" class="small-text" value="<?php echo esc_attr( isset( $css_options['modeb_samples'] ) ? (int) $css_options['modeb_samples'] : 3 ); ?>">
+                    <p class="description">
+                        <?php esc_html_e( 'Mode B keeps the sum of what every sampled URL used, so a rule that only one of your posts needs still survives for all of them. Raising this makes each template safer and slower to settle; lowering it does the reverse. Three suits most sites. Those first few visits per template render normally, with nothing removed.', 'mbr-performance' ); ?>
+                    </p>
+                </td>
+            </tr>
+
+            <tr class="mbr-performance-child-row">
+                <th scope="row">
+                    <label for="modeb_safelist">
+                        <?php esc_html_e( 'Selector safelist', 'mbr-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Class names or prefixes always kept, even when absent from the page as delivered. One per line; end with * for a prefix.', 'mbr-performance' ); ?>">?</span>
+                    </label>
+                </th>
+                <td>
+                    <textarea name="mbrpe_options[css][modeb_safelist]" id="modeb_safelist" rows="4" class="large-text code" placeholder="cookie-banner&#10;cart-drawer&#10;mymodal-*"><?php echo isset( $css_options['modeb_safelist'] ) ? esc_textarea( $css_options['modeb_safelist'] ) : ''; ?></textarea>
+                    <p class="description">
+                        <?php esc_html_e( 'This is the guard rail. The analysis reads the page as your server delivers it, so anything JavaScript adds afterwards — a consent banner, a cart drawer, a modal, a lightbox — is invisible to it and its CSS looks unused. List those class names here, one per line, and end an entry with * to match a prefix. Common framework prefixes are already handled.', 'mbr-performance' ); ?>
+                    </p>
+                </td>
+            </tr>
+
+            <tr class="mbr-performance-child-row">
+                <th scope="row">
+                    <label for="modeb_keep_sheets">
+                        <?php esc_html_e( 'Never remove these stylesheets', 'mbr-performance' ); ?>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Stylesheet URL fragments that stay loaded in full, one per line.', 'mbr-performance' ); ?>">?</span>
+                    </label>
+                </th>
+                <td>
+                    <textarea name="mbrpe_options[css][modeb_keep_sheets]" id="modeb_keep_sheets" rows="3" class="large-text code" placeholder="/plugins/my-slider/&#10;icons.css"><?php echo isset( $css_options['modeb_keep_sheets'] ) ? esc_textarea( $css_options['modeb_keep_sheets'] ) : ''; ?></textarea>
+                    <p class="description">
+                        <?php esc_html_e( 'Any stylesheet whose URL contains one of these fragments is left completely alone — not analysed, not removed. Use it for a stylesheet you would rather load in full than reason about. The exclusion list further up this tab is honoured here as well, so there is no need to repeat an entry.', 'mbr-performance' ); ?>
+                    </p>
+                </td>
+            </tr>
+
+            <tr class="mbr-performance-child-row">
+                <th scope="row"><?php esc_html_e( 'Template cache', 'mbr-performance' ); ?></th>
+                <td>
+                    <?php
+                    $mbr_b_rows  = class_exists( 'MBRPE_Used_CSS_Mode_B' ) ? MBRPE_Used_CSS_Mode_B::cache_status() : array();
+                    $mbr_b_stats = class_exists( 'MBRPE_Used_CSS_Mode_B' )
+                        ? MBRPE_Used_CSS_Mode_B::cache_stats()
+                        : array( 'templates' => 0, 'learned' => 0, 'bytes' => 0 );
+                    ?>
+                    <?php if ( empty( $mbr_b_rows ) ) : ?>
+                        <p class="description" id="mbr-modeb-empty">
+                            <?php esc_html_e( 'No templates learned yet. Enable Mode B, save, then visit your site logged out — each template learns from the first few URLs you open, and starts being served optimised once it has enough samples.', 'mbr-performance' ); ?>
+                        </p>
+                    <?php else : ?>
+                        <table class="widefat striped" id="mbr-modeb-table" style="max-width:760px;margin-bottom:10px;">
+                            <thead>
+                                <tr>
+                                    <th><?php esc_html_e( 'Template', 'mbr-performance' ); ?></th>
+                                    <th><?php esc_html_e( 'Samples', 'mbr-performance' ); ?></th>
+                                    <th><?php esc_html_e( 'Sheets replaced', 'mbr-performance' ); ?></th>
+                                    <th><?php esc_html_e( 'Inlined size', 'mbr-performance' ); ?></th>
+                                    <th><?php esc_html_e( 'Status', 'mbr-performance' ); ?></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ( $mbr_b_rows as $mbr_b_row ) : ?>
+                                    <tr>
+                                        <td><strong><?php echo esc_html( $mbr_b_row['label'] ); ?></strong></td>
+                                        <td><?php echo esc_html( sprintf( '%1$d / %2$d', $mbr_b_row['samples'], $mbr_b_row['target'] ) ); ?></td>
+                                        <td><?php echo esc_html( number_format_i18n( $mbr_b_row['sheets'] ) ); ?></td>
+                                        <td><?php echo esc_html( $mbr_b_row['bytes'] > 0 ? size_format( $mbr_b_row['bytes'] ) : '0 B' ); ?></td>
+                                        <td>
+                                            <?php if ( $mbr_b_row['samples'] >= $mbr_b_row['target'] ) : ?>
+                                                <?php esc_html_e( 'Learned — serving', 'mbr-performance' ); ?>
+                                            <?php else : ?>
+                                                <?php esc_html_e( 'Still learning', 'mbr-performance' ); ?>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        <p class="description" style="margin-bottom:8px;">
+                            <?php
+                            printf(
+                                /* translators: 1: templates learned, 2: templates seen, 3: total inlined size */
+                                esc_html__( '%1$d of %2$d templates fully learned (%3$s inlined in total).', 'mbr-performance' ),
+                                (int) $mbr_b_stats['learned'],
+                                (int) $mbr_b_stats['templates'],
+                                esc_html( $mbr_b_stats['bytes'] > 0 ? size_format( $mbr_b_stats['bytes'] ) : '0 B' )
+                            );
+                            ?>
+                        </p>
+                    <?php endif; ?>
+                    <button type="button" class="button" id="mbr-clear-used-css-b"><?php esc_html_e( 'Clear template cache', 'mbr-performance' ); ?></button>
+                    <span id="mbr-modeb-status"></span>
+                    <p class="description">
+                        <?php esc_html_e( 'The cache also clears itself whenever content is saved, the theme changes, or a plugin is updated, installed or removed — a template that has removed stylesheets must never outlive the markup it was measured against.', 'mbr-performance' ); ?>
+                    </p>
+                    <p class="description">
+                        <?php esc_html_e( 'To compare a page against its original stylesheets, add ?mbrpe_modeb=off to its URL — that single request is served untouched.', 'mbr-performance' ); ?>
+                    </p>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+
     <!-- Block Editor Styles Section -->
     <div class="mbr-performance-section">
         <h2><?php esc_html_e( 'Block Editor Styles', 'mbr-performance' ); ?></h2>

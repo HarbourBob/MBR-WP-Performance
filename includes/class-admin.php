@@ -77,6 +77,7 @@ class MBRPE_Admin {
         add_action( 'wp_ajax_mbrpe_clear_font_cache', array( $this, 'ajax_clear_font_cache' ) );
         add_action( 'wp_ajax_mbrpe_clear_combine_cache', array( $this, 'ajax_clear_combine_cache' ) );
         add_action( 'wp_ajax_mbrpe_clear_used_css', array( $this, 'ajax_clear_used_css' ) );
+        add_action( 'wp_ajax_mbrpe_clear_used_css_b', array( $this, 'ajax_clear_used_css_b' ) );
         
         // WebP Converter AJAX handlers
         add_action( 'wp_ajax_mbrpe_webp_get_images', array( $this, 'ajax_webp_get_images' ) );
@@ -418,6 +419,7 @@ class MBRPE_Admin {
             'combine_css',
             'preload_combined_css',
             'remove_unused_css',
+            'modeb_enabled',
             'remove_global_styles',
             'load_block_styles_conditionally',
             'remove_css_versions',
@@ -432,12 +434,22 @@ class MBRPE_Admin {
         $textarea_fields = array(
             'exclude_async',
             'exclude_optimization',
+            'modeb_safelist',
+            'modeb_keep_sheets',
         );
         
         foreach ( $textarea_fields as $field ) {
             if ( isset( $options[ $field ] ) ) {
                 $sanitized[ $field ] = sanitize_textarea_field( $options[ $field ] );
             }
+        }
+
+        // Used CSS Mode B: how many distinct URLs teach each template. Clamped
+        // rather than rejected, so a hand-edited or out-of-range value lands on
+        // something workable instead of zero — which would mean a template was
+        // never considered learned and every request stayed in learning mode.
+        if ( isset( $options['modeb_samples'] ) ) {
+            $sanitized['modeb_samples'] = max( 1, min( 10, absint( $options['modeb_samples'] ) ) );
         }
 
         // Critical CSS (XL): delegate sanitisation of its critical_* keys. Guarded
@@ -1527,6 +1539,14 @@ class MBRPE_Admin {
             if ( class_exists( 'MBRPE_Used_CSS' ) ) {
                 MBRPE_Used_CSS::purge_all();
             }
+            // Mode B's safelist and exclusion lists change which selectors and
+            // which sheets survive, so its per-template cache has to go too —
+            // otherwise a user who adds a safelist entry to fix a broken page
+            // would see no change and reasonably conclude the setting does not
+            // work.
+            if ( class_exists( 'MBRPE_Used_CSS_Mode_B' ) ) {
+                MBRPE_Used_CSS_Mode_B::purge_all();
+            }
         }
 
         wp_send_json_success( array( 'message' => __( 'Settings saved successfully.', 'mbr-performance' ) ) );
@@ -2115,6 +2135,9 @@ class MBRPE_Admin {
             if ( class_exists( 'MBRPE_Used_CSS' ) ) {
                 MBRPE_Used_CSS::purge_all();
             }
+            if ( class_exists( 'MBRPE_Used_CSS_Mode_B' ) ) {
+                MBRPE_Used_CSS_Mode_B::purge_all();
+            }
         }
 
         wp_send_json_success( array( 'message' => __( 'Settings reset to defaults.', 'mbr-performance' ) ) );
@@ -2218,6 +2241,33 @@ class MBRPE_Admin {
             array(
                 /* translators: %d: number of deleted files */
                 'message' => sprintf( _n( 'Cleared %d used-CSS file.', 'Cleared %d used-CSS files.', $deleted, 'mbr-performance' ), number_format_i18n( $deleted ) ),
+                'deleted' => $deleted,
+            )
+        );
+    }
+
+    /**
+     * Clear the per-template Mode B cache.
+     *
+     * Kept separate from the Mode A handler so a user debugging one mode
+     * cannot accidentally wipe the other's cache and lose its learning.
+     */
+    public function ajax_clear_used_css_b() {
+        check_ajax_referer( 'mbrpe_nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'mbr-performance' ) ) );
+        }
+
+        $deleted = 0;
+        if ( class_exists( 'MBRPE_Used_CSS_Mode_B' ) ) {
+            $deleted = MBRPE_Used_CSS_Mode_B::purge_all();
+        }
+
+        wp_send_json_success(
+            array(
+                /* translators: %d: number of templates cleared */
+                'message' => sprintf( _n( 'Cleared %d template. It will relearn on the next visits.', 'Cleared %d templates. They will relearn on the next visits.', $deleted, 'mbr-performance' ), number_format_i18n( $deleted ) ),
                 'deleted' => $deleted,
             )
         );

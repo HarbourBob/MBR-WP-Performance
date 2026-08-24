@@ -11,6 +11,11 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  * after JavaScript runs. The "dropped" list is therefore the thing to review —
  * anything your interactions add at runtime will show up there.
  *
+ * Members are `protected` rather than `private` so Mode B
+ * (MBRPE_Used_CSS_Engine_B) can subclass this and layer a cross-page selector
+ * union on top of the same matching logic. Mode A's own behaviour is unchanged
+ * by that visibility — nothing outside the class hierarchy can reach them.
+ *
  * @package MBR_Used_CSS_Lab
  */
 
@@ -35,7 +40,7 @@ class MBRPE_Used_CSS_Engine {
 	 *
 	 * @var string[]
 	 */
-	private $state_pseudo_classes = array(
+	protected $state_pseudo_classes = array(
 		'hover', 'focus', 'focus-within', 'focus-visible', 'active', 'visited',
 		'target', 'target-within', 'checked', 'disabled', 'enabled', 'required',
 		'optional', 'valid', 'invalid', 'in-range', 'out-of-range',
@@ -52,7 +57,7 @@ class MBRPE_Used_CSS_Engine {
 	 *
 	 * @var string[]
 	 */
-	private $safelist = array(
+	protected $safelist = array(
 		'is-*', 'has-*', 'js-*', 'active', 'open', 'opened', 'show', 'shown',
 		'hide', 'hidden', 'in', 'out', 'fade', 'fade-in', 'fade-out', 'collapse',
 		'collapsing', 'collapsed', 'expanded', 'selected', 'current', 'toggled',
@@ -64,19 +69,19 @@ class MBRPE_Used_CSS_Engine {
 	/**
 	 * @var CssSelectorConverter
 	 */
-	private $converter;
+	protected $converter;
 
 	/**
 	 * @var \DOMXPath
 	 */
-	private $xpath;
+	protected $xpath;
 
 	/**
 	 * Cache of selector => bool DOM match results.
 	 *
 	 * @var array<string,bool>
 	 */
-	private $match_cache = array();
+	protected $match_cache = array();
 
 	/**
 	 * Add extra safelist entries (e.g. from a user-supplied list).
@@ -167,7 +172,7 @@ class MBRPE_Used_CSS_Engine {
 	 * @param array                           $stats
 	 * @param array                           $used_names
 	 */
-	private function process_list( $list, array &$stats, array &$used_names ) {
+	protected function process_list( $list, array &$stats, array &$used_names ) {
 		$kept = array();
 
 		foreach ( $list->getContents() as $item ) {
@@ -214,7 +219,7 @@ class MBRPE_Used_CSS_Engine {
 	 * @param array            $stats
 	 * @return bool Whether the block is kept.
 	 */
-	private function prune_block( DeclarationBlock $block, array &$stats ) {
+	protected function prune_block( DeclarationBlock $block, array &$stats ) {
 		// A rule that declares custom properties cascades unpredictably — keep.
 		if ( $this->declares_custom_property( $block ) ) {
 			$stats['rules_kept']++;
@@ -261,7 +266,7 @@ class MBRPE_Used_CSS_Engine {
 	 * @param string $selector
 	 * @return array { keep:bool, reason:string }
 	 */
-	private function classify_selector( $selector ) {
+	protected function classify_selector( $selector ) {
 		$selector = trim( $selector );
 		if ( '' === $selector ) {
 			return array( 'keep' => true, 'reason' => 'empty' );
@@ -305,7 +310,7 @@ class MBRPE_Used_CSS_Engine {
 	 * @param string $selector
 	 * @return string
 	 */
-	private function base_selector( $selector ) {
+	protected function base_selector( $selector ) {
 		// Remove pseudo-elements: ::foo and legacy :before/:after/:first-line/:first-letter.
 		$selector = preg_replace( '/::[a-z-]+(\([^)]*\))?/i', '', $selector );
 		$selector = preg_replace( '/:(before|after|first-line|first-letter|selection|placeholder|marker|backdrop)\b(\([^)]*\))?/i', '', $selector );
@@ -323,7 +328,7 @@ class MBRPE_Used_CSS_Engine {
 	 * @param string $base
 	 * @return bool
 	 */
-	private function dom_matches( $base ) {
+	protected function dom_matches( $base ) {
 		if ( isset( $this->match_cache[ $base ] ) ) {
 			return $this->match_cache[ $base ];
 		}
@@ -348,7 +353,7 @@ class MBRPE_Used_CSS_Engine {
 	 * @param string $selector
 	 * @return bool
 	 */
-	private function matches_safelist( $selector ) {
+	protected function matches_safelist( $selector ) {
 		if ( ! preg_match_all( '/\.([A-Za-z0-9_-]+)/', $selector, $m ) ) {
 			return false;
 		}
@@ -373,7 +378,7 @@ class MBRPE_Used_CSS_Engine {
 	 * @param DeclarationBlock $block
 	 * @return bool
 	 */
-	private function declares_custom_property( DeclarationBlock $block ) {
+	protected function declares_custom_property( DeclarationBlock $block ) {
 		foreach ( $block->getRules() as $rule ) {
 			if ( 0 === strpos( $rule->getRule(), '--' ) ) {
 				return true;
@@ -389,7 +394,7 @@ class MBRPE_Used_CSS_Engine {
 	 * @param DeclarationBlock $block
 	 * @param array            $used_names
 	 */
-	private function collect_references( DeclarationBlock $block, array &$used_names ) {
+	protected function collect_references( DeclarationBlock $block, array &$used_names ) {
 		foreach ( $block->getRules() as $rule ) {
 			$prop  = strtolower( $rule->getRule() );
 			$value = $this->rule_value_text( $rule );
@@ -420,7 +425,7 @@ class MBRPE_Used_CSS_Engine {
 	 * @param \Sabberworm\CSS\CSSList\CSSList $list
 	 * @param array                           $used_names
 	 */
-	private function filter_at_resources( $list, array $used_names ) {
+	protected function filter_at_resources( $list, array $used_names ) {
 		$kept = array();
 		foreach ( $list->getContents() as $item ) {
 
@@ -462,7 +467,7 @@ class MBRPE_Used_CSS_Engine {
 	 * @param \Sabberworm\CSS\Rule\Rule $rule
 	 * @return string
 	 */
-	private function rule_value_text( $rule ) {
+	protected function rule_value_text( $rule ) {
 		$value = $rule->getValue();
 		if ( is_object( $value ) && method_exists( $value, 'render' ) ) {
 			return $value->render( \Sabberworm\CSS\OutputFormat::create() );
@@ -476,7 +481,7 @@ class MBRPE_Used_CSS_Engine {
 	 * @param DeclarationBlock $block
 	 * @return string
 	 */
-	private function selectors_text( DeclarationBlock $block ) {
+	protected function selectors_text( DeclarationBlock $block ) {
 		$parts = array();
 		foreach ( $block->getSelectors() as $sel ) {
 			$parts[] = $sel->getSelector();

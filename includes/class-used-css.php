@@ -73,6 +73,16 @@ class MBRPE_Used_CSS {
 			return;
 		}
 
+		// Mode B (class-used-css-mode-b.php) is the aggressive counterpart to
+		// this module and owns CSS delivery outright when it is switched on:
+		// it removes the stylesheets Mode A would defer. Running both would
+		// have two modules rewriting the same links to opposite ends, so Mode A
+		// registers nothing at all here rather than racing it. The CSS tab says
+		// so plainly next to the Mode A toggle.
+		if ( class_exists( 'MBRPE_Used_CSS_Mode_B' ) && MBRPE_Used_CSS_Mode_B::is_enabled() ) {
+			return;
+		}
+
 		// Invalidation (runs in admin too).
 		add_action( 'save_post', array( $this, 'purge_for_post' ), 10, 1 );
 		add_action( 'switch_theme', array( __CLASS__, 'purge_all' ) );
@@ -154,9 +164,13 @@ class MBRPE_Used_CSS {
 	 * Cached briefly, so this costs one directory stat every few minutes
 	 * rather than one per request.
 	 *
+	 * Public because Mode B keys its per-template cache on the same
+	 * fingerprint. Sharing one implementation means the two caches can never
+	 * disagree about whether the site's assets have changed underneath them.
+	 *
 	 * @return string
 	 */
-	private static function asset_epoch() {
+	public static function asset_epoch() {
 		$cached = get_transient( self::EPOCH_TRANSIENT );
 		if ( is_string( $cached ) && '' !== $cached ) {
 			return $cached;

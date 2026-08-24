@@ -152,6 +152,12 @@ class MBRPE {
         // Used CSS (Mode A) — depends on CSS optimisation helpers above.
         require_once MBRPE_PLUGIN_DIR . 'includes/class-used-css.php';
 
+        // Used CSS Mode B — per-template analysis that removes the unused
+        // stylesheets outright. The engines themselves are loaded lazily, only
+        // on a request that is actually learning a template, since parsing CSS
+        // is the expensive part and most requests only ever serve a cached file.
+        require_once MBRPE_PLUGIN_DIR . 'includes/class-used-css-mode-b.php';
+
         // Critical CSS (XL) — pasted critical CSS with full-sheet async fallback.
         // Guarded by file_exists so the wp.org "lite" build, which omits this one
         // file, shares this exact bootstrap unchanged.
@@ -446,6 +452,31 @@ class MBRPE {
             }
         }
 
+        // --- Migrations from < 1.23.0 ---
+        // Used CSS Mode B: seed its keys so the CSS tab never reads an
+        // undefined index. The feature itself stays off — an update must never
+        // start removing stylesheets from a site that did not ask for it.
+        if ( version_compare( $stored, '1.23.0', '<' ) ) {
+            $opts = get_option( 'mbrpe_options', array() );
+            if ( is_array( $opts ) ) {
+                if ( ! isset( $opts['css'] ) || ! is_array( $opts['css'] ) ) {
+                    $opts['css'] = array();
+                }
+                $defaults = array(
+                    'modeb_enabled'     => false,
+                    'modeb_samples'     => MBRPE_Used_CSS_Mode_B::DEFAULT_SAMPLES,
+                    'modeb_safelist'    => '',
+                    'modeb_keep_sheets' => '',
+                );
+                foreach ( $defaults as $key => $value ) {
+                    if ( ! isset( $opts['css'][ $key ] ) ) {
+                        $opts['css'][ $key ] = $value;
+                    }
+                }
+                update_option( 'mbrpe_options', $opts );
+            }
+        }
+
         // Stamp the version once all migrations have completed.
         update_option( 'mbrpe_version', MBRPE_VERSION );
     }
@@ -500,6 +531,7 @@ class MBRPE {
         MBRPE_JavaScript_Optimizations::instance();
         MBRPE_CSS_Optimizations::instance();
         MBRPE_Used_CSS::instance();
+        MBRPE_Used_CSS_Mode_B::instance();
         if ( class_exists( 'MBRPE_Critical_CSS' ) ) {
             MBRPE_Critical_CSS::instance();
         }
@@ -588,7 +620,14 @@ class MBRPE {
         return array(
             'core'             => array(),
             'javascript'       => array(),
-            'css'              => array(),
+            'css'              => array(
+                // Used CSS Mode B — off by default, like everything that
+                // rewrites output. See class-used-css-mode-b.php.
+                'modeb_enabled'    => false,
+                'modeb_samples'    => MBRPE_Used_CSS_Mode_B::DEFAULT_SAMPLES,
+                'modeb_safelist'   => '',
+                'modeb_keep_sheets' => '',
+            ),
             'fonts'            => array(),
             'database'         => array(),
             'webp'             => array(),
@@ -722,6 +761,11 @@ class MBRPE {
         // changed in the meantime.
         if ( class_exists( 'MBRPE_Used_CSS' ) ) {
             MBRPE_Used_CSS::purge_all();
+        }
+
+        // ...and the per-template Mode B cache, for the same reason.
+        if ( class_exists( 'MBRPE_Used_CSS_Mode_B' ) ) {
+            MBRPE_Used_CSS_Mode_B::purge_all();
         }
         
         // Flush rewrite rules

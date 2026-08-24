@@ -151,6 +151,19 @@ class MBRPE_CSS_Optimizations {
     }
 
     /**
+     * Is Used CSS Mode B switched on?
+     *
+     * A global setting check rather than a per-request one, because Async and
+     * Combine decide whether to register their hooks long before Mode B has
+     * resolved a template for the request.
+     *
+     * @return bool
+     */
+    private static function modeb_active() {
+        return class_exists( 'MBRPE_Used_CSS_Mode_B' ) && MBRPE_Used_CSS_Mode_B::is_enabled();
+    }
+
+    /**
      * Should CSS rewriting be suppressed for the current request?
      *
      * @return bool
@@ -188,7 +201,7 @@ class MBRPE_CSS_Optimizations {
         // When Used CSS (Mode A) is active it owns CSS delivery — it inlines the
         // used CSS and defers every sheet itself — so the standalone Async CSS
         // layer is redundant and would double-wrap links. Suppress it here.
-        if ( $this->get_option( 'async_css' ) && ! $this->get_option( 'remove_unused_css' ) ) {
+        if ( $this->get_option( 'async_css' ) && ! $this->get_option( 'remove_unused_css' ) && ! self::modeb_active() ) {
             add_filter( 'style_loader_tag', array( $this, 'async_stylesheet' ), 99, 4 );
             add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_loadcss_polyfill' ) );
         }
@@ -208,7 +221,7 @@ class MBRPE_CSS_Optimizations {
         // active: Mode A inlines the used CSS and defers every sheet itself, so
         // combining would only build a second cache to produce Mode A's deferred
         // fallback — redundant work for no gain. The two are alternatives.
-        if ( $this->get_option( 'combine_css' ) && ! $this->get_option( 'remove_unused_css' ) ) {
+        if ( $this->get_option( 'combine_css' ) && ! $this->get_option( 'remove_unused_css' ) && ! self::modeb_active() ) {
             add_action( 'wp_enqueue_scripts', array( $this, 'combine_styles' ), 9999 );
 
             // Optionally emit early <link rel="preload"> hints for the combined
@@ -223,6 +236,11 @@ class MBRPE_CSS_Optimizations {
 
         // Remove unused CSS (Mode A) is handled by MBRPE_Used_CSS, which is
         // instantiated separately and reads the same remove_unused_css option.
+        // Used CSS Mode B is handled by MBRPE_Used_CSS_Mode_B on the same
+        // pattern; both Async and Combine stand down for it above, for the same
+        // reason they stand down for Mode A. Mode B goes further and deletes
+        // the stylesheets outright, so a combine pass would spend real work
+        // building bundles that Mode B then removes from the page.
 
         // Conditionally load Gutenberg block stylesheets (only those used on the page).
         if ( $this->get_option( 'load_block_styles_conditionally' ) ) {
