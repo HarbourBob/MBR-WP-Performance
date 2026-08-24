@@ -3,7 +3,7 @@ Tags: performance, optimization, speed, cache, database, webp, image
 Requires at least: 5.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.22.0
+Stable tag: 1.23.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -37,6 +37,7 @@ A comprehensive User Guide (PDF) is bundled in the ZIP file.
 
 **CSS Optimization**
 * Used CSS (Mode A) — inline each page's critical CSS and asynchronously load the full stylesheets, eliminating render-blocking unused CSS while keeping the originals as a safety net
+* Used CSS Mode B — per-template analysis that removes the analysed stylesheets outright instead of deferring them, learned from several sampled URLs per template, with a selector safelist as the guard rail
 * Async CSS loading
 * Minify and combine CSS files
 * Preload combined CSS for earlier fetch (skipped when Async CSS is on)
@@ -208,6 +209,16 @@ Used CSS is generated in the background after the first visit to each page and c
 
 A few notes for best results: leave it off by default and test on a staging copy first; if a particular stylesheet must always load in full, add part of its URL to the "Exclude from optimization" field on the CSS tab; and there is no need to also enable the separate "Async CSS" option — Used CSS handles delivery itself and automatically suppresses the standalone async layer to avoid the two conflicting.
 
+= What is Used CSS Mode B, and should I use it instead of Mode A? =
+
+Mode B does the same job as Mode A but makes the opposite trade. Mode A analyses each page and keeps the original stylesheets, loading them asynchronously behind the inlined CSS — so a rule the analysis misses is corrected a moment later. Mode B analyses each template rather than each page, and then removes the stylesheets it has analysed, so those bytes are never downloaded at all. That is a real additional saving, but it also means a missed rule stays missed for that whole template, because nothing arrives behind the inlined CSS to put it right.
+
+Everything else about Mode B follows from that. It learns each template from several distinct URLs and keeps the sum of what they all used, rather than trusting a single page — so a rule only one of your posts needs still survives for all of them. Those first few visits per template are served completely untouched while the analysis runs afterwards, and only once a template has enough samples does it start being served optimised. Logged-in views are excluded, so browse logged out to teach it.
+
+It is also deliberately cautious about what it will remove. A stylesheet is dropped from a page only if that exact file was analysed while learning, so a plugin stylesheet that appears on only some pages of a template keeps its link everywhere. Sheets containing @import are never touched (the imported file would never arrive once the original is gone), nor are print and narrow-media sheets, external sheets, the admin bar, or anything on your exclusion lists. Requests carrying query arguments are served untouched, apart from campaign and click-ID parameters (utm_*, gclid, fbclid and similar) which change nothing about the rendered page.
+
+Use Mode A unless you have a reason to go further. Choose Mode B when you have a staging copy, a finite set of templates, and the time to click through each one logged out — including opening menus, modals, cart drawers and anything else JavaScript adds after load, since that is precisely what a static analysis cannot see. Put the class names for those in the Selector safelist. To compare any page against its original stylesheets, add ?mbrpe_modeb=off to its URL.
+
 = Why does Combine JavaScript merge fewer files than Combine CSS? =
 
 By design, and it's working correctly. Combine CSS can safely merge any local stylesheet, but Combine JavaScript only merges "pure" scripts — ones with no inline or localised data attached. Many WordPress scripts ship a small block of configuration alongside them (via wp_localize_script or wp_add_inline_script), and that data frequently contains per-request, per-user security nonces. Baking those into a shared, cached file would be both fragile and unsafe, so any script carrying inline data is left on its own and breaks the combine run around it. The upshot is fewer merged files on the JS side than on the CSS side — that's expected. You'll still get the biggest win (jQuery and the cluster of vanilla libraries folded together). Scripts in your Defer or Delay lists are also left alone so those features keep working.
@@ -268,6 +279,27 @@ The Used CSS feature bundles two open-source libraries, loaded only while genera
 
 
 == Changelog ==
+
+= 1.23.0 =
+* New: Used CSS Mode B — per-template critical CSS that genuinely removes the unused stylesheets. Mode A caches per URL and keeps the originals as a deferred safety net; Mode B caches per template and deletes the sheets it has analysed, so the bytes stop being downloaded at all. A site with ten thousand posts keeps one cache entry for "single posts" rather than ten thousand. Off by default.
+* New: multi-sample template learning. Because a wrong drop is permanent under Mode B, a template is not analysed from a single page. Mode B samples several distinct URLs of the same template and keeps the union of what they used, so a rule that only one of your posts needs still survives for all of them. The number of samples is configurable (default three); those learning visits are served completely untouched.
+* New: selector safelist. The analysis reads the page as the server delivers it, so anything JavaScript adds afterwards — a consent banner, a cart drawer, a modal, a class toggled at a scroll position — looks unused. Class names and prefixes listed here are kept regardless. This is the guard rail, and it is where almost every Mode B problem is fixed.
+* Safety: a stylesheet is only ever removed from a page if that exact file was analysed while learning. Sheets a plugin loads on only some pages of a template, sheets containing @import, print and narrow-media sheets, external sheets, the admin bar and Dashicons, and anything on the exclusion lists are all left exactly as WordPress emitted them. Leaving a sheet in place costs a request; removing one that was never examined costs an unstyled page.
+* Safety: the inlined CSS is substituted in place of the first stylesheet it replaces rather than printed at the top of the head, so a theme's inline style that previously lost to a stylesheet below it still loses. Printing at wp_head would have silently inverted that cascade.
+* Safety: media="screen" sheets have their rules re-wrapped in @media screen so they cannot leak into print; requests carrying query arguments are served untouched, except for campaign and click-ID parameters (utm_*, gclid, fbclid and similar) which change nothing about the rendered page.
+* Change: the Mode B cache clears itself on content save, theme switch, plugin activation/deactivation/update, Customizer save, and any settings change on the CSS tab. Deliberately blunter than Mode A's per-URL purge — a stale Mode A page is slightly wrong, whereas a stale Mode B page is unstyled.
+* Change: Mode A stands down entirely when Mode B is enabled, as do Async CSS and Combine CSS. The two modes are alternatives and only one can own CSS delivery. Hand-pasted Critical CSS still takes precedence over both on any page with a matching slot.
+* New: the Performance Doctor understands both modes. It recommends one or the other and never both, and when Mode B is on it reports whether the scanned page is actually free of render-blocking stylesheets, still learning, or left with sheets Mode B declines to remove.
+* New: ?mbrpe_modeb=off serves a single request with its original stylesheets, for comparing the optimised page against the original without switching the feature off site-wide.
+* New: per-template cache table on the CSS tab showing samples collected, stylesheets replaced, inlined size and learning status, plus a Clear template cache control.
+
+= 1.22.1 =
+* New: the Performance Doctor now understands script modules. Until now it skipped them entirely — it stepped over `type="module"` when counting render-blocking scripts (correctly, since modules do not block rendering) and then had nothing further to say about them. On a classic theme loading Interactivity API code it would report a clean bill of health while every module preload hint sat uselessly in the footer. It now counts the modules on the page, reports where the import map and each preload hint actually landed, and recommends preload hoisting when it would help.
+* New: import map ordering check. An import map has to be parsed before any module that depends on it. If a theme or plugin prints its own module tag directly into the head while WordPress prints the map in the footer, every bare specifier import in that module fails to resolve — a real breakage that produces console errors rather than a slow page. The Doctor now flags this as a high-priority finding.
+* New: the Doctor distinguishes between hoisting being off, hoisting being on but still learning the URL, and hoisting working — so "I enabled it and nothing happened" is answered on screen rather than left to guesswork. Block themes are told plainly that core already handles this and there is nothing to change.
+* New: the Doctor's summary card now reports module counts, preload hint placement and import map position alongside the existing CSS, JS and image figures.
+* Note: module counts are kept separate from the render-blocking JavaScript figure rather than folded into it. Modules defer by specification and never block first paint, so counting them as render-blocking would overstate the problem the rest of the report is describing.
+* Note: the learned module map is keyed on the plugin version, so upgrading clears it by design. The first front-end visit to each URL after this update relearns its module set, and hoisted hints resume from the second visit.
 
 = 1.22.0 =
 * New: Script Modules and Interactivity API support for WordPress 6.5+. Modules are printed by WordPress separately from ordinary scripts, so the classic defer / delay / combine passes never see them — which is correct, but it also meant the plugin had nothing to offer pages that use them. This release adds the piece core leaves on the table.

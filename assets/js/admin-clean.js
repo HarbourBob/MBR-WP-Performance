@@ -51,6 +51,9 @@
             // Used CSS (Mode A) cache
             $('#mbr-clear-used-css').on('click', function(e) { self.clearUsedCss.call(this, e); });
 
+            // Used CSS (Mode B) per-template cache
+            $('#mbr-clear-used-css-b').on('click', function(e) { self.clearUsedCssB.call(this, e); });
+
             // Performance Doctor (delegated so it binds regardless of timing)
             $(document).on('click', '#mbr-run-doctor', function(e) { self.runDoctor.call(this, e); });
             $(document).on('click', '#mbr-run-doctor-site', function(e) { self.runDoctorSite.call(this, e); });
@@ -1100,6 +1103,38 @@
                 if (response && response.success) {
                     $('#mbr-used-css-count').text('0');
                     $('#mbr-used-css-size').text('0 B');
+                    MBRPE_Admin.showMessage($status, response.data.message, 'success');
+                } else {
+                    MBRPE_Admin.showMessage($status, (response && response.data && response.data.message) || 'Failed to clear cache.', 'error');
+                }
+            }).fail(function() {
+                MBRPE_Admin.hideLoading($button);
+                MBRPE_Admin.showMessage($status, 'Request failed.', 'error');
+            });
+        },
+
+        /**
+         * Clear the Mode B per-template cache.
+         *
+         * Unlike the Mode A counterpart there are no counters to zero, so the
+         * status table is emptied outright: every row it showed described a
+         * template that no longer exists, and leaving stale rows on screen
+         * would suggest the clear had not worked.
+         */
+        clearUsedCssB: function(e) {
+            e.preventDefault();
+            var $button = $(this);
+            var $status = $('#mbr-modeb-status');
+
+            MBRPE_Admin.showLoading($button);
+
+            $.post(mbrpeData.ajaxUrl, {
+                action: 'mbrpe_clear_used_css_b',
+                nonce: mbrpeData.nonce
+            }, function(response) {
+                MBRPE_Admin.hideLoading($button);
+                if (response && response.success) {
+                    $('#mbr-modeb-table').remove();
                     MBRPE_Admin.showMessage($status, response.data.message, 'success');
                 } else {
                     MBRPE_Admin.showMessage($status, (response && response.data && response.data.message) || 'Failed to clear cache.', 'error');

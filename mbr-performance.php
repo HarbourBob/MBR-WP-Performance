@@ -3,7 +3,7 @@
  * Plugin Name: MBR Performance
  * Plugin URI: https://littlewebshack.com/mbr-performance/
  * Description: Granular, transparent WordPress performance optimisation — core, scripts, fonts, preloading, database, images, WooCommerce, multisite and pasted Critical CSS. Free and GPL; self-hosted updates delivered from Little Web Shack.
- * Version: 1.22.0
+ * Version: 1.23.0
  * Author: Robert Palmer
  * Author URI: https://madebyrobert.co.uk
  * Text Domain: mbr-performance
@@ -64,7 +64,7 @@ add_filter( 'plugin_row_meta', function ( $links, $file, $data ) {
 }, 10, 3 );
 
 // Define plugin constants
-define( 'MBRPE_VERSION', '1.22.0' );
+define( 'MBRPE_VERSION', '1.23.0' );
 define( 'MBRPE_IS_XL', true );
 define( 'MBRPE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MBRPE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
