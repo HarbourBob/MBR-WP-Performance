@@ -7,28 +7,46 @@
 [![WordPress](https://img.shields.io/badge/WordPress-5.9%2B-blue.svg)](https://wordpress.org)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net)
 [![License](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
-[![Version](https://img.shields.io/badge/Version-1.22.1-orange.svg)](https://github.com/harbourbob/mbr-wp-performance/releases)
+[![Version](https://img.shields.io/badge/Version-1.23.1-orange.svg)](https://github.com/harbourbob/mbr-wp-performance/releases)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-%E2%98%95-yellow.svg)](https://buymeacoffee.com/robertpalmer/)
 
-**Fourteen tabs of individually-toggleable optimisations, a Performance Doctor that scans your site and tells you which settings it actually needs — and now Real User Monitoring, so the verdict comes from your actual visitors, not just a lab test.** Image conversion, Used CSS and render-blocking control, script-module preloading, font self-hosting, database cleanup, server-level caching, plus a diagnostics suite that catches conflicts before they bite. Every option is explained in plain language, nothing phones home, and there's no "pro" tier holding features back.
+**Fourteen tabs of individually-toggleable optimisations, a Performance Doctor that scans your site and tells you which settings it actually needs — and Real User Monitoring, so the verdict comes from your actual visitors, not just a lab test.** Image conversion, two modes of unused-CSS removal (defer them, or genuinely delete them), script-module preloading, font self-hosting, database cleanup, server-level caching, plus a diagnostics suite that catches conflicts before they bite. Every option is explained in plain language, nothing phones home, and there's no "pro" tier holding features back.
 
-[**📥 Download Latest**](https://github.com/harbourbob/mbr-wp-performance/releases) &nbsp;·&nbsp; [**🐛 Report a Bug**](https://github.com/harbourbob/mbr-wp-performance/issues) &nbsp;·&nbsp; [**💡 Request a Feature**](https://github.com/harbourbob/mbr-wp-performance/issues) &nbsp;·&nbsp; [**📖 User Guide (PDF)**](https://littlewebshack.com/downloads/mbr-performance/MBR-Performance-User-Guide-v1.22.1.pdf)
-<!-- ^ Update this URL once the v1.22.1 guide is uploaded to littlewebshack -->
+[**📥 Download Latest**](https://github.com/harbourbob/mbr-wp-performance/releases) &nbsp;·&nbsp; [**🐛 Report a Bug**](https://github.com/harbourbob/mbr-wp-performance/issues) &nbsp;·&nbsp; [**💡 Request a Feature**](https://github.com/harbourbob/mbr-wp-performance/issues) &nbsp;·&nbsp; [**📖 User Guide (PDF)**](https://littlewebshack.com/downloads/mbr-performance/MBR-Performance-User-Guide-v1.23.1.pdf)
+<!-- ^ Update this URL once the v1.23.1 guide is uploaded to littlewebshack -->
 
 </div>
 
 ---
 
-## 🆕 What's new in 1.22.1
+## 🆕 What's new in 1.23
 
-Two big capabilities have landed since 1.19.0 — **Real User Monitoring**, the one measurement in the plugin that comes from actual visitors rather than a lab test, and **Script Modules support**, which brings the plugin up to date with how WordPress 6.5+ loads JavaScript. This release joins them up: the Performance Doctor can now see the module layer it was previously blind to.
+### 1.23.1 — maintenance, following an external code audit
 
-- 🩺 **The Doctor now sees script modules** *(1.22.1)*. It used to step over `type="module"` when counting render-blocking scripts — correct, since modules don't block rendering — and then say nothing further, so a classic theme full of Interactivity API code got a clean bill of health while every preload hint sat uselessly in the footer. The Doctor now counts the modules, reports where the import map and each hint actually landed, recommends hoisting when it would help, and flags the one case that's a genuine breakage rather than a slow page: a module printed in the head while the import map is printed in the footer, where its bare-specifier imports cannot resolve at all.
-- 📡 **Real User Monitoring** *(1.21.0)*. Collects Core Web Vitals — LCP, CLS and **INP** — from real visitors and stores every reading **on your own server**. No third-party service, no cookies, no IP addresses; the measurement library is bundled and served from your own domain. A nightly job (plus on-demand roll-up whenever you open the tab) turns raw samples into per-template and per-URL p75s, a scorecard with good/needs-improvement/poor distribution, and a worst-offenders table that names the *element or handler* responsible — turning "your INP is 380ms" into "your INP is 380ms, and it's the menu toggle."
-- 🩺 **The Doctor now leads with field data** *(1.21.x)*. When RUM has enough samples, the Doctor's recommendations open with what visitors actually experienced — and where field and synthetic disagree, field wins, and it says so. INP is the prize here: it only exists when a real person interacts, so no synthetic scan can ever measure it. Thin data is shown as provisional readings rather than acted on, and a passing site gets told so plainly.
-- 🧩 **Script Modules & Interactivity API support** *(1.22.0)*. WordPress 6.5+ loads Interactivity-API code as ES modules, which the classic defer/delay/combine passes never touch — correctly, since modules defer by spec and combining them would break the import map. What the plugin adds is the piece core leaves on the table: on **classic themes**, WordPress prints all its `modulepreload` hints in the footer (it can't know the modules any earlier), where they're near-worthless. **Preload hoisting** learns each URL's module set on first visit and emits the hints in the head from then on, walking the static dependency graph and deliberately skipping dynamic imports. Block themes already get this right from core and are left alone. Complete no-op below WordPress 6.5.
-- 🖨️ **PDF report polish** *(1.21.3)*. The Doctor's report now previews as a proper centred A4 sheet instead of stretching to the browser width, and prints with correct single margins.
-- 🐛 **jQuery footer protection** *(1.20.1)*. "Move scripts to footer" no longer relocates the jQuery foundation — moving it could split the dependency graph and silently break jQuery-dependent widgets (Elementor accordions and friends). A new `mbrpe_footer_protected_handles` filter lets advanced users adjust the protected set.
+A third-party static audit of 1.23.0 turned up a handful of issues, none of them exploitable by a visitor, but two of them things that had been quietly not working for a while. All are fixed:
+
+- 🔧 **Activation and deactivation now actually run.** The hooks were registered against the bootstrap file rather than the main plugin file, so WordPress never fired them. A fresh install created none of its database tables and scheduled none of its cron jobs; deactivating left the `.htaccess` blocks and caches behind. **Existing installs repair themselves on upgrade** — the tables and jobs are recreated automatically, because the version stamp was being written regardless, which would otherwise have made even a reactivate skip the setup for good.
+- 🔧 **WebP/AVIF `.htaccess` delivery works on subdirectory installs.** The rewrite tested `DOCUMENT_ROOT` against a path that is relative to the `.htaccess` file's own directory, so on `example.com/wordpress/` (or a subdirectory multisite) the condition never matched and every visitor silently got the original JPEG — with the rules sitting right there in the file. Now matched on `REQUEST_FILENAME`. *If you had this enabled on a subdirectory site, toggle it off and on to write the corrected rules.*
+- 🖼️ **No more nested `<picture>` elements.** A featured image passes through both `wp_get_attachment_image` and `post_thumbnail_html`; a Gutenberg image block passes through `render_block` and then `the_content`. Either pair could wrap the same image twice. Wrapping is now idempotent, and existing `<picture>` elements — including hand-written ones — are left alone. The block filter also gained the editor-context guard every other wrapping filter already had.
+- 🐘 **PHP 7.4 compatibility restored.** The bundled Symfony CssSelector calls `str_contains()`, which is PHP 8.0+, and would fatal on 7.4 the moment a Used CSS analysis ran. Symfony declares a dependency on `symfony/polyfill-php80` for exactly this and it hadn't been vendored alongside the component; it now is. The library is unchanged and the stated 7.4 floor stands.
+- 🔒 **TLS verification no longer disabled on outbound requests.** The Google Fonts downloader fetched a stylesheet and font files with certificate checking off and wrote the results straight into `uploads/` — those now verify with no fallback. Requests to your own front end (Doctor, CSS scanner, font detector) verify by default and fall back only for your own host, so self-signed staging certs keep working.
+- 🔒 **Converter paths constrained to `uploads/`.** The bulk WebP/AVIF endpoints now resolve the submitted path and confirm it lands inside the uploads directory and is a supported image type. Both already required a nonce and `manage_options`, so this was never remotely reachable — it's defence in depth.
+- 🧹 **`uninstall.php` added.** Deleting the plugin now removes its options, network options, tables, scheduled events, transients and cache directories. Your Media Library is never touched, and generated WebP/AVIF files and self-hosted fonts are deliberately left in place, since a cached page or CDN may still be referring to them.
+- 🧹 Removed three unreferenced JavaScript files and an obsolete bundled copy of the Plugin Update Checker (v5.6), superseded by v5.7 and loaded by nothing.
+
+### 1.23.0 — Used CSS Mode B
+
+**Used CSS now has a second gear.** Mode A — the existing feature — inlines the CSS a page uses and defers the original stylesheets behind it, so anything the analysis misses is corrected a moment later. That safety net is also its ceiling: the bytes are still downloaded, just later. **Mode B** removes them instead.
+
+- 🎨 **New: Used CSS Mode B** *(1.23.0)*. Analyses each **template** rather than each page — front page, single posts, pages, archives, shop, product — and **removes** the stylesheets it has analysed rather than deferring them, so those bytes never travel. One cache entry for "single posts" instead of one per post. Off by default.
+- 🧠 **It learns each template from several URLs.** A single page is a poor witness for a whole template, and under Mode B a wrong drop is permanent — so it samples a few distinct URLs and keeps the **union** of what they used. A rule only one of your posts needs still survives for all of them. Those learning visits are served completely untouched, so a visitor never sees a half-optimised page.
+- 🛟 **It only removes what it has actually examined.** A stylesheet is dropped from a page only if that exact file was analysed while learning — so a plugin sheet that appears on only *some* pages of a template keeps its link everywhere. Sheets carrying `@import` (the imported file would never arrive once the original is gone), print and narrow-media sheets, external sheets, the admin bar and anything excluded are all left exactly as WordPress emitted them. Leaving a sheet in place costs one request; removing one that was never examined costs an unstyled page.
+- 🧷 **Selector safelist.** The analysis reads the page as your server delivers it, so anything JavaScript adds afterwards — a consent banner, a cart drawer, a modal, a class toggled at a scroll position — looks unused. List those class names and Mode B keeps them regardless. This is the guard rail, and it's where almost every Mode B problem gets fixed.
+- 🎯 **Cascade-correct placement.** The inlined CSS is substituted *in place of the first stylesheet it replaces*, not printed at the top of the head. A theme's inline `<style>` sitting between two sheets expects to lose to the sheet below it; printing at `wp_head` would have silently inverted that.
+- 🩺 **The Doctor understands both modes** and recommends one or the other, never both. With Mode B on it stops asking "should you optimise this?" and starts answering "is it actually working here?" — reporting whether the page is clean, still learning, or left with sheets Mode B declines to touch.
+- 🔍 **`?mbrpe_modeb=off`** serves any single request with its original stylesheets, so you can compare optimised against original without switching the feature off site-wide.
+
+Since 1.19.0 the plugin also gained **Real User Monitoring** (LCP, CLS and INP from real visitors, stored entirely on your own server) and **Script Modules support** for WordPress 6.5+. See the changelog for both.
 
 [See the full changelog ↓](#-changelog)
 
@@ -40,6 +58,7 @@ Two big capabilities have landed since 1.19.0 — **Real User Monitoring**, the 
 
 - 📡 **Measured by real visitors** — self-hosted Real User Monitoring collects LCP, CLS and INP from actual traffic, entirely on your own server. The only way to see INP, which no synthetic test can measure
 - 🩺 **Guided, not guesswork** — the Performance Doctor scans your site (and reads your field data) and tells you which settings to enable and which to skip, so you're not staring at a wall of toggles wondering where to start
+- 🎨 **Two ways to kill render-blocking CSS** — defer the stylesheets safely (Mode A), or analyse per template and delete them outright (Mode B). The Doctor picks one for you; they never run together
 - 🆓 **Free forever** — no premium gates, no upsells, no feature throttling
 - 🔒 **Zero tracking** — never phones home, never sends analytics, never touches visitor data. Even RUM keeps every byte on your own server
 - 🎛️ **Granular control** — toggle individual optimisations with clear explanations, not opaque "speed up my site" buttons
@@ -61,7 +80,7 @@ Two big capabilities have landed since 1.19.0 — **Real User Monitoring**, the 
 | **Properly size images** | Resize-on-upload at a configurable maximum, plus a Bulk Resize tool for existing libraries |
 | **Defer offscreen images** | Native + IntersectionObserver lazy loading, including background-image lazy loading |
 | **Image elements do not have explicit width and height** | Auto-inject missing `width`/`height` attributes into front-end `<img>` tags |
-| **Eliminate render-blocking resources** | Used CSS (Mode A — inline the critical CSS, defer the rest), Combine CSS, Async CSS, Defer JS, Delay JS until interaction |
+| **Eliminate render-blocking resources** | Used CSS Mode A (inline the critical CSS, defer the rest) or Mode B (per-template, removes the sheets outright), Combine CSS, Async CSS, Defer JS, Delay JS until interaction |
 | **Reduce JavaScript execution time** | Delay JS with an interaction-triggered runtime and configurable timeout |
 | **Minimize third-party usage** | Delay JS for analytics/chat/tag managers, plus YouTube / Vimeo facades that hold back ~1.4MB of player JavaScript until click |
 | **Serve static assets with an efficient cache policy** | Server tab writes Browser Cache Headers to `.htaccess` (1 year for images, 1 month for CSS / JS) |
@@ -78,7 +97,7 @@ Two big capabilities have landed since 1.19.0 — **Real User Monitoring**, the 
 | 🩺 **Doctor** | Scans a page — or your key templates in one click — and recommends, in priority order, which settings this site needs and which to leave off. Leads with real-user field data when RUM is on. Site-wide vs page-specific aggregation, branded print-ready PDF report |
 | ⚙️ **Core Features** | WordPress-level toggles: emojis, embeds, REST API modes with namespace allowlist, Heartbeat, HTML minify, disable WordPress 7.0 AI |
 | 📜 **JavaScript** | Defer, delay-until-interaction, move-to-footer (jQuery protected), minify, **Combine JS**, jQuery removal with test mode — plus Script Modules preload hoisting for WordPress 6.5+ |
-| 🎨 **CSS** | Used CSS (Mode A), Combine CSS, async loading, inline-CSS minification, unused-style scanner, conditional block styles, critical CSS textarea |
+| 🎨 **CSS** | Used CSS **Mode A** (per-page, defers the originals) and **Mode B** (per-template, removes them), Combine CSS, async loading, inline-CSS minification, unused-style scanner, conditional block styles, critical CSS textarea |
 | 🔤 **Fonts** | Self-hosted Google Fonts, preloading, subsetting, font-display, Font Awesome optimisation, hardcoded-font stripping, Disable Elementor Google Fonts |
 | 🚀 **Preloading** | LCP image preload, fetch priority, Cloudflare Early Hints, speculative loading, hover prefetch |
 | 🐢 **Lazy Loading** | Native image/iFrame lazy loading, YouTube / Vimeo facade, six kinds of exclusion rule |
@@ -90,7 +109,7 @@ Two big capabilities have landed since 1.19.0 — **Real User Monitoring**, the 
 | 🗑️ **Orphaned Media** | Find and safely remove unreferenced images, videos, audio, documents, archives |
 | 🛒 **WooCommerce** | Cart fragments, conditional asset loading, Action Scheduler retention |
 
-> 🧹 **Clean uninstall:** All `.htaccess` marker blocks (*MBR AVIF*, *MBR Browser Cache*, *MBR Compression*) are removed cleanly on deactivation, and all scheduled crons (database cleanup, orphan purge, RUM aggregation) are unscheduled.
+> 🧹 **Clean deactivate, clean delete:** deactivating removes all `.htaccess` marker blocks (*MBR AVIF*, *MBR Browser Cache*, *MBR Compression*), unschedules every cron (database cleanup, orphan purge, RUM aggregation) and clears the caches, while keeping your settings so reactivating restores them. Deleting the plugin additionally removes its options, database tables and transients — but never your Media Library, and never the WebP/AVIF files or self-hosted fonts it generated, since a cache or CDN may still reference those.
 
 ---
 
@@ -136,7 +155,7 @@ After activation, open **MBR Performance** from the admin toolbar.
 2. 🔬 **Diagnostics tab** — check the Caching Plugin Conflicts panel; if any caching plugin is detected, decide who owns each optimisation before enabling anything below. Glance at the Autoloaded Options Audit and WP-Cron Viewer for red flags
 3. 🩺 **Doctor tab** — run **Scan key templates** and let it tell you whether your render-blocking is CSS or JavaScript, and which image issues to fix. Act on its priority list rather than guessing
 4. 🖼️ **WebP / AVIF tab** — check the server diagnostics, run the WebP bulk converter (and AVIF if supported); enable resize-on-upload, missing-dimension injection, `decoding="async"` and EXIF stripping
-5. 📜 / 🎨 **Address render-blocking** — if the Doctor flagged CSS, enable Used CSS; if JavaScript, enable Defer and Delay. One at a time, testing between
+5. 📜 / 🎨 **Address render-blocking** — if the Doctor flagged CSS, enable Used CSS (Mode A unless you can test every template on staging, in which case Mode B goes further); if JavaScript, enable Defer and Delay. One at a time, testing between
 6. 🔤 **Fonts tab** — self-host Google Fonts, set font-display to swap, preload only above-the-fold fonts
 7. 🐢 **Lazy Loading tab** — lazy-load below-the-fold images and videos; exclude your logo and hero image
 8. 🖥️ **Server tab** — enable Browser Cache Headers and Brotli / Gzip Compression, unless your host or CDN already provides them
@@ -152,7 +171,7 @@ After activation, open **MBR Performance** from the admin toolbar.
 ## 📋 Requirements
 
 - WordPress **5.9** or higher (tested up to **7.0**); Script Modules features activate on **6.5+**
-- PHP **7.4** or higher (**PHP 8.1+** with libavif for the GD AVIF path)
+- PHP **7.4** or higher (**PHP 8.1+** with libavif for the GD AVIF path). 7.4 support is genuine as of 1.23.1 — the bundled CSS selector library needed a PHP 8 polyfill that had not been vendored with it
 - MySQL **5.6** or higher
 - GD library with WebP support for image conversion and resizing
 - *(Optional)* Imagick 7.0.25+ with libheif, or GD with libavif compiled in — for AVIF conversion. Capability is auto-detected via `gd_info()['AVIF Support']`; the AVIF section is hidden in the UI if neither is present
@@ -186,7 +205,22 @@ Defer or async script loading, defer jQuery specifically, move scripts to the fo
 **Script Modules & the Interactivity API (WordPress 6.5+).** Modules are printed by WordPress separately from ordinary scripts, so defer/delay/combine never touch them — deliberately, since modules defer by spec and combining them would destroy the import map. What the plugin adds is **preload hoisting**: on classic themes, WordPress discovers modules during body rendering and prints all its `modulepreload` hints in the footer, where they arrive at the same moment as the scripts they were meant to front-run. Hoisting learns each URL's module set on first visit and emits the hints in the head from the second visit on, walking the static dependency graph (dynamic imports deliberately excluded — they may never be needed) with a per-page cap and exclusion list. Optional high `fetchpriority` for nominated modules via the core API on 6.9+. Block themes already get head hints from core and are left alone; below 6.5 the whole feature is a no-op and the UI section explains why.
 
 ### 🎨 CSS Optimisation
-**Used CSS (Mode A)** — the headline CSS feature. For each page it extracts the CSS actually used by that page's markup, inlines it into the `<head>`, and async-defers the original stylesheets as a safe fallback — no render-blocking CSS, no flash of unstyled content, and nothing ever deleted. Extraction runs through a bundled, self-hosted CSS parser (no external service, no API key), keeps custom-property, `:root`, and JS-toggled (`[aria-*]` / `[data-*]`) rules regardless of static matches, caches per URL, and coordinates with the page cache. **Combine CSS** merges runs of adjacent same-media local stylesheets into one cached bundle — automatically stood down while Used CSS is on, since Mode A already owns delivery; the Doctor recommends one or the other, never both. Plus async loading, inline-CSS minification, an unused-style scanner, conditional block styles, and a Critical CSS textarea with the async-CSS safety interlock.
+
+**Used CSS (Mode A)** — the safe way to kill render-blocking CSS. For each page it extracts the CSS actually used by that page's markup, inlines it into the `<head>`, and async-defers the original stylesheets as a fallback — no render-blocking CSS, no flash of unstyled content, and nothing ever deleted. Extraction runs through a bundled, self-hosted CSS parser (no external service, no API key), keeps custom-property, `:root`, and JS-toggled (`[aria-*]` / `[data-*]`) rules regardless of static matches, caches per URL, and coordinates with the page cache.
+
+**Used CSS Mode B** — the aggressive counterpart, and the headline feature of 1.23.0. Mode A's safety net is also its ceiling: the stylesheets are still downloaded, just later. Mode B analyses per **template** instead of per page and **removes** the sheets it analysed, so the bytes never travel. Because that makes a wrong drop permanent, the design is built around not making one:
+
+- **Union learning.** Each template is learned from several distinct URLs (configurable, default three) and keeps the sum of what they all used — so the archive's pagination rules survive even though the sampled post didn't paginate. Learning visits are served completely untouched.
+- **Only removes what it examined.** A sheet is dropped from a page only if that exact file was analysed. A plugin stylesheet appearing on only some pages of a template keeps its link on all of them — the single rule that makes per-template removal viable.
+- **Never touches** sheets carrying `@import` (the imported file would never arrive once the original is deleted), print and narrow-media sheets (a `media="screen"` sheet has its rules re-wrapped in `@media screen` so they can't leak into print), external sheets, the admin bar, or anything on your exclusion lists.
+- **Selector safelist** for everything JavaScript adds after load — consent banners, cart drawers, modals, scroll-toggled classes. Common framework prefixes are handled already.
+- **Cascade-correct placement**: the inlined block is substituted in place of the first stylesheet it replaces, so a theme inline `<style>` that previously lost to a sheet below it still loses.
+- **Aggressive invalidation**: the cache clears on content save, theme switch, plugin activate/deactivate/update, Customizer save and any CSS-tab change. Blunter than Mode A on purpose — a stale Mode A page is slightly wrong, a stale Mode B page is unstyled.
+- **`?mbrpe_modeb=off`** serves one request with the original stylesheets, for side-by-side comparison. Query-string requests are skipped generally, *except* campaign and click-ID parameters (`utm_*`, `gclid`, `fbclid` …), which change nothing about the page — so ad and newsletter landings still get optimised.
+
+The two modes are alternatives: enabling Mode B stands Mode A down automatically, as it does Async CSS and Combine CSS, and the Doctor recommends one approach rather than a stack of them. Hand-pasted **Critical CSS** still takes precedence over both on any page with a matching slot.
+
+**Combine CSS** merges runs of adjacent same-media local stylesheets into one cached bundle — automatically stood down while either Used CSS mode is on. Plus async loading, inline-CSS minification, an unused-style scanner, conditional block styles, and the async-CSS safety interlock.
 
 ### 🔤 Font Management
 Self-host Google Fonts to eliminate render-blocking third-party requests (and improve GDPR posture). Preload critical fonts with explicit `crossorigin`, manage manual entries, enable subsetting, pick your `font-display` strategy, optimise or disable Font Awesome. **Disable Google Fonts** removes them site-wide — including fonts hardcoded straight into theme headers (`<link>` tags, preconnects, inline `@font-face` and `@import`) that bypass the enqueue system entirely, via a guarded final-output pass. Dedicated Elementor Google Fonts control included.
@@ -278,6 +312,30 @@ Hoisting learns before it acts: the first visit to a URL records its modules, an
 </details>
 
 <details>
+<summary><strong>Used CSS Mode A or Mode B — which should I use?</strong></summary>
+
+Mode A unless you have a reason to go further. It's safe by construction: the original stylesheets still load behind the inlined CSS, so a rule the analysis misses is corrected a moment later. Mode B removes those stylesheets — a real additional saving, since the bytes never travel — but it means a missed rule stays missed for that whole template. Choose Mode B when you have a staging copy, a finite set of templates, and the time to click through each one logged out. Put anything JavaScript adds after load into the selector safelist.
+</details>
+
+<details>
+<summary><strong>I enabled Mode B but nothing changed.</strong></summary>
+
+Mode B learns before it acts. The first few visits to each template are served untouched while it samples them, and only once a template has enough samples does it start serving the optimised version — the template cache table on the CSS tab shows how far each has got. Also check you're browsing **logged out** (logged-in views are excluded entirely), and clear any full-page cache holding a copy from before you enabled it.
+</details>
+
+<details>
+<summary><strong>Something looks wrong on one template under Mode B.</strong></summary>
+
+Almost always the analysis couldn't see the element because JavaScript adds it after load — a cookie banner, a cart drawer, a modal, a class toggled on scroll. Add its class name to the **Selector safelist** and save; saving clears the template cache, so the next visits relearn with it kept. To confirm the diagnosis first, load the page with `?mbrpe_modeb=off` appended — that request is served with its original stylesheets, so if the problem vanishes you've found the cause.
+</details>
+
+<details>
+<summary><strong>What happens if I deactivate or delete the plugin?</strong></summary>
+
+They're deliberately different. **Deactivating** is reversible: it clears the scheduled jobs, removes the `.htaccess` blocks and empties the caches, so your site behaves as it did before — but every setting is still there when you switch it back on. **Deleting** additionally removes the plugin's options, database tables, transients and cache directories. Your Media Library is never touched, and the WebP/AVIF files and self-hosted fonts it generated are deliberately left in place, since a cached page or CDN may still point at them.
+</details>
+
+<details>
 <summary><strong>Does it work with my caching plugin?</strong></summary>
 
 Yes — and the Diagnostics tab has a built-in conflict detector specifically for this. There's deliberately no overlap with full-page caching; this plugin provides complementary optimisations alongside WP Rocket, LiteSpeed, W3 Total Cache, FlyingPress, WP Super Cache, Perfmatters, Autoptimize, and others. The RUM beacon is POST-only, so page caches never interfere with it either.
@@ -316,6 +374,30 @@ WordPress 7.0 ships a built-in AI subsystem — an AI Client, the Abilities API,
 ---
 
 ## 📝 Changelog
+
+### 1.23.1
+- 🔧 **Fix: activation and deactivation now run.** The hooks were registered against `includes/mbrpe-bootstrap.php` rather than the main plugin file, so the hook names WordPress fires never matched — a fresh install created no database tables and scheduled no cron jobs, and deactivating left `.htaccess` blocks and caches in place
+- 🔧 **Fix: existing installs repair themselves on upgrade.** Because the version stamp was written on first page load regardless, an affected install would have gone on skipping table creation even if reactivated. This release recreates the RUM and orphan-media tables and reschedules the cron jobs. The repair is idempotent, so a healthy install is unaffected
+- 🔧 **Fix: WebP/AVIF `.htaccess` delivery on subdirectory installs.** The rewrite tested `DOCUMENT_ROOT` against a path relative to the `.htaccess` file's own directory, so on a subdirectory or subdirectory-multisite install the condition never matched and every visitor silently received the original JPEG. Now matched on `REQUEST_FILENAME`. Toggle the option off and on to rewrite the rules
+- 🖼️ **Fix: nested `<picture>` markup.** More than one filter can process the same image — `wp_get_attachment_image` then `post_thumbnail_html` for featured images, `render_block` then `the_content` for Gutenberg blocks. Wrapping is now idempotent and existing `<picture>` elements are left alone
+- 🖼️ Fix: the Gutenberg block image filter was missing the context guard every other wrapping filter honours, so block images were wrapped inside the block editor
+- 🐘 **Fix: PHP 7.4 compatibility.** The bundled Symfony CssSelector calls `str_contains()` (PHP 8.0+) and would fatal on 7.4 during a Used CSS analysis. Symfony's declared `symfony/polyfill-php80` dependency had not been vendored alongside it; it now is
+- 🔒 **Security: TLS verification no longer disabled.** The Google Fonts downloader fetched and wrote content into `uploads/` with certificate checking off; it now verifies with no fallback. Same-host requests verify by default with a fallback only for the site's own host, preserving self-signed staging setups
+- 🔒 **Security: converter paths constrained to `uploads/`.** The bulk WebP/AVIF endpoints resolve the submitted path and verify containment plus file type. Already nonce- and capability-protected; defence in depth
+- 🧹 **New: `uninstall.php`.** Deletion removes options, network options, tables, scheduled events, transients and caches. Media Library untouched; generated WebP/AVIF files and self-hosted fonts deliberately preserved
+- 🧹 Removed three unreferenced JavaScript files and the obsolete bundled PUC v5.6
+
+### 1.23.0
+- 🎨 **New: Used CSS Mode B — per-template critical CSS that genuinely removes the unused stylesheets.** Mode A caches per URL and keeps the originals as a deferred safety net; Mode B caches per template and deletes the sheets it analysed, so those bytes stop being downloaded at all. A site with ten thousand posts keeps one cache entry for "single posts", not ten thousand. Off by default
+- 🧠 **New: multi-sample template learning.** Because a wrong drop is permanent under Mode B, a template isn't analysed from one page. Mode B samples several distinct URLs and keeps the **union** of what they used, so a rule only one post needs survives for all of them. Configurable (default three); learning visits are served completely untouched
+- 🧷 **New: selector safelist.** The analysis reads the page as the server delivers it, so anything JavaScript adds afterwards looks unused — consent banners, cart drawers, modals, scroll-toggled classes. Class names and prefixes listed here are kept regardless. This is the guard rail, and where almost every Mode B problem is fixed
+- 🛟 **Safety: a stylesheet is only removed if that exact file was analysed while learning.** Sheets a plugin loads on only some pages of a template, sheets containing `@import`, print and narrow-media sheets, external sheets, the admin bar and Dashicons, and anything excluded are all left exactly as WordPress emitted them. Leaving a sheet in place costs one request; removing one never examined costs an unstyled page
+- 🎯 **Safety: cascade-correct placement.** The inlined CSS is substituted in place of the first stylesheet it replaces, not printed at the top of the head — a theme inline `<style>` that previously lost to a sheet below it still loses. Printing at `wp_head` would have silently inverted that
+- 🖨️ Safety: `media="screen"` sheets have their rules re-wrapped in `@media screen` so they can't leak into print. Query-string requests are served untouched, **except** campaign and click-ID parameters (`utm_*`, `gclid`, `fbclid` and friends), which change nothing about the rendered page — so ad and newsletter landings still get the optimisation
+- ♻️ Change: the Mode B cache clears on content save, theme switch, plugin activate/deactivate/update, Customizer save, and any CSS-tab settings change. Deliberately blunter than Mode A's per-URL purge — a stale Mode A page is slightly wrong, a stale Mode B page is unstyled
+- 🔀 Change: Mode A stands down entirely when Mode B is on, as do Async CSS and Combine CSS. The modes are alternatives and only one can own CSS delivery. Hand-pasted Critical CSS still takes precedence over both
+- 🩺 New: the Doctor understands both modes, recommends one or the other but never both, and when Mode B is on reports whether the scanned page is clean, still learning, or left with sheets Mode B declines to remove
+- 🔍 New: `?mbrpe_modeb=off` serves a single request with its original stylesheets, plus a per-template cache table on the CSS tab showing samples collected, sheets replaced, inlined size and learning status
 
 ### 1.22.1
 - 🩺 **New: the Performance Doctor understands script modules.** Until now it skipped them entirely — it stepped over `type="module"` when counting render-blocking scripts (correctly; modules don't block rendering) and then had nothing more to say. On a classic theme loading Interactivity API code it would report a clean bill of health while every preload hint sat uselessly in the footer. It now counts the modules on the page, reports where the import map and each hint actually landed, and recommends hoisting when it would help
@@ -430,7 +512,7 @@ For code contributions:
 
 Licensed under the [GPL v2 or later](https://www.gnu.org/licenses/gpl-2.0.html).
 
-Bundled libraries: [web-vitals](https://github.com/GoogleChrome/web-vitals) (Apache-2.0, GPL-compatible) for Real User Monitoring — vendored locally, never loaded from a CDN.
+Bundled libraries: [web-vitals](https://github.com/GoogleChrome/web-vitals) (Apache-2.0, GPL-compatible) for Real User Monitoring, and [PHP-CSS-Parser](https://github.com/MyIntervals/PHP-CSS-Parser) plus [Symfony CssSelector](https://symfony.com/components/CssSelector) (both MIT) for Used CSS Modes A and B — all vendored locally, never loaded from a CDN.
 
 <div align="center">
 
