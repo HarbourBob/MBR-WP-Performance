@@ -383,6 +383,23 @@ class MBRPE_WebP_Converter {
             return $img_html;
         }
 
+        // Already wrapped — leave it alone.
+        //
+        // Several filters can see the same image. A featured image is the clear
+        // case: get_the_post_thumbnail() calls wp_get_attachment_image(), which
+        // applies the 'wp_get_attachment_image' filter, and then the result is
+        // passed through 'post_thumbnail_html'. Without this guard the second
+        // pass would wrap the <picture> the first pass just built, producing a
+        // <picture> nested inside a <picture>.
+        //
+        // This only catches callbacks handed a fragment large enough to contain
+        // the wrapper. The content and block passes hand over a bare <img>, so
+        // they protect existing <picture> elements before matching instead —
+        // see protect_existing_pictures() below.
+        if ( stripos( $img_html, '<picture' ) !== false ) {
+            return $img_html;
+        }
+
         $src    = '';
         $srcset = '';
 
@@ -429,6 +446,59 @@ class MBRPE_WebP_Converter {
 
     /* -- Filter callbacks ------------------------------------------------ */
 
+    /**
+     * Wrap every <img> in a block of HTML, skipping any that is already inside
+     * a <picture> element.
+     *
+     * The content, block and Elementor passes all match bare <img> tags with a
+     * regex, which cannot tell whether a given tag is already wrapped. That
+     * matters because these filters stack: a Gutenberg core/image block is
+     * rendered through 'render_block' and then the whole post runs through
+     * 'the_content', so a naive second pass would match the <img> sitting
+     * inside the <picture> the first pass produced and wrap it again.
+     *
+     * Existing <picture> elements are therefore lifted out of the string before
+     * matching and put back afterwards, which also protects any <picture> the
+     * author wrote by hand or another plugin produced.
+     *
+     * @param string $html HTML that may contain images.
+     * @return string
+     */
+    private function wrap_images_in( $html ) {
+        if ( ! is_string( $html ) || false === stripos( $html, '<img' ) ) {
+            return $html;
+        }
+
+        $shelf = array();
+        $html  = preg_replace_callback(
+            '#<picture\b[^>]*>.*?</picture>#is',
+            function ( $m ) use ( &$shelf ) {
+                $key           = '<!--mbrpe-pic-' . count( $shelf ) . '-->';
+                $shelf[ $key ] = $m[0];
+                return $key;
+            },
+            $html
+        );
+
+        if ( null === $html ) {
+            return '';
+        }
+
+        $html = preg_replace_callback(
+            '/<img[^>]*>/',
+            function ( $m ) {
+                return $this->wrap_img_with_picture( $m[0] );
+            },
+            $html
+        );
+
+        if ( null === $html ) {
+            return '';
+        }
+
+        return empty( $shelf ) ? $html : strtr( $html, $shelf );
+    }
+
     public function wrap_attachment_image( $html ) {
         if ( $this->skip_webp_wrapping() ) {
             return $html;
@@ -447,31 +517,34 @@ class MBRPE_WebP_Converter {
         if ( $this->skip_webp_wrapping() ) {
             return $content;
         }
-        if ( false === stripos( $content, '<img' ) ) {
-            return $content;
-        }
-        return preg_replace_callback( '/<img[^>]*>/', function ( $m ) {
-            return $this->wrap_img_with_picture( $m[0] );
-        }, $content );
+        return $this->wrap_images_in( $content );
     }
 
     public function wrap_block_images( $block_content, $parsed_block ) {
+        // This guard was missing: every other wrapping callback honours it, so
+        // without it block images were still being wrapped in the block editor
+        // and other contexts the rest of the module deliberately steps out of.
+        if ( $this->skip_webp_wrapping() ) {
+            return $block_content;
+        }
+        if ( ! isset( $parsed_block['blockName'] ) ) {
+            return $block_content;
+        }
         if ( 'core/image' !== $parsed_block['blockName'] && 'core/gallery' !== $parsed_block['blockName'] ) {
             return $block_content;
         }
-        return preg_replace_callback( '/<img[^>]*>/', function ( $m ) {
-            return $this->wrap_img_with_picture( $m[0] );
-        }, $block_content );
+        return $this->wrap_images_in( $block_content );
     }
 
     public function wrap_elementor_images( $content, $widget ) {
+        if ( $this->skip_webp_wrapping() ) {
+            return $content;
+        }
         $widget_names = array( 'image', 'image-gallery' );
         if ( ! in_array( $widget->get_name(), $widget_names, true ) ) {
             return $content;
         }
-        return preg_replace_callback( '/<img[^>]*>/', function ( $m ) {
-            return $this->wrap_img_with_picture( $m[0] );
-        }, $content );
+        return $this->wrap_images_in( $content );
     }
 
     /* ======================================================================
@@ -489,8 +562,20 @@ class MBRPE_WebP_Converter {
             '<IfModule mod_rewrite.c>',
             'RewriteEngine On',
             'RewriteCond %{HTTP_ACCEPT} image/webp',
-            'RewriteCond %{DOCUMENT_ROOT}/$1.webp -f',
-            'RewriteRule ^(.*)\.(jpe?g|png)$ $1.webp [T=image/webp,E=webpserve:1,L]',
+            // Match on REQUEST_FILENAME rather than DOCUMENT_ROOT + $1.
+            //
+            // $1 is relative to the directory the .htaccess sits in, so on a
+            // subdirectory install (example.com/wordpress/) or a subdirectory
+            // multisite, DOCUMENT_ROOT + $1 points at a path that does not
+            // exist: the -f test fails and the rule silently never fires, so
+            // WebP delivery appears to be "enabled" while every visitor still
+            // receives the original JPEG. REQUEST_FILENAME is the resolved
+            // filesystem path of the request, which is correct wherever
+            // WordPress is installed. %1 back-refers to the capture in the
+            // preceding condition.
+            'RewriteCond %{REQUEST_FILENAME} (?i)^(.+)\.(jpe?g|png)$',
+            'RewriteCond %1.webp -f',
+            'RewriteRule (?i)^(.+)\.(jpe?g|png)$ $1.webp [T=image/webp,E=webpserve:1,L]',
             '</IfModule>',
             '<IfModule mod_headers.c>',
             'Header append Vary: Accept env=webpserve',

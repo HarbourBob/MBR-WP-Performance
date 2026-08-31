@@ -1921,9 +1921,8 @@ class MBRPE_Admin {
         $home_url = home_url( '/' );
         
         // Fetch the homepage HTML
-        $response = wp_remote_get( $home_url, array(
+        $response = mbrpe_remote_get_self( $home_url, array(
             'timeout' => 30,
-            'sslverify' => false,
         ) );
         
         if ( is_wp_error( $response ) ) {
@@ -1959,9 +1958,8 @@ class MBRPE_Admin {
         $css_files_info = array();
         
         foreach ( $css_urls as $css_url ) {
-            $css_response = wp_remote_get( $css_url, array(
+            $css_response = mbrpe_remote_get_self( $css_url, array(
                 'timeout' => 15,
-                'sslverify' => false,
             ) );
             
             if ( is_wp_error( $css_response ) ) {
@@ -2483,9 +2481,8 @@ class MBRPE_Admin {
         
         // Fetch the ACTUAL homepage HTML
         $home_url = home_url( '/' );
-        $response = wp_remote_get( $home_url, array(
+        $response = mbrpe_remote_get_self( $home_url, array(
             'timeout' => 30,
-            'sslverify' => false,
         ) );
         
         if ( is_wp_error( $response ) ) {
@@ -2528,9 +2525,8 @@ class MBRPE_Admin {
             foreach ( $css_links[1] as $css_url ) {
                 // Only check local CSS files (not CDN) to avoid false positives
                 if ( strpos( $css_url, home_url() ) === 0 ) {
-                    $css_response = wp_remote_get( $css_url, array(
+                    $css_response = mbrpe_remote_get_self( $css_url, array(
                         'timeout' => 10,
-                        'sslverify' => false,
                     ) );
                     
                     if ( ! is_wp_error( $css_response ) ) {
@@ -2655,10 +2651,13 @@ class MBRPE_Admin {
         }
         
         // Fetch the CSS with user agent for WOFF2
+        // Certificate verification stays on. This response is parsed for font
+        // file URLs which are then downloaded and written into the uploads
+        // directory, so an attacker able to substitute it chooses what lands on
+        // disk. There is no reason to disable verification against Google.
         $response = wp_remote_get( $api_url, array(
             'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'timeout' => 30,
-            'sslverify' => false,
         ) );
         
         if ( is_wp_error( $response ) ) {
@@ -2707,9 +2706,10 @@ class MBRPE_Admin {
         }
         
         // Download the font file
+        // Verified for the same reason as the stylesheet fetch above: the body
+        // of this response is written straight into wp-content/uploads.
         $font_response = wp_remote_get( $font_url, array(
             'timeout' => 30,
-            'sslverify' => false,
         ) );
         
         if ( is_wp_error( $font_response ) ) {
@@ -2792,6 +2792,59 @@ class MBRPE_Admin {
     }
 
     /**
+     * Resolve a caller-supplied relative image path to an absolute path that is
+     * provably inside the uploads directory.
+     *
+     * The bulk converters post back paths that the matching scan handler
+     * produced, so in normal use the value is already trustworthy — and both
+     * endpoints check a nonce and manage_options first, so this is not remotely
+     * reachable. It is still worth resolving properly: nothing else in the
+     * request pipeline stops "../../../wp-config.php" from being handed to an
+     * image encoder, and defence in depth costs one realpath() call.
+     *
+     * realpath() is what does the work. It collapses traversal segments and
+     * resolves symlinks, so the comparison is against where the path actually
+     * lands rather than how it was spelled. It also returns false for a file
+     * that does not exist, which removes a separate existence check.
+     *
+     * @since 1.23.1
+     * @param string $relative Path relative to the uploads base directory.
+     * @return string|false Absolute path, or false if it escapes uploads,
+     *                      does not exist, or is not a supported image.
+     */
+    private function resolve_upload_image_path( $relative ) {
+        $upload_dir = wp_upload_dir();
+        if ( ! empty( $upload_dir['error'] ) || empty( $upload_dir['basedir'] ) ) {
+            return false;
+        }
+
+        $base = realpath( $upload_dir['basedir'] );
+        $file = realpath( $upload_dir['basedir'] . '/' . ltrim( $relative, '/\\' ) );
+
+        if ( false === $base || false === $file || ! is_file( $file ) ) {
+            return false;
+        }
+
+        // Compare normalised paths so a Windows host's backslashes do not make
+        // an in-bounds file look out of bounds.
+        $base_n = wp_normalize_path( $base );
+        $file_n = wp_normalize_path( $file );
+
+        if ( 0 !== strpos( $file_n, trailingslashit( $base_n ) ) ) {
+            return false;
+        }
+
+        // Only formats the converters actually accept. A path that resolves
+        // inside uploads can still be a PHP file someone uploaded.
+        $ext = strtolower( pathinfo( $file_n, PATHINFO_EXTENSION ) );
+        if ( ! in_array( $ext, array( 'jpg', 'jpeg', 'png' ), true ) ) {
+            return false;
+        }
+
+        return $file;
+    }
+
+    /**
      * AJAX: Process (convert) a single image.
      */
     public function ajax_webp_process_image() {
@@ -2806,8 +2859,11 @@ class MBRPE_Admin {
         }
 
         $image_path_relative = sanitize_text_field( wp_unslash( $_POST['image_path'] ) );
-        $upload_dir          = wp_upload_dir();
-        $full_path           = $upload_dir['basedir'] . '/' . $image_path_relative;
+        $full_path           = $this->resolve_upload_image_path( $image_path_relative );
+
+        if ( false === $full_path ) {
+            wp_send_json_error( __( 'That file is not a convertible image inside the uploads directory.', 'mbr-performance' ) );
+        }
 
         $converter = MBRPE_WebP_Converter::instance();
         $result    = $converter->convert_single_image( $full_path );
@@ -3040,8 +3096,11 @@ class MBRPE_Admin {
         }
 
         $image_path_relative = sanitize_text_field( wp_unslash( $_POST['image_path'] ) );
-        $upload_dir          = wp_upload_dir();
-        $full_path           = $upload_dir['basedir'] . '/' . $image_path_relative;
+        $full_path           = $this->resolve_upload_image_path( $image_path_relative );
+
+        if ( false === $full_path ) {
+            wp_send_json_error( __( 'That file is not a convertible image inside the uploads directory.', 'mbr-performance' ) );
+        }
 
         $converter = MBRPE_AVIF_Converter::instance();
         $result    = $converter->convert_single_image( $full_path );

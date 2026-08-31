@@ -335,8 +335,20 @@ class MBRPE_AVIF_Converter {
             '<IfModule mod_rewrite.c>',
             'RewriteEngine On',
             'RewriteCond %{HTTP_ACCEPT} image/avif',
-            'RewriteCond %{DOCUMENT_ROOT}/$1.avif -f',
-            'RewriteRule ^(.*)\.(jpe?g|png)$ $1.avif [T=image/avif,E=avifserve:1,L]',
+            // Match on REQUEST_FILENAME rather than DOCUMENT_ROOT + $1.
+            //
+            // $1 is relative to the directory the .htaccess sits in, so on a
+            // subdirectory install (example.com/wordpress/) or a subdirectory
+            // multisite, DOCUMENT_ROOT + $1 points at a path that does not
+            // exist: the -f test fails and the rule silently never fires, so
+            // WebP delivery appears to be "enabled" while every visitor still
+            // receives the original JPEG. REQUEST_FILENAME is the resolved
+            // filesystem path of the request, which is correct wherever
+            // WordPress is installed. %1 back-refers to the capture in the
+            // preceding condition.
+            'RewriteCond %{REQUEST_FILENAME} (?i)^(.+)\.(jpe?g|png)$',
+            'RewriteCond %1.avif -f',
+            'RewriteRule (?i)^(.+)\.(jpe?g|png)$ $1.avif [T=image/avif,E=avifserve:1,L]',
             '</IfModule>',
             '<IfModule mod_headers.c>',
             'Header append Vary: Accept env=avifserve',

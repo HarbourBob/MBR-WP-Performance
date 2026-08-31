@@ -261,9 +261,23 @@ class MBRPE {
             add_action( 'wp_initialize_site', array( 'MBRPE_Multisite', 'on_new_site' ), 900 );
         }
         
-        // Activation/deactivation hooks
-        register_activation_hook( __FILE__, array( $this, 'activate' ) );
-        register_deactivation_hook( __FILE__, array( $this, 'deactivate' ) );
+        // Activation/deactivation hooks.
+        //
+        // These deliberately do NOT use register_activation_hook( __FILE__ ).
+        // That helper resolves to add_action( 'activate_' . plugin_basename( $file ) ),
+        // and __FILE__ here is includes/mbrpe-bootstrap.php — so it would build
+        // the hook name "activate_mbr-performance/includes/mbrpe-bootstrap.php",
+        // which WordPress never fires. WordPress only ever fires the hook named
+        // after the *main* plugin file, so activate() and deactivate() would
+        // silently never run: no tables created on a fresh install, no crons
+        // scheduled, and no .htaccess or cache cleanup on deactivation.
+        //
+        // MBRPE_PLUGIN_BASENAME is plugin_basename() of the real plugin file,
+        // taken in mbr-performance.php itself, so these hook names match what
+        // WordPress fires — and keep matching if the plugin folder or file is
+        // ever renamed.
+        add_action( 'activate_' . MBRPE_PLUGIN_BASENAME, array( $this, 'activate' ), 10, 1 );
+        add_action( 'deactivate_' . MBRPE_PLUGIN_BASENAME, array( $this, 'deactivate' ), 10, 1 );
     }
 
     /**
@@ -474,6 +488,37 @@ class MBRPE {
                     }
                 }
                 update_option( 'mbrpe_options', $opts );
+            }
+        }
+
+        // --- Migrations from < 1.23.1 ---
+        // Repair pass for the activation-hook defect fixed in this release.
+        //
+        // Until 1.23.1 the activation and deactivation hooks were registered
+        // against includes/mbrpe-bootstrap.php rather than the main plugin
+        // file, so WordPress never fired them. Fixing the registration only
+        // helps from the *next* activation onwards — and worse, it cannot help
+        // at all on an affected install, because maybe_upgrade() stamps
+        // mbrpe_version on the first page load, which makes activate() take its
+        // "this is an update" branch and skip table creation for good.
+        //
+        // So the repair happens here instead, where it will actually run. Every
+        // call below is idempotent: dbDelta() no-ops when a table already
+        // matches, and the schedulers check wp_next_scheduled() first. A
+        // healthy install therefore passes through this untouched.
+        if ( version_compare( $stored, '1.23.1', '<' ) ) {
+            if ( class_exists( 'MBRPE_Orphaned_Images' ) ) {
+                MBRPE_Orphaned_Images::create_table();
+            }
+            if ( class_exists( 'MBRPE_RUM' ) ) {
+                MBRPE_RUM::create_tables();
+                MBRPE_RUM::schedule_cron();
+            }
+            if ( ! wp_next_scheduled( 'mbrpe_database_cleanup' ) ) {
+                wp_schedule_event( time(), 'weekly', 'mbrpe_database_cleanup' );
+            }
+            if ( ! wp_next_scheduled( 'mbrpe_orphan_purge' ) ) {
+                wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'mbrpe_orphan_purge' );
             }
         }
 

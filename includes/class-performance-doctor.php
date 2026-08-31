@@ -425,12 +425,15 @@ class MBRPE_Performance_Doctor {
 	 */
 	private function capture( $url ) {
 		$bust     = add_query_arg( 'mbrpe_doctor', (string) time(), $url );
-		$response = wp_remote_get(
+		// Verified, with a same-host fallback for self-signed staging certs —
+		// see mbrpe_remote_get_self(). The Doctor scans the site's own front end,
+		// so this is a loopback request, but there is no reason for a production
+		// site to skip certificate checking on it.
+		$response = mbrpe_remote_get_self(
 			$bust,
 			array(
 				'timeout'     => 20,
 				'redirection' => 2,
-				'sslverify'   => false,
 				'user-agent'  => 'MBR Performance Doctor',
 			)
 		);

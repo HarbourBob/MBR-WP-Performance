@@ -119,3 +119,50 @@ function mbrpe_site_overrides_allowed() {
 
     return MBRPE_Multisite::allow_site_overrides();
 }
+
+/**
+ * Fetch a URL on the site's own host, verifying TLS but tolerating the
+ * self-signed certificates common on local and staging installs.
+ *
+ * Several features need to read the site's own front end: the Performance
+ * Doctor, the CSS scanner and the Google Fonts detector all fetch a rendered
+ * page or stylesheet over HTTP rather than reasoning about the enqueue queue.
+ * These used to pass 'sslverify' => false unconditionally, which switched
+ * certificate checking off on every install, production included, to solve a
+ * problem that only exists in development.
+ *
+ * This verifies by default. Only if the request fails, and only when the URL is
+ * on the site's own host, does it retry once without verification — so a
+ * developer running a self-signed staging copy is not locked out of the tools,
+ * while a production site keeps a verified connection.
+ *
+ * Nothing fetched this way is written to disk, which is what separates it from
+ * the external font download; that path verifies with no fallback at all.
+ *
+ * @since 1.23.1
+ * @param string $url  URL to fetch, expected to be on this site.
+ * @param array  $args Arguments for wp_remote_get().
+ * @return array|WP_Error Response array, or WP_Error on failure.
+ */
+function mbrpe_remote_get_self( $url, $args = array() ) {
+    $args['sslverify'] = true;
+
+    $response = wp_remote_get( $url, $args );
+    if ( ! is_wp_error( $response ) ) {
+        return $response;
+    }
+
+    // Only same-host URLs get the fallback. An off-site URL that fails
+    // verification is a result worth honouring, not working around.
+    $target = wp_parse_url( $url, PHP_URL_HOST );
+    $home   = wp_parse_url( home_url(), PHP_URL_HOST );
+    if ( ! $target || ! $home || strtolower( $target ) !== strtolower( $home ) ) {
+        return $response;
+    }
+
+    // Only retry for a transport-level failure, which is what a certificate
+    // problem produces. An HTTP error is already a valid response.
+    $args['sslverify'] = false;
+
+    return wp_remote_get( $url, $args );
+}
