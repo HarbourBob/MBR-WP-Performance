@@ -3,7 +3,7 @@ Tags: performance, optimization, speed, cache, database, webp, image
 Requires at least: 5.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.23.0
+Stable tag: 1.23.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -279,6 +279,18 @@ The Used CSS feature bundles two open-source libraries, loaded only while genera
 
 
 == Changelog ==
+
+= 1.23.1 =
+* Fix: activation and deactivation now actually run. The hooks were registered against includes/mbrpe-bootstrap.php rather than the main plugin file, so WordPress never fired them — meaning a fresh install created none of its database tables and scheduled none of its cron jobs, and deactivating left the plugin's .htaccess blocks and caches behind. Both are now registered against the real plugin file.
+* Fix: existing installs are repaired automatically. Because the version stamp was written on the first page load regardless, an affected install would have gone on skipping table creation even if it were reactivated. This release recreates the RUM and orphan-media tables and reschedules the cron jobs on upgrade. The repair is idempotent, so a healthy install is unaffected.
+* Fix: WebP and AVIF delivery via .htaccess now works when WordPress is installed in a subdirectory. The rewrite tested DOCUMENT_ROOT against a path that is relative to the .htaccess file's own directory, so on a subdirectory or subdirectory-multisite install the condition never matched and every visitor silently received the original JPEG despite the rules being present. Now matched against REQUEST_FILENAME, which is correct wherever WordPress lives. If you had the option enabled on a subdirectory site, switch it off and on again to write the corrected rules.
+* Fix: images could be wrapped in a <picture> element twice, producing nested <picture> markup. A featured image passes through both the wp_get_attachment_image and post_thumbnail_html filters, and a Gutenberg image block passes through render_block and then the_content, so more than one pass could see the same image. Wrapping is now idempotent, and existing <picture> elements — including hand-written ones — are left alone.
+* Fix: the Gutenberg block image filter was missing the guard that every other wrapping filter honours, so block images were being wrapped inside the block editor and other contexts the module deliberately steps out of.
+* Fix: PHP 7.4 compatibility. The bundled Symfony CssSelector component calls str_contains(), which is PHP 8.0+, and would fatal on PHP 7.4 the moment a Used CSS analysis ran. Symfony declares a dependency on symfony/polyfill-php80 for exactly this, which had not been vendored alongside it; that polyfill is now supplied. The library itself is unchanged and the stated PHP 7.4 requirement stands.
+* Security: TLS certificate verification is no longer disabled on outbound requests. The Google Fonts downloader in particular fetched a stylesheet and font files with verification off and wrote the results straight into the uploads directory. Those requests now verify with no fallback. Requests to the site's own front end — the Performance Doctor, the CSS scanner, the font detector — verify by default and fall back only for the site's own host, so self-signed staging certificates keep working.
+* Security: the bulk WebP and AVIF converters now resolve the submitted image path and confirm it lands inside the uploads directory and is a supported image type. Both endpoints already required a valid nonce and manage_options, so this was never remotely reachable; it is defence in depth.
+* New: uninstall.php. Deleting the plugin from Plugins → Delete now removes its options, network options, database tables, scheduled events, transients and cache directories. Your Media Library is never touched, and generated WebP/AVIF files and self-hosted fonts are deliberately left in place, since a cached page or CDN may still reference them.
+* Housekeeping: removed three unreferenced JavaScript files and an obsolete bundled copy of the Plugin Update Checker (v5.6), which was superseded by v5.7 and loaded by nothing.
 
 = 1.23.0 =
 * New: Used CSS Mode B — per-template critical CSS that genuinely removes the unused stylesheets. Mode A caches per URL and keeps the originals as a deferred safety net; Mode B caches per template and deletes the sheets it has analysed, so the bytes stop being downloaded at all. A site with ten thousand posts keeps one cache entry for "single posts" rather than ten thousand. Off by default.
