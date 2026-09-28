@@ -562,7 +562,7 @@ __MBR_TIMEOUT__
         // Resolve to a readable same-origin local file; anything else (external
         // / CDN, unresolvable) breaks the run. Reuses the shared, path-traversal
         // -guarded mapper that the CSS combiner uses.
-        $path = MBRPE_CSS_Optimizations::url_to_path( $src );
+        $path = MBRPE_CSS_Optimizations::url_to_path( $src, array( 'js', 'mjs' ) );
         if ( '' === $path || ! is_readable( $path ) ) {
             return false;
         }

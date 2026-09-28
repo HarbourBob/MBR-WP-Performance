@@ -103,7 +103,8 @@ $font_options = isset( $options['fonts'] ) ? $options['fonts'] : array();
                         <br>&bull; <code>Open Sans:400,700</code> <em>(<?php esc_html_e( 'regular and bold', 'mbr-performance' ); ?>)</em>
                         <br>&bull; <code>Roboto:300,400,500</code> <em>(<?php esc_html_e( 'light, regular, and medium', 'mbr-performance' ); ?>)</em>
                         <br>&bull; <code>Poppins</code> <em>(<?php esc_html_e( 'regular weight only', 'mbr-performance' ); ?>)</em>
-                        <br><span style="color: #00a32a;">✓ <?php esc_html_e( 'Font names are case-insensitive', 'mbr-performance' ); ?></span>
+                        <br>&bull; <code>IBM Plex Sans:400,500,600</code> <em>(<?php esc_html_e( 'capitals matter — copy the name as Google spells it', 'mbr-performance' ); ?>)</em>
+                        <br><span style="color: #00a32a;">✓ <?php esc_html_e( 'Copy family names exactly as they appear on fonts.google.com. Google matches them case-sensitively, though an all-lower-case name such as "open sans" is retried as "Open Sans".', 'mbr-performance' ); ?></span>
                     </p>
                     <textarea name="mbrpe_options[fonts][manual_fonts]" id="manual_fonts" rows="5" class="large-text code" placeholder="Open Sans:400,700&#10;Roboto:300,400,500&#10;Poppins"><?php echo isset( $font_options['manual_fonts'] ) ? esc_textarea( $font_options['manual_fonts'] ) : ''; ?></textarea>
                     <p>

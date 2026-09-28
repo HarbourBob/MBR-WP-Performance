@@ -367,12 +367,32 @@ class MBRPE_Critical_CSS {
      * Sanitise pasted critical CSS. Not HTML, so not wp_kses'd; the one real
      * escape vector (breaking out of <style>) and control chars are stripped.
      *
+     * A single removal pass is not enough: stripping one occurrence can join
+     * its neighbours into a fresh one, so "<</style/style>" would survive as a
+     * working closing tag. The strip therefore repeats until the string stops
+     * changing, and every remaining "<" is dropped afterwards — valid CSS has
+     * no use for one, so nothing legitimate is lost and nothing can reassemble
+     * a tag from the remains.
+     *
+     * @since 2.0.1 Hardened against single-pass reassembly.
+     *
      * @param string $raw
      * @return string
      */
     public static function sanitise_css( $raw ) {
         $css = (string) $raw;
-        $css = str_ireplace( array( '</style', '<script', '</script' ), '', $css );
+
+        do {
+            $before = $css;
+            $css    = str_ireplace( array( '</style', '<style', '</script', '<script' ), '', $css );
+        } while ( $css !== $before );
+
+        // Belt and braces: no bare "<" may remain to be recombined into a tag.
+        // Escaped as \3C rather than deleted, because content: "<" is valid CSS
+        // and renders identically from the escape — an HTML parser scanning the
+        // <style> element simply never sees the character.
+        $css = str_replace( '<', '\\3C ', $css );
+
         $css = preg_replace( '/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $css );
         return trim( $css );
     }

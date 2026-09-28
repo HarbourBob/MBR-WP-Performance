@@ -218,18 +218,47 @@ class MBRPE_Font_Optimizations {
      * Replace Google Fonts with local versions
      */
     public function replace_google_fonts() {
+        // Local fonts are loaded via enqueue_local_fonts().
+        self::neutralise_google_font_styles();
+    }
+
+    /**
+     * Stop registered Google Fonts stylesheets from loading, without
+     * unregistering them.
+     *
+     * Deregistering looks like the thorough thing to do and is actively
+     * harmful. A handle is not just a URL: other stylesheets may name it as a
+     * dependency, and themes routinely hang wp_add_inline_style() CSS off
+     * whatever handle is to hand. Remove the handle and WordPress silently
+     * declines to print anything that depended on it, and drops the attached
+     * inline CSS with it — which is how switching on font self-hosting could
+     * take a theme's header styling with it.
+     *
+     * Blanking the src instead keeps the handle resolvable. WP_Styles treats a
+     * src-less handle as an alias: dependents still resolve, attached inline
+     * CSS is still printed, and no <link> is emitted because there is nothing
+     * to point it at.
+     *
+     * @since 2.0.1
+     * @return void
+     */
+    private static function neutralise_google_font_styles() {
         global $wp_styles;
-        
-        // Just remove Google Fonts - local fonts are loaded via load_local_fonts()
-        if ( ! empty( $wp_styles->registered ) ) {
-            foreach ( $wp_styles->registered as $handle => $style ) {
-                // Remove enqueued remote Google Fonts (stylesheet and font files)
-                if ( strpos( $style->src, 'fonts.googleapis.com' ) !== false || 
-                     strpos( $style->src, 'fonts.gstatic.com' ) !== false ) {
-                    wp_dequeue_style( $handle );
-                    wp_deregister_style( $handle );
-                }
+
+        if ( empty( $wp_styles->registered ) ) {
+            return;
+        }
+
+        foreach ( $wp_styles->registered as $handle => $style ) {
+            if ( empty( $style->src ) || ! is_string( $style->src ) ) {
+                continue;
             }
+            if ( false === strpos( $style->src, 'fonts.googleapis.com' )
+                && false === strpos( $style->src, 'fonts.gstatic.com' ) ) {
+                continue;
+            }
+
+            $wp_styles->registered[ $handle ]->src = false;
         }
     }
 
@@ -261,18 +290,7 @@ class MBRPE_Font_Optimizations {
      * Disable Google Fonts
      */
     public function disable_google_fonts() {
-        global $wp_styles;
-        
-        if ( ! empty( $wp_styles->registered ) ) {
-            foreach ( $wp_styles->registered as $handle => $style ) {
-                // Remove enqueued remote Google Fonts (stylesheet and font files)
-                if ( strpos( $style->src, 'fonts.googleapis.com' ) !== false || 
-                     strpos( $style->src, 'fonts.gstatic.com' ) !== false ) {
-                    wp_dequeue_style( $handle );
-                    wp_deregister_style( $handle );
-                }
-            }
-        }
+        self::neutralise_google_font_styles();
     }
 
     /**
@@ -321,21 +339,25 @@ class MBRPE_Font_Optimizations {
     public function disable_font_awesome() {
         global $wp_styles;
         
+        // Blanked rather than deregistered, for the reason set out on
+        // neutralise_google_font_styles(): a handle can carry dependents and
+        // inline CSS that have nothing to do with the icon font.
         $fa_handles = array( 'font-awesome', 'fontawesome', 'fa', 'fa5', 'fa-brands', 'fa-regular', 'fa-solid' );
         
         foreach ( $fa_handles as $handle ) {
-            if ( wp_style_is( $handle, 'registered' ) ) {
-                wp_dequeue_style( $handle );
-                wp_deregister_style( $handle );
+            if ( wp_style_is( $handle, 'registered' ) && ! empty( $wp_styles->registered[ $handle ] ) ) {
+                $wp_styles->registered[ $handle ]->src = false;
             }
         }
         
         // Also check for Font Awesome in registered styles
         if ( ! empty( $wp_styles->registered ) ) {
             foreach ( $wp_styles->registered as $handle => $style ) {
+                if ( empty( $style->src ) || ! is_string( $style->src ) ) {
+                    continue;
+                }
                 if ( strpos( $style->src, 'font-awesome' ) !== false || strpos( $style->src, 'fontawesome' ) !== false ) {
-                    wp_dequeue_style( $handle );
-                    wp_deregister_style( $handle );
+                    $wp_styles->registered[ $handle ]->src = false;
                 }
             }
         }
@@ -407,11 +429,52 @@ class MBRPE_Font_Optimizations {
     }
     
     /**
-     * Remove Google Fonts meta tags and preconnect
+     * Remove Google Fonts resource hints.
+     *
+     * This used to drop wp_resource_hints() from wp_head altogether, which
+     * takes every hint on the page with it — a theme's preconnect to its CDN,
+     * a plugin's dns-prefetch, the lot — to remove at most two Google entries.
+     * Filtering the list leaves everything else where it was.
+     *
+     * @since 2.0.1 Narrowed from removing the whole wp_resource_hints action.
+     * @return void
      */
     public function remove_google_fonts_meta() {
-        // Remove any actions that might add Google Fonts preconnect
-        remove_action( 'wp_head', 'wp_resource_hints', 2 );
+        add_filter( 'wp_resource_hints', array( $this, 'filter_font_resource_hints' ), 10, 2 );
+    }
+
+    /**
+     * Drop Google Fonts domains from a resource-hint list.
+     *
+     * @since 2.0.1
+     * @param array  $urls          Hint URLs, possibly with attribute arrays.
+     * @param string $relation_type dns-prefetch, preconnect, prefetch, prerender.
+     * @return array
+     */
+    public function filter_font_resource_hints( $urls, $relation_type ) {
+        if ( ! is_array( $urls ) ) {
+            return $urls;
+        }
+
+        if ( ! in_array( $relation_type, array( 'dns-prefetch', 'preconnect' ), true ) ) {
+            return $urls;
+        }
+
+        foreach ( $urls as $key => $url ) {
+            // An entry is either a URL string or an array with an 'href'.
+            $href = is_array( $url ) && isset( $url['href'] ) ? $url['href'] : $url;
+
+            if ( ! is_string( $href ) ) {
+                continue;
+            }
+
+            if ( false !== strpos( $href, 'fonts.googleapis.com' )
+                || false !== strpos( $href, 'fonts.gstatic.com' ) ) {
+                unset( $urls[ $key ] );
+            }
+        }
+
+        return array_values( $urls );
     }
 
     /**

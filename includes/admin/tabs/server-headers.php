@@ -15,6 +15,13 @@ $server = MBRPE_Server_Headers::detect_server();
 $is_apache_like = in_array( $server, array( 'apache', 'litespeed' ), true );
 ?>
 <div class="mbr-performance-tab-content">
+    <?php
+    // Every field on this tab is a checkbox, and an unticked checkbox posts
+    // nothing. With both unticked the section vanished from the request,
+    // sanitize_options() kept the old values, and the rules could not be
+    // switched off. This marker guarantees the section is always posted.
+    ?>
+    <input type="hidden" name="mbrpe_options[server_headers][_present]" value="1">
 
     <div class="mbr-performance-section">
         <h2><?php esc_html_e( 'Server', 'mbr-performance' ); ?></h2>

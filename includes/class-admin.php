@@ -141,6 +141,7 @@ class MBRPE_Admin {
         // Add submenu items for each tab
         $tabs = array(
             'doctor' => __( 'Doctor', 'mbr-performance' ),
+            'cache' => __( 'Cache', 'mbr-performance' ),
             'core' => __( 'Core Features', 'mbr-performance' ),
             'javascript' => __( 'JavaScript', 'mbr-performance' ),
             'css' => __( 'CSS', 'mbr-performance' ),
@@ -273,6 +274,62 @@ class MBRPE_Admin {
         // v1.22.0 — Script Modules.
         if ( isset( $options['modules'] ) && is_array( $options['modules'] ) ) {
             $sanitized['modules'] = $this->sanitize_modules_options( $options['modules'] );
+        }
+
+        // v2.0.0 — page cache.
+        if ( isset( $options['cache'] ) && is_array( $options['cache'] ) ) {
+            $sanitized['cache'] = $this->sanitize_cache_options( $options['cache'] );
+        }
+
+        return $sanitized;
+    }
+
+    /**
+     * Sanitize page cache options (v2.0.0).
+     *
+     * These values are written into a generated PHP config file and, for the
+     * cookie list, into an .htaccess rewrite condition — so the textarea
+     * handling below is deliberately strict about quotes and backslashes.
+     *
+     * @param array $options
+     * @return array
+     */
+    private function sanitize_cache_options( $options ) {
+        $sanitized = array();
+
+        $boolean_fields = array(
+            'enabled',
+            'gzip',
+            'vary_mobile',
+            'cache_404',
+            'cache_feeds',
+            'purge_all_on_edit',
+            'debug_header',
+            'signature',
+            'cache_query_strings',
+        );
+        foreach ( $boolean_fields as $field ) {
+            $sanitized[ $field ] = ! empty( $options[ $field ] );
+        }
+
+        // TTL is a fixed menu, not free text — reject anything not on it.
+        $allowed_ttl      = array( 0, 3600, 21600, 43200, 86400, 604800 );
+        $ttl              = isset( $options['ttl'] ) ? (int) $options['ttl'] : 0;
+        $sanitized['ttl'] = in_array( $ttl, $allowed_ttl, true ) ? $ttl : 0;
+
+        $textareas = array( 'exclude_uris', 'exclude_cookies', 'exclude_agents', 'ignored_qs', 'allowed_qs' );
+        foreach ( $textareas as $field ) {
+            $raw   = isset( $options[ $field ] ) ? (string) $options[ $field ] : '';
+            $lines = preg_split( '/\R/', wp_strip_all_tags( $raw ) );
+            $clean = array();
+            foreach ( (array) $lines as $line ) {
+                $line = trim( $line );
+                $line = str_replace( array( '"', "'", '\\', '<', '>' ), '', $line );
+                if ( '' !== $line ) {
+                    $clean[] = $line;
+                }
+            }
+            $sanitized[ $field ] = implode( "\n", array_unique( $clean ) );
         }
 
         return $sanitized;
@@ -930,6 +987,9 @@ class MBRPE_Admin {
                     case 'doctor':
                         $this->render_doctor_tab( $options );
                         break;
+                    case 'cache':
+                        $this->render_cache_tab( $options );
+                        break;
                     case 'core':
                         $this->render_core_tab( $options );
                         break;
@@ -1033,6 +1093,7 @@ class MBRPE_Admin {
     private function render_tabs() {
         $tabs = array(
             'doctor' => __( 'Doctor', 'mbr-performance' ),
+            'cache' => __( 'Cache', 'mbr-performance' ),
             'core' => __( 'Core Features', 'mbr-performance' ),
             'javascript' => __( 'JavaScript', 'mbr-performance' ),
             'css' => __( 'CSS', 'mbr-performance' ),
@@ -1068,6 +1129,15 @@ class MBRPE_Admin {
      */
     private function render_doctor_tab( $options ) {
         require_once MBRPE_PLUGIN_DIR . 'includes/admin/tabs/doctor.php';
+    }
+
+    /**
+     * Render Cache tab (v2.0.0).
+     *
+     * @param array $options
+     */
+    private function render_cache_tab( $options ) {
+        require_once MBRPE_PLUGIN_DIR . 'includes/admin/tabs/cache.php';
     }
 
     /**
@@ -1796,16 +1866,67 @@ class MBRPE_Admin {
         }
         
         global $wpdb;
-        $tables = $wpdb->get_col( "SHOW TABLES" );
+        $tables = self::owned_tables();
         $optimized = 0;
         
         foreach ( $tables as $table ) {
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Identifier from owned_tables(); OPTIMIZE cannot be prepared.
             $wpdb->query( "OPTIMIZE TABLE `{$table}`" );
             $optimized++;
         }
         
         // translators: %d = number of database tables optimized.
         wp_send_json_success( array( 'message' => sprintf( __( 'Optimized %d tables.', 'mbr-performance' ), $optimized ) ) );
+    }
+
+    /**
+     * The tables the current user is entitled to perform DDL on.
+     *
+     * SHOW TABLES returns everything the database user can see, which on a
+     * multisite network is every other site's tables, and on shared-database
+     * hosting can be a neighbouring install entirely. manage_options is held by
+     * every subsite Administrator, so it is not a sufficient gate for ALTER or
+     * REPAIR against that whole surface.
+     *
+     * Scope is therefore the current site's own prefix. A Super Admin acting on
+     * the main site additionally gets the network-shared tables that live on the
+     * base prefix, because those are legitimately theirs to maintain.
+     *
+     * @since 2.0.1
+     * @return string[] Table names, safe to interpolate as identifiers.
+     */
+    private static function owned_tables() {
+        global $wpdb;
+
+        $all = $wpdb->get_col( 'SHOW TABLES' );
+        if ( ! is_array( $all ) ) {
+            return array();
+        }
+
+        $prefixes = array( $wpdb->prefix );
+
+        if ( is_multisite() && is_main_site() && current_user_can( 'manage_network_options' ) ) {
+            $prefixes[] = $wpdb->base_prefix;
+        }
+
+        $owned = array();
+        foreach ( $all as $table ) {
+            foreach ( $prefixes as $prefix ) {
+                if ( '' !== $prefix && 0 === strpos( $table, $prefix ) ) {
+                    $owned[] = $table;
+                    break;
+                }
+            }
+        }
+
+        /**
+         * Filter the tables eligible for OPTIMIZE / REPAIR / ALTER.
+         *
+         * @since 2.0.1
+         * @param string[] $owned    Table names.
+         * @param string[] $prefixes Prefixes used to select them.
+         */
+        return (array) apply_filters( 'mbrpe_owned_tables', $owned, $prefixes );
     }
     
     /**
@@ -1820,8 +1941,9 @@ class MBRPE_Admin {
         
         global $wpdb;
         
-        // Get all tables with their engine type
+        // Get all tables with their engine type, then keep only our own.
         $tables = $wpdb->get_results( "SHOW TABLE STATUS" );
+        $owned  = array_flip( self::owned_tables() );
         
         if ( empty( $tables ) ) {
             wp_send_json_error( array( 'message' => __( 'No tables found.', 'mbr-performance' ) ) );
@@ -1831,11 +1953,17 @@ class MBRPE_Admin {
         $errors = array();
         
         foreach ( $tables as $table ) {
+            if ( ! isset( $owned[ $table->Name ] ) ) {
+                continue;
+            }
             if ( strtolower( $table->Engine ) === 'myisam' ) {
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.DirectDatabaseQuery.SchemaChange -- Identifier from owned_tables(); ALTER cannot be prepared.
                 $result = $wpdb->query( "ALTER TABLE `{$table->Name}` ENGINE=InnoDB" );
                 
                 if ( $result === false ) {
-                    $errors[] = $table->Name . ': ' . $wpdb->last_error;
+                    // The raw driver error can name unrelated tables and schema
+                    // details, so report the table and keep the rest server-side.
+                    $errors[] = $table->Name;
                 } else {
                     $converted++;
                 }
@@ -1847,8 +1975,8 @@ class MBRPE_Admin {
         } elseif ( ! empty( $errors ) ) {
             wp_send_json_error( array( 
                 'message' => sprintf( 
-                    // translators: 1 = number of tables converted, 2 = comma-separated list of errors.
-                    __( 'Converted %1$d tables. Errors: %2$s', 'mbr-performance' ), 
+                    // translators: 1 = number of tables converted, 2 = comma-separated list of table names that failed.
+                    __( 'Converted %1$d tables. These could not be converted: %2$s', 'mbr-performance' ), 
                     $converted, 
                     implode( ', ', $errors ) 
                 ) 
@@ -1870,10 +1998,11 @@ class MBRPE_Admin {
         }
         
         global $wpdb;
-        $tables = $wpdb->get_col( "SHOW TABLES" );
+        $tables = self::owned_tables();
         $repaired = 0;
         
         foreach ( $tables as $table ) {
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Identifier from owned_tables(); REPAIR cannot be prepared.
             $wpdb->query( "REPAIR TABLE `{$table}`" );
             $repaired++;
         }
@@ -2173,7 +2302,7 @@ class MBRPE_Admin {
             wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'mbr-performance' ) ) );
         }
         
-        $manual_fonts = isset( $_POST['manual_fonts'] ) ? sanitize_textarea_field( $_POST['manual_fonts'] ) : '';
+        $manual_fonts = isset( $_POST['manual_fonts'] ) ? sanitize_textarea_field( wp_unslash( $_POST['manual_fonts'] ) ) : '';
         
         if ( empty( $manual_fonts ) ) {
             wp_send_json_error( array( 'message' => __( 'Please enter fonts to download.', 'mbr-performance' ) ) );
@@ -2339,28 +2468,77 @@ class MBRPE_Admin {
         foreach ( $lines as $line ) {
             if ( strpos( $line, ':' ) !== false ) {
                 list( $family, $weights ) = explode( ':', $line, 2 );
-                $family = trim( $family );
-                
-                // Make font name Title Case to match Google Fonts format
-                // e.g., "open sans" or "OPEN SANS" becomes "Open Sans"
-                $family = ucwords( strtolower( $family ) );
-                
-                $variants = array_map( 'trim', explode( ',', $weights ) );
+
+                // Keep the name as typed. Google Fonts family names are
+                // case-sensitive and not all of them are Title Case: forcing
+                // it turned "IBM Plex Sans" into "Ibm Plex Sans", which the API
+                // answers with a 400, and the same went for DM Sans, PT Serif,
+                // EB Garamond and every other family with an acronym in it.
+                // download_google_font() retries a Title Case spelling if the
+                // name as typed is not found, so "open sans" still works.
+                $family = self::normalise_family( $family );
+
+                $variants = array_values( array_filter( array_map( 'trim', explode( ',', $weights ) ) ) );
+                if ( empty( $variants ) ) {
+                    $variants = array( '400' );
+                }
+
                 $fonts[ $family ] = $variants;
             } else {
                 // Just family name, use regular weight
-                $family = trim( $line );
-                
-                // Make font name Title Case
-                $family = ucwords( strtolower( $family ) );
-                
+                $family = self::normalise_family( $line );
+
                 $fonts[ $family ] = array( '400' );
             }
         }
+
+        unset( $fonts[''] );
         
         return $fonts;
     }
     
+    /**
+     * Tidy a family name without changing how it is spelled.
+     *
+     * Trims, and collapses runs of whitespace so "IBM  Plex Sans" matches
+     * "IBM Plex Sans". Capitalisation is left exactly as the user typed it.
+     *
+     * @since 2.0.1
+     * @param string $family
+     * @return string
+     */
+    private static function normalise_family( $family ) {
+        return trim( preg_replace( '/\s+/', ' ', (string) $family ) );
+    }
+
+    /**
+     * Spellings to try for a family name, best guess first.
+     *
+     * Google Fonts family names are case-sensitive and must match the name on
+     * fonts.google.com exactly, so the name as typed is tried first — that is
+     * correct for anyone copying it from the site, acronyms included. Title
+     * Case is tried second, which recovers "open sans" and "OPEN SANS".
+     *
+     * A name typed in lower case whose real spelling contains an acronym
+     * ("ibm plex sans") cannot be recovered without a copy of the full font
+     * catalogue, so it is reported as not found rather than guessed at.
+     *
+     * @since 2.0.1
+     * @param string $family
+     * @return string[]
+     */
+    private static function family_candidates( $family ) {
+        $family     = self::normalise_family( $family );
+        $candidates = array( $family );
+
+        $title = ucwords( strtolower( $family ) );
+        if ( $title !== $family ) {
+            $candidates[] = $title;
+        }
+
+        return array_values( array_filter( array_unique( $candidates ) ) );
+    }
+
     /**
      * Download fonts to local storage
      */
@@ -2374,26 +2552,52 @@ class MBRPE_Admin {
         }
         
         // CRITICAL: Clean up old font files before downloading new ones
-        // This prevents loading fonts that are no longer configured
-        $this->cleanup_old_fonts( $fonts_dir, $fonts );
+        // This prevents loading fonts that are no longer configured.
+        // Every candidate spelling is offered up, because the resolved name is
+        // not known until the download runs and a file already on disk under
+        // the resolved spelling must not be deleted moments before it is reused.
+        $keep = array();
+        foreach ( $fonts as $family => $variants ) {
+            foreach ( self::family_candidates( $family ) as $candidate ) {
+                $keep[ $candidate ] = $variants;
+            }
+        }
+        $this->cleanup_old_fonts( $fonts_dir, $keep );
         
         $downloaded = array();
         $failed = array();
+        $resolved_fonts = array();
         
         foreach ( $fonts as $font_family => $variants ) {
+            // download_google_font() returns the spelling that Google actually
+            // answered to, which may differ in case from what was typed. Every
+            // later variant of this family uses it, and it is what gets stored:
+            // the serving side rebuilds filenames from the stored key, so the
+            // name in the option and the name on disk have to be the one thing.
+            $resolved = $font_family;
+
             foreach ( $variants as $variant ) {
-                $result = $this->download_google_font( $font_family, $variant, $fonts_dir );
+                $result = $this->download_google_font( $resolved, $variant, $fonts_dir );
                 
                 if ( $result ) {
-                    $downloaded[] = $font_family . ' (' . $variant . ')';
+                    $resolved = $result;
+                    $downloaded[] = $resolved . ' (' . $variant . ')';
+
+                    if ( ! isset( $resolved_fonts[ $resolved ] ) ) {
+                        $resolved_fonts[ $resolved ] = array();
+                    }
+                    $resolved_fonts[ $resolved ][] = $variant;
                 } else {
                     $failed[] = $font_family . ' (' . $variant . ')';
                 }
             }
         }
         
-        // REPLACE (not merge) - only keep the fonts we just downloaded
-        update_option( 'mbrpe_local_fonts', $fonts );
+        // REPLACE (not merge) - only keep the fonts we just downloaded.
+        // Anything that failed is left out deliberately: a stored entry with no
+        // files behind it makes the front end request a stylesheet that is not
+        // there, and cleanup_old_fonts() would keep reserving space for it.
+        update_option( 'mbrpe_local_fonts', $resolved_fonts );
         update_option( 'mbrpe_fonts_dir', $fonts_dir );
         
         $message = sprintf( 
@@ -2408,7 +2612,11 @@ class MBRPE_Admin {
         }
         
         if ( ! empty( $failed ) ) {
-            $message .= '<br><strong>Failed:</strong> ' . implode( ', ', $failed );
+            $message .= '<br><strong>' . esc_html__( 'Failed:', 'mbr-performance' ) . '</strong> ' . implode( ', ', $failed );
+            $message .= '<br>' . esc_html__(
+                'Google Fonts could not supply these. Family names are case-sensitive and weights must be ones the family actually publishes — check the spelling against fonts.google.com, including any capitals.',
+                'mbr-performance'
+            );
         }
         
         return array( 'message' => $message );
@@ -2629,6 +2837,22 @@ class MBRPE_Admin {
     }
     
     /**
+     * Hosts a downloadable font file may legitimately come from.
+     *
+     * @since 2.0.1
+     * @return string[]
+     */
+    private static function font_hosts() {
+        /**
+         * Filter the allowed font-file hosts.
+         *
+         * @since 2.0.1
+         * @param string[] $hosts Lowercase hostnames.
+         */
+        return (array) apply_filters( 'mbrpe_font_download_hosts', array( 'fonts.gstatic.com' ) );
+    }
+
+    /**
      * Download a single Google Font variant
      *
      * @param string $family
@@ -2637,59 +2861,28 @@ class MBRPE_Admin {
      * @return bool
      */
     private function download_google_font( $family, $variant, $fonts_dir ) {
-        // Build Google Fonts API URL - always use wght syntax for API v2
-        $family_encoded = str_replace( ' ', '+', $family );
-        
-        // Handle italic
-        if ( strpos( $variant, 'italic' ) !== false ) {
-            $weight = str_replace( 'italic', '', $variant );
-            $weight = $weight ? $weight : '400'; // Default to 400 if just 'italic'
-            $api_url = "https://fonts.googleapis.com/css2?family={$family_encoded}:ital,wght@1,{$weight}&display=swap";
-        } else {
-            // Regular weight
-            $api_url = "https://fonts.googleapis.com/css2?family={$family_encoded}:wght@{$variant}&display=swap";
-        }
-        
-        // Fetch the CSS with user agent for WOFF2
-        // Certificate verification stays on. This response is parsed for font
-        // file URLs which are then downloaded and written into the uploads
-        // directory, so an attacker able to substitute it chooses what lands on
-        // disk. There is no reason to disable verification against Google.
-        $response = wp_remote_get( $api_url, array(
-            'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'timeout' => 30,
-        ) );
-        
-        if ( is_wp_error( $response ) ) {
+        $variant = preg_replace( '/[^0-9a-z]/i', '', (string) $variant );
+        if ( '' === $variant ) {
             return false;
         }
-        
-        $css = wp_remote_retrieve_body( $response );
-        
-        if ( empty( $css ) || strpos( $css, '@font-face' ) === false ) {
-            // No font-face found, API request might have failed
+
+        // Family names are case-sensitive at Google's end, so try the spelling
+        // as given and then a Title Case version of it. The first one that
+        // answers with a real stylesheet decides the name used from here on:
+        // the filenames and the stored option both derive from it.
+        $css = false;
+        foreach ( self::family_candidates( $family ) as $candidate ) {
+            $css = $this->fetch_google_font_face( $candidate, $variant );
+            if ( false !== $css ) {
+                $family = $candidate;
+                break;
+            }
+        }
+
+        if ( false === $css ) {
             return false;
         }
-        
-        // CRITICAL: Extract ONLY the first @font-face block (Latin subset)
-        // Google Fonts CSS contains multiple @font-face blocks for different Unicode ranges
-        // We only want the main Latin one (usually the last one in the list)
-        
-        // Match all @font-face blocks
-        preg_match_all( '/@font-face\s*\{[^}]*\}/s', $css, $all_font_faces );
-        
-        if ( empty( $all_font_faces[0] ) ) {
-            // Try a more greedy pattern that handles nested braces
-            preg_match_all( '/@font-face\s*\{(?:[^{}]|\{[^}]*\})*\}/s', $css, $all_font_faces );
-        }
-        
-        if ( empty( $all_font_faces[0] ) ) {
-            return false;
-        }
-        
-        // Use the LAST @font-face (typically the main Latin one without unicode-range restriction)
-        $css = end( $all_font_faces[0] );
-        
+
         // Extract font URL from this @font-face only
         preg_match( '/url\(([^)]+)\)/', $css, $matches );
         
@@ -2700,8 +2893,14 @@ class MBRPE_Admin {
         $local_css = $css;
         $font_url = trim( $matches[1], " \t\n\r\0\x0B\"'" ); // Remove quotes and whitespace
         
-        // Skip if not a URL
-        if ( strpos( $font_url, 'http' ) !== 0 ) {
+        // The URL comes out of a response body, and whatever it points at gets
+        // written into wp-content/uploads — so it has to be Google's own font
+        // host, not merely something that starts with "http".
+        $font_host = wp_parse_url( $font_url, PHP_URL_HOST );
+        if ( ! $font_host || ! in_array( strtolower( $font_host ), self::font_hosts(), true ) ) {
+            return false;
+        }
+        if ( 'https' !== strtolower( (string) wp_parse_url( $font_url, PHP_URL_SCHEME ) ) ) {
             return false;
         }
         
@@ -2737,7 +2936,9 @@ class MBRPE_Admin {
         $filepath = $fonts_dir . '/' . $filename;
         
         // Save font file
-        file_put_contents( $filepath, $font_data );
+        if ( false === file_put_contents( $filepath, $font_data ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+            return false;
+        }
         
         // Get URL for the local file
         $upload_dir = wp_upload_dir();
@@ -2752,9 +2953,86 @@ class MBRPE_Admin {
         // Save the modified CSS with ONLY the first @font-face (Latin)
         $css_filename = sanitize_file_name( $family . '-' . $variant . '.css' );
         $css_filepath = $fonts_dir . '/' . $css_filename;
-        file_put_contents( $css_filepath, $local_css );
+        if ( false === file_put_contents( $css_filepath, $local_css ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+            return false;
+        }
         
-        return true;
+        // The spelling that worked, so the caller can store and reuse it.
+        return $family;
+    }
+
+    /**
+     * Fetch one @font-face block from the Google Fonts API.
+     *
+     * Returns false when the family or weight is not one Google publishes,
+     * which is how the caller knows to try the next candidate spelling.
+     *
+     * @since 2.0.1
+     * @param string $family  Exact, case-sensitive family name.
+     * @param string $variant Weight, optionally suffixed "italic".
+     * @return string|false The chosen @font-face block, or false.
+     */
+    private function fetch_google_font_face( $family, $variant ) {
+        // Build Google Fonts API URL - always use wght syntax for API v2.
+        // rawurlencode first, then restore the "+" Google uses for spaces, so a
+        // family name cannot contribute "&" or "?" to the query it lands in.
+        $family_encoded = str_replace( '%20', '+', rawurlencode( $family ) );
+
+        // Handle italic
+        if ( strpos( $variant, 'italic' ) !== false ) {
+            $weight = str_replace( 'italic', '', $variant );
+            $weight = $weight ? $weight : '400'; // Default to 400 if just 'italic'
+            $api_url = "https://fonts.googleapis.com/css2?family={$family_encoded}:ital,wght@1,{$weight}&display=swap";
+        } else {
+            // Regular weight
+            $api_url = "https://fonts.googleapis.com/css2?family={$family_encoded}:wght@{$variant}&display=swap";
+        }
+
+        // Fetch the CSS with user agent for WOFF2
+        // Certificate verification stays on. This response is parsed for font
+        // file URLs which are then downloaded and written into the uploads
+        // directory, so an attacker able to substitute it chooses what lands on
+        // disk. There is no reason to disable verification against Google.
+        $response = wp_remote_get( $api_url, array(
+            'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'timeout' => 30,
+        ) );
+
+        if ( is_wp_error( $response ) ) {
+            return false;
+        }
+
+        // A wrong family or an unpublished weight comes back 400 with a short
+        // text body, so the status is checked before the body is parsed.
+        if ( 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
+            return false;
+        }
+
+        $css = wp_remote_retrieve_body( $response );
+
+        if ( empty( $css ) || strpos( $css, '@font-face' ) === false ) {
+            // No font-face found, API request might have failed
+            return false;
+        }
+
+        // CRITICAL: Extract ONLY the first @font-face block (Latin subset)
+        // Google Fonts CSS contains multiple @font-face blocks for different Unicode ranges
+        // We only want the main Latin one (usually the last one in the list)
+
+        // Match all @font-face blocks
+        preg_match_all( '/@font-face\s*\{[^}]*\}/s', $css, $all_font_faces );
+
+        if ( empty( $all_font_faces[0] ) ) {
+            // Try a more greedy pattern that handles nested braces
+            preg_match_all( '/@font-face\s*\{(?:[^{}]|\{[^}]*\})*\}/s', $css, $all_font_faces );
+        }
+
+        if ( empty( $all_font_faces[0] ) ) {
+            return false;
+        }
+
+        // Use the LAST @font-face (typically the main Latin one without unicode-range restriction)
+        return end( $all_font_faces[0] );
     }
 
     /* ======================================================================

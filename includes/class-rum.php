@@ -371,8 +371,9 @@ class MBRPE_RUM {
         $target = isset( $params['target'] ) ? substr( sanitize_text_field( (string) $params['target'] ), 0, 255 ) : '';
         $detail = isset( $params['detail'] ) ? substr( sanitize_text_field( (string) $params['detail'] ), 0, 255 ) : '';
 
-        // Cheap per-path rate limit to blunt beacon spam.
-        if ( $this->rate_limited( $path, $metric ) ) {
+        // Cheap per-path rate limit to blunt beacon spam, a per-client limit so
+        // rotating the path does not defeat it, and a hard ceiling on the table.
+        if ( $this->rate_limited( $path, $metric ) || $this->client_rate_limited() || $this->raw_table_full() ) {
             return new WP_REST_Response( null, 204 );
         }
 
@@ -427,6 +428,83 @@ class MBRPE_RUM {
         }
         set_transient( $key, $n + 1, 10 ); // 10-second window.
         return false;
+    }
+
+    /**
+     * Per-client rate limit.
+     *
+     * The per-path limiter above is keyed on a value the caller chooses, so
+     * rotating the path defeats it entirely and leaves an unauthenticated
+     * endpoint writing a row per request. This limits by client instead.
+     *
+     * The address is hashed with the site's own salt and used only as a
+     * transient key, never stored: nothing identifying survives the window, so
+     * the module's "no personal data at rest" property is unchanged.
+     *
+     * @since 2.0.1
+     * @return bool True if the request should be dropped.
+     */
+    private function client_rate_limited() {
+        $ip = isset( $_SERVER['REMOTE_ADDR'] ) ? (string) wp_unslash( $_SERVER['REMOTE_ADDR'] ) : '';
+        if ( '' === $ip ) {
+            return false;
+        }
+
+        /**
+         * Filter the per-client beacon ceiling, in writes per minute.
+         *
+         * A real page sends at most a handful of beacons, so this is generous
+         * for a browser and restrictive for a script.
+         *
+         * @since 2.0.1
+         * @param int $limit Writes allowed per client per minute.
+         */
+        $limit = (int) apply_filters( 'mbrpe_rum_client_limit', 60 );
+        if ( $limit <= 0 ) {
+            return false;
+        }
+
+        $key = 'mbrpe_rum_cl_' . substr( md5( $ip . '|' . wp_salt( 'nonce' ) ), 0, 16 );
+        $n   = (int) get_transient( $key );
+        if ( $n >= $limit ) {
+            return true;
+        }
+        set_transient( $key, $n + 1, MINUTE_IN_SECONDS );
+        return false;
+    }
+
+    /**
+     * Refuse further writes once the raw table has reached its ceiling.
+     *
+     * A backstop rather than a rate limit: whatever gets past the limiters, the
+     * table cannot grow without bound between aggregation runs. The count is
+     * cached so the common path costs a transient read, not a COUNT(*).
+     *
+     * @since 2.0.1
+     * @return bool True if the request should be dropped.
+     */
+    private function raw_table_full() {
+        /**
+         * Filter the maximum number of un-aggregated raw rows retained.
+         *
+         * @since 2.0.1
+         * @param int $max Row ceiling.
+         */
+        $max = (int) apply_filters( 'mbrpe_rum_raw_max_rows', 200000 );
+        if ( $max <= 0 ) {
+            return false;
+        }
+
+        $cached = get_transient( 'mbrpe_rum_raw_count' );
+        if ( false === $cached ) {
+            global $wpdb;
+            $raw    = self::raw_table();
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Identifier from raw_table(); cached below.
+            $cached = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$raw}" );
+            set_transient( 'mbrpe_rum_raw_count', $cached, MINUTE_IN_SECONDS );
+        }
+
+        return (int) $cached >= $max;
     }
 
     /* ---------------------------------------------------------------------

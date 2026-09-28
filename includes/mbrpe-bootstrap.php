@@ -233,6 +233,26 @@ class MBRPE {
 
         // Script Modules / Interactivity API support (WP 6.5+).
         require_once MBRPE_PLUGIN_DIR . 'includes/class-module-scripts.php';
+
+        // ====================================================================
+        // v2.0.0 additions
+        // ====================================================================
+
+        // Full page cache. Order matters: the engine's competing_cache() is
+        // consulted by the drop-in manager, and the purge engine calls into both.
+        require_once MBRPE_PLUGIN_DIR . 'includes/class-page-cache.php';
+        require_once MBRPE_PLUGIN_DIR . 'includes/class-page-cache-dropin.php';
+        require_once MBRPE_PLUGIN_DIR . 'includes/class-page-cache-rules.php';
+        require_once MBRPE_PLUGIN_DIR . 'includes/class-page-cache-purge.php';
+
+        // ====================================================================
+        // v2.1.0 additions
+        // ====================================================================
+
+        // OPcache status, flushing and invalidation. Loaded unconditionally:
+        // the page-cache drop-in manager calls its static invalidate() after
+        // every PHP file it writes, whether or not anyone opens Diagnostics.
+        require_once MBRPE_PLUGIN_DIR . 'includes/class-opcache.php';
     }
 
     /**
@@ -252,6 +272,11 @@ class MBRPE {
         if ( is_admin() ) {
             MBRPE_Admin::instance();
         }
+
+        // OPcache: flush action, toolbar item and the pre-6.2 upgrade
+        // fallback. Not tied to init_optimizations(), which returns early in
+        // editor contexts — a flush should work from anywhere.
+        MBRPE_OPcache::instance();
         
         // Multisite: initialise network admin functionality
         if ( is_multisite() ) {
@@ -276,6 +301,14 @@ class MBRPE {
         // taken in mbr-performance.php itself, so these hook names match what
         // WordPress fires — and keep matching if the plugin folder or file is
         // ever renamed.
+        // Page cache: config regeneration and the repair actions must be wired
+        // even when the cache module itself declines to instantiate — that is
+        // exactly the state the repair buttons exist to fix.
+        add_action( 'update_option_mbrpe_options', array( 'MBRPE_Page_Cache_Dropin', 'on_options_updated' ), 20 );
+        if ( is_admin() ) {
+            MBRPE_Page_Cache_Dropin::register_admin_actions();
+        }
+
         add_action( 'activate_' . MBRPE_PLUGIN_BASENAME, array( $this, 'activate' ), 10, 1 );
         add_action( 'deactivate_' . MBRPE_PLUGIN_BASENAME, array( $this, 'deactivate' ), 10, 1 );
     }
@@ -522,6 +555,74 @@ class MBRPE {
             }
         }
 
+        // --- Migrations from < 2.0.0 ---
+        // Seed the cache section and schedule the TTL sweep. Caching itself
+        // stays OFF: an update must never start rewriting how a site is served
+        // without being asked, and on a site already running WP Rocket or
+        // SG Optimizer it would be actively harmful.
+        if ( version_compare( $stored, '2.0.0', '<' ) ) {
+            $opts = get_option( 'mbrpe_options', array() );
+            if ( is_array( $opts ) && ! isset( $opts['cache'] ) ) {
+                $defaults      = $this->default_options();
+                $opts['cache'] = $defaults['cache'];
+                update_option( 'mbrpe_options', $opts );
+            }
+            if ( ! wp_next_scheduled( 'mbrpe_cache_expire' ) ) {
+                wp_schedule_event( time() + HOUR_IN_SECONDS, 'hourly', 'mbrpe_cache_expire' );
+            }
+        }
+
+        // 2.0.1 changed how the cache key's scheme and host components are
+        // derived, and those live in two places: the plugin, which updates with
+        // this file, and the advanced-cache.php drop-in on disk, which does
+        // not. Nothing refreshes the drop-in automatically, so without this the
+        // new writer would pair with the old reader until somebody happened to
+        // press a button on the Cache tab. Refresh both, then drop the existing
+        // entries, which were keyed the old way.
+        if ( version_compare( $stored, '2.0.1', '<' ) ) {
+            if ( class_exists( 'MBRPE_Page_Cache_Dropin' ) ) {
+                $state = MBRPE_Page_Cache_Dropin::dropin_state();
+
+                // Only touch a drop-in we own. 'missing' means the site never
+                // had one and an update is not the moment to start.
+                if ( in_array( $state, array( 'ours-current', 'ours-stale' ), true ) ) {
+                    MBRPE_Page_Cache_Dropin::install();
+                }
+
+                // The config carries the new scheme/hosts keys either way.
+                MBRPE_Page_Cache_Dropin::write_config( true );
+            }
+
+            if ( class_exists( 'MBRPE_Page_Cache_Purge' ) ) {
+                MBRPE_Page_Cache_Purge::purge_all( 'upgrade' );
+            }
+        }
+
+        // 2.0.2 replaced the guard .htaccess in the page cache root. Earlier
+        // guards set X-Robots-Tag: noindex, and because directory headers apply
+        // to every response served from that folder, every static cache hit
+        // (X-MBR-Cache: HIT-STATIC) went out marked noindex. purge_all() keeps
+        // the guard by design, so rewrite it here rather than waiting for the
+        // next cache miss. The header is added at serve time, so existing
+        // cached pages are fixed the moment the file changes; no purge needed.
+        if ( version_compare( $stored, '2.0.2', '<' ) ) {
+            if ( class_exists( 'MBRPE_Page_Cache' ) ) {
+                MBRPE_Page_Cache::refresh_guard();
+            }
+        }
+
+        // 2.1.2: before this release, the page cache stored the provisional
+        // render Used CSS and Mode B serve while generating or learning — the
+        // page with its full, render-blocking stylesheets — and served it
+        // from disk from then on, so the optimisation never reached visitors.
+        // Clear the page cache once so every page is re-rendered through the
+        // fixed path. Pages rebuild on their next visit, as after any purge.
+        if ( version_compare( $stored, '2.1.2', '<' ) ) {
+            if ( class_exists( 'MBRPE_Page_Cache_Purge' ) ) {
+                MBRPE_Page_Cache_Purge::purge_all( 'upgrade' );
+            }
+        }
+
         // Stamp the version once all migrations have completed.
         update_option( 'mbrpe_version', MBRPE_VERSION );
     }
@@ -562,6 +663,14 @@ class MBRPE {
 
         // Script Modules support gates itself internally (WP version, context).
         MBRPE_Module_Scripts::instance();
+
+        // Page cache. Instantiated ABOVE the page-builder early-return below,
+        // because the purge engine must register its hooks on every request —
+        // almost every purge trigger (save_post, comment_post, switch_theme)
+        // fires in wp-admin, where the front-end modules never run. The engine
+        // gates its own front-end buffering internally.
+        MBRPE_Page_Cache::instance();
+        MBRPE_Page_Cache_Purge::instance();
 
         // Front-end optimisations are skipped inside page builder editors
         // and previews so they can't interfere with the editing experience.
@@ -693,6 +802,23 @@ class MBRPE {
                 'fetchpriority_high' => '',
                 'exclude'            => '',
             ),
+            'cache'          => array(
+                'enabled'             => false,
+                'ttl'                 => 0,
+                'gzip'                => true,
+                'vary_mobile'         => false,
+                'cache_404'           => false,
+                'cache_feeds'         => false,
+                'purge_all_on_edit'   => false,
+                'debug_header'        => true,
+                'signature'           => false,
+                'cache_query_strings' => false,
+                'exclude_uris'        => '',
+                'exclude_cookies'     => '',
+                'exclude_agents'      => '',
+                'ignored_qs'          => '',
+                'allowed_qs'          => '',
+            ),
             'rum'            => array(
                 'enabled'            => false,
                 'sample_rate'        => 100,
@@ -751,6 +877,11 @@ class MBRPE {
         // Schedule the daily RUM aggregation cron.
         if ( class_exists( 'MBRPE_RUM' ) ) {
             MBRPE_RUM::schedule_cron();
+        }
+
+        // Schedule the hourly page-cache TTL sweep.
+        if ( ! wp_next_scheduled( 'mbrpe_cache_expire' ) ) {
+            wp_schedule_event( time() + HOUR_IN_SECONDS, 'hourly', 'mbrpe_cache_expire' );
         }
         
         // Flush rewrite rules
@@ -811,6 +942,21 @@ class MBRPE {
         // ...and the per-template Mode B cache, for the same reason.
         if ( class_exists( 'MBRPE_Used_CSS_Mode_B' ) ) {
             MBRPE_Used_CSS_Mode_B::purge_all();
+        }
+
+        // Page cache teardown. Leaving a live advanced-cache.php behind would
+        // keep serving stale pages with no plugin left to purge them — the worst
+        // failure mode this module has. Remove the drop-in, the rewrite rules
+        // and every cached file.
+        wp_clear_scheduled_hook( 'mbrpe_cache_expire' );
+        if ( class_exists( 'MBRPE_Page_Cache_Purge' ) ) {
+            MBRPE_Page_Cache_Purge::purge_all( 'deactivation' );
+        }
+        if ( class_exists( 'MBRPE_Page_Cache_Rules' ) ) {
+            MBRPE_Page_Cache_Rules::cleanup_on_deactivation();
+        }
+        if ( class_exists( 'MBRPE_Page_Cache_Dropin' ) ) {
+            MBRPE_Page_Cache_Dropin::uninstall();
         }
         
         // Flush rewrite rules

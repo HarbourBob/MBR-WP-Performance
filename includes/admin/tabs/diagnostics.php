@@ -1,6 +1,6 @@
 <?php
 /**
- * Diagnostics tab — autoload audit, cron viewer, plugin conflicts
+ * Diagnostics tab — plugin conflicts, OPcache, autoload audit, cron viewer
  *
  * @package MBRPE
  * @since   1.12.0
@@ -42,6 +42,238 @@ $conflicts           = MBRPE_Conflict_Detector::get_active_conflicts();
             <?php endforeach; ?>
         <?php endif; ?>
     </div>
+
+    <?php
+    // ------------------------------------------------------------------
+    // OPcache (2.1.0). Server-wide, so on multisite only super admins see
+    // the detail and the flush control.
+    // ------------------------------------------------------------------
+    $mbrpe_oc_visible = ! is_multisite() || is_super_admin();
+    if ( $mbrpe_oc_visible && class_exists( 'MBRPE_OPcache' ) ) :
+        $oc          = MBRPE_OPcache::status();
+        $oc_findings = MBRPE_OPcache::findings( $oc );
+        $oc_levels   = array(
+            'error'   => 'notice-error',
+            'warning' => 'notice-warning',
+            'info'    => 'notice-info',
+            'success' => 'notice-success',
+        );
+        $oc_unknown  = __( 'Unknown', 'mbr-performance' );
+    ?>
+    <div class="mbr-performance-section mbr-opcache">
+        <h2><?php esc_html_e( 'OPcache', 'mbr-performance' ); ?></h2>
+        <p class="description">
+            <?php esc_html_e( 'OPcache keeps compiled PHP in memory so WordPress is not recompiled on every request. It is configured by your host in php.ini, so there are no switches for it here — this panel reports what the server is doing, and lets you flush it.', 'mbr-performance' ); ?>
+        </p>
+
+        <?php foreach ( $oc_findings as $finding ) : ?>
+            <div class="notice inline <?php echo esc_attr( $oc_levels[ $finding['level'] ] ); ?>" style="margin:1em 0;">
+                <p><?php echo esc_html( $finding['message'] ); ?></p>
+            </div>
+        <?php endforeach; ?>
+
+        <?php if ( in_array( $oc['state'], array( 'file-cache-only', 'restricted', 'hidden' ), true ) ) : ?>
+            <table class="widefat striped" style="max-width:720px;">
+                <tbody>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Mode', 'mbr-performance' ); ?></th>
+                        <td>
+                            <?php
+                            if ( 'file-cache-only' === $oc['state'] ) {
+                                esc_html_e( 'File cache only (compiled PHP stored on disk)', 'mbr-performance' );
+                            } else {
+                                esc_html_e( 'Running; statistics not available to plugins', 'mbr-performance' );
+                            }
+                            ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Checks for changed files', 'mbr-performance' ); ?></th>
+                        <td>
+                            <?php
+                            if ( null === $oc['validate_timestamps'] ) {
+                                echo esc_html( $oc_unknown );
+                            } elseif ( ! $oc['validate_timestamps'] ) {
+                                esc_html_e( 'No (validate_timestamps = 0)', 'mbr-performance' );
+                            } elseif ( null !== $oc['revalidate_freq'] ) {
+                                printf(
+                                    /* translators: %s: number of seconds */
+                                    esc_html( _n( 'Yes, at most every %s second', 'Yes, at most every %s seconds', max( 1, (int) $oc['revalidate_freq'] ), 'mbr-performance' ) ),
+                                    esc_html( number_format_i18n( (int) $oc['revalidate_freq'] ) )
+                                );
+                            } else {
+                                esc_html_e( 'Yes', 'mbr-performance' );
+                            }
+                            ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Plugin files refreshed on write', 'mbr-performance' ); ?></th>
+                        <td>
+                            <?php
+                            echo esc_html(
+                                $oc['can_invalidate']
+                                    ? __( 'Yes', 'mbr-performance' )
+                                    : __( 'No — the host does not allow it', 'mbr-performance' )
+                            );
+                            ?>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        <?php endif; ?>
+
+        <?php if ( 'available' === $oc['state'] ) : ?>
+            <?php
+            $oc_mem_pct = ( null !== $oc['memory_total'] && $oc['memory_total'] > 0 )
+                ? min( 100, round( ( $oc['memory_used'] + $oc['memory_wasted'] ) / $oc['memory_total'] * 100 ) )
+                : null;
+            $oc_bar     = ( null === $oc_mem_pct ) ? '' : ( $oc_mem_pct >= 90 ? '#d63638' : ( $oc_mem_pct >= 75 ? '#dba617' : '#00a32a' ) );
+            ?>
+            <table class="widefat striped" style="max-width:720px;">
+                <tbody>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Hit rate', 'mbr-performance' ); ?></th>
+                        <td>
+                            <?php
+                            echo esc_html(
+                                null === $oc['hit_rate']
+                                    ? $oc_unknown
+                                    /* translators: %s: percentage */
+                                    : sprintf( __( '%s%%', 'mbr-performance' ), number_format_i18n( $oc['hit_rate'], 2 ) )
+                            );
+                            ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Memory', 'mbr-performance' ); ?></th>
+                        <td>
+                            <?php if ( null === $oc_mem_pct ) : ?>
+                                <?php echo esc_html( $oc_unknown ); ?>
+                            <?php else : ?>
+                                <div style="background:#dcdcde;border-radius:3px;height:10px;max-width:320px;overflow:hidden;margin:4px 0 6px;" role="img" aria-label="<?php echo esc_attr( sprintf( /* translators: %d: percentage */ __( '%d%% of OPcache memory in use', 'mbr-performance' ), $oc_mem_pct ) ); ?>">
+                                    <div style="background:<?php echo esc_attr( $oc_bar ); ?>;height:100%;width:<?php echo (int) $oc_mem_pct; ?>%;"></div>
+                                </div>
+                                <?php
+                                printf(
+                                    /* translators: 1: used, 2: wasted, 3: free, 4: total — all human-readable sizes */
+                                    esc_html__( '%1$s used, %2$s wasted, %3$s free of %4$s', 'mbr-performance' ),
+                                    esc_html( size_format( $oc['memory_used'], 1 ) ),
+                                    esc_html( size_format( $oc['memory_wasted'], 1 ) ),
+                                    esc_html( size_format( $oc['memory_free'], 1 ) ),
+                                    esc_html( size_format( $oc['memory_total'], 1 ) )
+                                );
+                                ?>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Cached files', 'mbr-performance' ); ?></th>
+                        <td>
+                            <?php
+                            if ( null === $oc['cached_scripts'] ) {
+                                echo esc_html( $oc_unknown );
+                            } elseif ( null !== $oc['max_keys'] && null !== $oc['cached_keys'] ) {
+                                printf(
+                                    /* translators: 1: cached scripts, 2: keys used, 3: key limit */
+                                    esc_html__( '%1$s scripts (%2$s of %3$s file slots used)', 'mbr-performance' ),
+                                    esc_html( number_format_i18n( $oc['cached_scripts'] ) ),
+                                    esc_html( number_format_i18n( $oc['cached_keys'] ) ),
+                                    esc_html( number_format_i18n( $oc['max_keys'] ) )
+                                );
+                            } else {
+                                echo esc_html( number_format_i18n( $oc['cached_scripts'] ) );
+                            }
+                            ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Restarts', 'mbr-performance' ); ?></th>
+                        <td>
+                            <?php
+                            if ( null === $oc['oom_restarts'] ) {
+                                echo esc_html( $oc_unknown );
+                            } else {
+                                printf(
+                                    /* translators: 1: out-of-memory restarts, 2: file-slot restarts, 3: manual restarts */
+                                    esc_html__( '%1$s out of memory · %2$s out of file slots · %3$s manual', 'mbr-performance' ),
+                                    esc_html( number_format_i18n( (int) $oc['oom_restarts'] ) ),
+                                    esc_html( number_format_i18n( (int) $oc['hash_restarts'] ) ),
+                                    esc_html( number_format_i18n( (int) $oc['manual_restarts'] ) )
+                                );
+                            }
+                            ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Checks for changed files', 'mbr-performance' ); ?></th>
+                        <td>
+                            <?php
+                            if ( null === $oc['validate_timestamps'] ) {
+                                echo esc_html( $oc_unknown );
+                            } elseif ( ! $oc['validate_timestamps'] ) {
+                                esc_html_e( 'No (validate_timestamps = 0)', 'mbr-performance' );
+                            } elseif ( null !== $oc['revalidate_freq'] ) {
+                                printf(
+                                    /* translators: %s: number of seconds */
+                                    esc_html( _n( 'Yes, at most every %s second', 'Yes, at most every %s seconds', max( 1, (int) $oc['revalidate_freq'] ), 'mbr-performance' ) ),
+                                    esc_html( number_format_i18n( (int) $oc['revalidate_freq'] ) )
+                                );
+                            } else {
+                                esc_html_e( 'Yes', 'mbr-performance' );
+                            }
+                            ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php esc_html_e( 'Last restart', 'mbr-performance' ); ?></th>
+                        <td>
+                            <?php
+                            $oc_since = ( ! empty( $oc['last_restart_time'] ) ) ? $oc['last_restart_time'] : $oc['start_time'];
+                            if ( empty( $oc_since ) ) {
+                                echo esc_html( $oc_unknown );
+                            } else {
+                                printf(
+                                    /* translators: %s: human-readable time difference, e.g. "3 hours" */
+                                    esc_html__( '%s ago', 'mbr-performance' ),
+                                    esc_html( human_time_diff( (int) $oc_since, time() ) )
+                                );
+                            }
+                            if ( ! empty( $oc['last_manual_reset']['time'] ) ) {
+                                echo ' &middot; ';
+                                printf(
+                                    /* translators: %s: human-readable time difference */
+                                    esc_html__( 'last flushed from this plugin %s ago', 'mbr-performance' ),
+                                    esc_html( human_time_diff( (int) $oc['last_manual_reset']['time'], time() ) )
+                                );
+                            }
+                            ?>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <?php if ( $oc['restart_pending'] ) : ?>
+                <p class="description"><?php esc_html_e( 'A flush has been requested and will complete on the next request.', 'mbr-performance' ); ?></p>
+            <?php endif; ?>
+
+            <?php if ( $oc['can_reset'] && MBRPE_OPcache::current_user_can_flush() ) : ?>
+                <p style="margin-top:1em;">
+                    <a href="<?php echo esc_url( MBRPE_OPcache::reset_url() ); ?>"
+                       class="button button-secondary"
+                       onclick="return window.confirm('<?php echo esc_js( __( 'Flush OPcache? Compiled PHP for this server\'s PHP pool is cleared and rebuilt as pages are requested. On shared hosting that may include other sites in the same pool. Nothing is lost; the next few requests are slightly slower.', 'mbr-performance' ) ); ?>');">
+                        <?php esc_html_e( 'Flush OPcache', 'mbr-performance' ); ?>
+                    </a>
+                </p>
+                <p class="description">
+                    <?php esc_html_e( 'Updates made through WordPress, and the files this plugin writes itself, are refreshed automatically. Use this after editing or uploading PHP files any other way — SFTP, a file manager, a Git deploy.', 'mbr-performance' ); ?>
+                </p>
+            <?php elseif ( ! $oc['can_reset'] ) : ?>
+                <p class="description"><?php esc_html_e( 'Your host has disabled flushing from PHP. Its control panel usually offers the same action.', 'mbr-performance' ); ?></p>
+            <?php endif; ?>
+        <?php endif; ?>
+    </div>
+    <?php endif; ?>
 
     <div class="mbr-performance-section">
         <h2><?php esc_html_e( 'Autoloaded Options Audit', 'mbr-performance' ); ?></h2>

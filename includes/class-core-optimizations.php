@@ -245,12 +245,33 @@ class MBRPE_Core_Optimizations {
 
     /**
      * Disable Dashicons
+     *
+     * Dequeued, and its source blanked, rather than deregistered. Dashicons is
+     * a shared asset that themes and plugins legitimately build on: a great
+     * many enqueue their own stylesheet with array( 'dashicons' ) as a
+     * dependency. Deregistering it means WordPress cannot resolve that
+     * dependency and silently declines to print the dependent stylesheet, and
+     * any inline CSS attached to the handle goes with it.
+     *
+     * A src-less handle still resolves as an alias, so dependents and their
+     * inline CSS survive while the icon font itself stops loading.
+     *
+     * This runs for logged-out front-end visitors only, which made the old
+     * behaviour particularly awkward to catch: an administrator testing the
+     * option while logged in would never see the missing styles.
+     *
+     * @since 2.0.1 Stopped deregistering the handle.
      */
     private function disable_dashicons() {
         if ( ! is_admin() && ! is_user_logged_in() ) {
             add_action( 'wp_enqueue_scripts', function() {
+                global $wp_styles;
+
                 wp_dequeue_style( 'dashicons' );
-                wp_deregister_style( 'dashicons' );
+
+                if ( ! empty( $wp_styles->registered['dashicons'] ) ) {
+                    $wp_styles->registered['dashicons']->src = false;
+                }
             }, 100 );
         }
     }

@@ -123,6 +123,14 @@ class MBRPE_Used_CSS_Mode_B {
 	 */
 	private $current_url = '';
 
+	/**
+	 * Rendered HTML captured by capture_buffer() on a learning request.
+	 *
+	 * @since 2.1.2
+	 * @var string
+	 */
+	private $captured = '';
+
 	public static function instance() {
 		if ( null === self::$instance ) {
 			self::$instance = new self();
@@ -472,8 +480,34 @@ class MBRPE_Used_CSS_Mode_B {
 		// so a visitor never sees a half-optimised page.
 		$this->learning    = true;
 		$this->current_url = $this->current_url();
-		ob_start();
-		add_action( 'shutdown', array( $this, 'learn_after_response' ), 0 );
+
+		// A learning render is served untouched. Storing it in the page cache
+		// would freeze the unoptimised page and stop the template learning,
+		// because cache hits never reach PHP.
+		if ( class_exists( 'MBRPE_Page_Cache' ) ) {
+			MBRPE_Page_Cache::defer( 'used-css-mode-b-learning' );
+		}
+
+		// Capture via callback, then analyse after WordPress has flushed every
+		// buffer — see MBRPE_Used_CSS::on_template_redirect() for why
+		// ob_get_clean() at shutdown analysed the wrong buffer.
+		ob_start( array( $this, 'capture_buffer' ) );
+		add_action( 'shutdown', array( $this, 'learn_after_response' ), PHP_INT_MAX );
+	}
+
+	/**
+	 * Output callback for a learning request: record the HTML, pass it on
+	 * untouched.
+	 *
+	 * @since 2.1.2
+	 * @param string $buffer Chunk of output.
+	 * @return string Unchanged.
+	 */
+	public function capture_buffer( $buffer ) {
+		if ( $this->learning ) {
+			$this->captured .= $buffer;
+		}
+		return $buffer;
 	}
 
 	/**
@@ -600,16 +634,20 @@ class MBRPE_Used_CSS_Mode_B {
 		if ( ! $this->learning ) {
 			return;
 		}
+		// WordPress normally flushes every buffer at shutdown priority 1. If
+		// something has unhooked that, flush here so the capture is complete
+		// (ob_end_flush() returns false on a non-removable buffer, which ends
+		// the loop).
+		while ( ob_get_level() > 0 && @ob_end_flush() ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			continue;
+		}
 		$this->learning = false;
 
-		$html = '';
-		if ( ob_get_level() > 0 ) {
-			$html = ob_get_clean();
-		}
+		$html           = $this->captured;
+		$this->captured = '';
 
-		// Give the visitor their page and release the connection before doing
-		// the heavy parsing work.
-		echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Re-emitting the already-rendered page buffer unchanged.
+		// The page has already been sent by the buffer flush. Release the
+		// connection (PHP-FPM) before doing the heavy parsing work.
 		if ( function_exists( 'fastcgi_finish_request' ) ) {
 			fastcgi_finish_request();
 		}

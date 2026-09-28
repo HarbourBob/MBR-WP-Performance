@@ -1162,7 +1162,10 @@ class MBRPE_Orphaned_Images {
                 $dir = trailingslashit( dirname( $main ) );
                 foreach ( $meta['sizes'] as $size_data ) {
                     if ( ! empty( $size_data['file'] ) ) {
-                        $files[] = $dir . $size_data['file'];
+                        // basename() only: a sub-size always sits beside its
+                        // parent, and attachment metadata is not a trustworthy
+                        // source of path components.
+                        $files[] = $dir . basename( (string) $size_data['file'] );
                     }
                 }
             }
@@ -1177,7 +1180,47 @@ class MBRPE_Orphaned_Images {
             }
         }
 
-        return array_values( array_unique( array_merge( $files, $webp_siblings ) ) );
+        $files = array_values( array_unique( array_merge( $files, $webp_siblings ) ) );
+
+        // Final containment pass. Every path handed back from here is about to
+        // be deleted, so nothing outside the uploads directory may reach that
+        // point regardless of what the metadata said.
+        return array_values( array_filter( $files, array( __CLASS__, 'is_inside_uploads' ) ) );
+    }
+
+    /**
+     * Whether a path resolves to a file inside the uploads directory.
+     *
+     * @since 2.0.1
+     * @param string $path Absolute path.
+     * @return bool
+     */
+    public static function is_inside_uploads( $path ) {
+        $uploads = wp_upload_dir();
+        if ( ! empty( $uploads['error'] ) || empty( $uploads['basedir'] ) ) {
+            return false;
+        }
+
+        $base = realpath( $uploads['basedir'] );
+        if ( false === $base ) {
+            return false;
+        }
+
+        // The file may already be gone (a previous pass removed it); resolve
+        // its directory instead so a missing file is still judged on location.
+        $real = realpath( $path );
+        if ( false === $real ) {
+            $dir = realpath( dirname( $path ) );
+            if ( false === $dir ) {
+                return false;
+            }
+            $real = trailingslashit( $dir ) . basename( $path );
+        }
+
+        return 0 === strpos(
+            wp_normalize_path( $real ),
+            trailingslashit( wp_normalize_path( $base ) )
+        );
     }
 
     /* ===================================================================

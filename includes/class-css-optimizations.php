@@ -601,13 +601,22 @@ class MBRPE_CSS_Optimizations {
     /**
      * Map a same-origin stylesheet URL to a readable local filesystem path.
      *
-     * Returns an empty string for external URLs, unresolvable URLs, or any
-     * path that escapes the mapped base directory (path-traversal guard).
+     * Returns an empty string for external URLs, unresolvable URLs, any path
+     * that escapes the mapped base directory (path-traversal guard), or any
+     * file whose extension is not one the caller asked for.
      *
-     * @param string $url
+     * That last check matters because callers read whatever comes back and
+     * concatenate it into a bundle published under wp-content/uploads. Living
+     * inside ABSPATH is not on its own a reason for a file to be readable by
+     * the world — wp-config.php lives there too.
+     *
+     * @since 2.0.1 Added $allowed_ext.
+     *
+     * @param string       $url
+     * @param string[]     $allowed_ext Lowercase extensions the caller accepts.
      * @return string
      */
-    public static function url_to_path( $url ) {
+    public static function url_to_path( $url, $allowed_ext = array( 'css' ) ) {
         if ( ! is_string( $url ) || '' === $url ) {
             return '';
         }
@@ -646,9 +655,26 @@ class MBRPE_CSS_Optimizations {
             if ( false === $real || ! is_file( $real ) ) {
                 continue;
             }
+
+            // Extension allow-list, before anything reads the file.
+            if ( ! empty( $allowed_ext ) ) {
+                $ext = strtolower( pathinfo( $real, PATHINFO_EXTENSION ) );
+                if ( ! in_array( $ext, (array) $allowed_ext, true ) ) {
+                    continue;
+                }
+            }
+
             // Containment guard: the resolved file must live inside the base.
+            // Compared with a trailing separator, so a sibling directory whose
+            // name merely starts with the base ("/srv/site-old" against
+            // "/srv/site") cannot pass.
             $base_real = realpath( $base_dir );
-            if ( false !== $base_real && 0 === strpos( $real, $base_real ) ) {
+            if ( false !== $base_real
+                && 0 === strpos(
+                    wp_normalize_path( $real ),
+                    trailingslashit( wp_normalize_path( $base_real ) )
+                )
+            ) {
                 return $real;
             }
         }

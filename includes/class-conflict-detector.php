@@ -2,8 +2,11 @@
 /**
  * Caching Plugin Conflict Detector
  *
- * MBR Performance is designed to play nicely alongside dedicated caching
- * plugins (it deliberately does NOT do page caching). But several of its
+ * As of v2.0.0 MBR Performance has its own full page cache, which refuses to
+ * run alongside another one — see MBRPE_Page_Cache::competing_cache(), a
+ * separate and deliberately narrower list that BLOCKS rather than warns.
+ *
+ * This module handles the softer case: several of its
  * optimisations (defer/delay JS, async CSS, browser-cache headers, gzip)
  * overlap with features in WP Rocket, W3 Total Cache, LiteSpeed Cache,
  * FlyingPress, Autoptimize, Perfmatters and WP Super Cache. When the same

@@ -58,6 +58,14 @@ class MBRPE_Used_CSS {
 	 */
 	private $current_url = '';
 
+	/**
+	 * Rendered HTML captured by capture_buffer() on a generating request.
+	 *
+	 * @since 2.1.2
+	 * @var string
+	 */
+	private $captured = '';
+
 	public static function instance() {
 		if ( null === self::$instance ) {
 			self::$instance = new self();
@@ -251,6 +259,14 @@ class MBRPE_Used_CSS {
 
 		$this->cache_file = $dir['path'] . '/' . $this->compute_key() . '.css';
 
+		// A page with nothing to optimise (no local stylesheets, or none with
+		// matching rules) leaves a marker instead of a stylesheet. Without it
+		// the page would regenerate on every request — and, since 2.1.2, never
+		// be page-cached, because a generating render is not stored.
+		if ( file_exists( self::none_marker( $this->cache_file ) ) ) {
+			return;
+		}
+
 		if ( is_readable( $this->cache_file ) && filesize( $this->cache_file ) > 0 ) {
 			// SERVE: inline the cached used CSS, then async the original
 			// stylesheets by rewriting the final HTML. Rewriting the buffer
@@ -266,8 +282,40 @@ class MBRPE_Used_CSS {
 		// GENERATE: serve normally now, build the cache after the response ships.
 		$this->buffering   = true;
 		$this->current_url = $this->current_url();
-		ob_start();
-		add_action( 'shutdown', array( $this, 'generate_after_response' ), 0 );
+
+		// This render still carries the full, render-blocking stylesheets. If
+		// the page cache stored it, every later visitor would get it straight
+		// from disk and Used CSS would never run again for this URL.
+		if ( class_exists( 'MBRPE_Page_Cache' ) ) {
+			MBRPE_Page_Cache::defer( 'used-css-generating' );
+		}
+
+		// Capture through a callback rather than pulling the buffer with
+		// ob_get_clean() at shutdown. Other modules open their own buffers
+		// after this one (HTML minify at 99, the Google Fonts strip), and
+		// ob_get_clean() takes whichever buffer is innermost — discarding
+		// that module's callback and analysing the wrong HTML.
+		ob_start( array( $this, 'capture_buffer' ) );
+
+		// After WordPress has flushed every buffer (wp_ob_end_flush_all runs
+		// at shutdown priority 1), so the page has gone to the visitor and
+		// every other module has finished with it.
+		add_action( 'shutdown', array( $this, 'generate_after_response' ), PHP_INT_MAX );
+	}
+
+	/**
+	 * Output callback for a generating request: record the HTML, pass it on
+	 * untouched. May be called more than once if something flushes early.
+	 *
+	 * @since 2.1.2
+	 * @param string $buffer Chunk of output.
+	 * @return string Unchanged.
+	 */
+	public function capture_buffer( $buffer ) {
+		if ( $this->buffering ) {
+			$this->captured .= $buffer;
+		}
+		return $buffer;
 	}
 
 	/**
@@ -390,16 +438,20 @@ class MBRPE_Used_CSS {
 		if ( ! $this->buffering ) {
 			return;
 		}
+		// WordPress normally flushes every buffer at shutdown priority 1. If
+		// something has unhooked that, flush here so the capture is complete
+		// (ob_end_flush() returns false on a non-removable buffer, which ends
+		// the loop).
+		while ( ob_get_level() > 0 && @ob_end_flush() ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			continue;
+		}
 		$this->buffering = false;
 
-		$html = '';
-		if ( ob_get_level() > 0 ) {
-			$html = ob_get_clean();
-		}
+		$html           = $this->captured;
+		$this->captured = '';
 
-		// Ship the page to the visitor and release the connection before doing
-		// the (heavier) analysis work.
-		echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Re-emitting the already-rendered page buffer unchanged.
+		// The page has already been sent by the buffer flush. Release the
+		// connection (PHP-FPM) before doing the heavier analysis work.
 		if ( function_exists( 'fastcgi_finish_request' ) ) {
 			fastcgi_finish_request();
 		}
@@ -416,7 +468,9 @@ class MBRPE_Used_CSS {
 
 		try {
 			$used = $this->build_used_css( $html );
-			if ( '' !== $used ) {
+			if ( '' === $used ) {
+				MBRPE_CSS_Optimizations::write_file( self::none_marker( $this->cache_file ), '' );
+			} else {
 				MBRPE_CSS_Optimizations::write_file( $this->cache_file, $used );
 
 				// The full-CSS page is now sitting in the host page cache. Purge
@@ -551,6 +605,20 @@ class MBRPE_Used_CSS {
 	}
 
 	/**
+	 * Path of the "nothing to optimise" marker for a cache file.
+	 *
+	 * Shares the cache key, so it is invalidated by exactly the same events
+	 * (plugin version, asset changes) as a real used-CSS file.
+	 *
+	 * @since 2.1.2
+	 * @param string $cache_file Path to the .css cache file.
+	 * @return string
+	 */
+	private static function none_marker( $cache_file ) {
+		return preg_replace( '/\.css$/', '.none', $cache_file );
+	}
+
+	/**
 	 * Delete every cached used-CSS file.
 	 *
 	 * @return int Files removed.
@@ -568,6 +636,9 @@ class MBRPE_Used_CSS {
 		}
 		foreach ( (array) glob( $dir['path'] . '/*.lock' ) as $lock ) {
 			wp_delete_file( $lock );
+		}
+		foreach ( (array) glob( $dir['path'] . '/*.none' ) as $marker ) {
+			wp_delete_file( $marker );
 		}
 		// Force the plugin/theme fingerprint to be recalculated on the next
 		// request, so a manual purge cannot be undone by a stale epoch.
@@ -600,6 +671,11 @@ class MBRPE_Used_CSS {
 		$file = $dir['path'] . '/' . self::cache_key_for_path( $path ) . '.css';
 		if ( is_file( $file ) ) {
 			wp_delete_file( $file );
+		}
+		// An edit may have added content that now needs stylesheets.
+		$marker = self::none_marker( $file );
+		if ( is_file( $marker ) ) {
+			wp_delete_file( $marker );
 		}
 	}
 
