@@ -223,3 +223,8 @@ if ( is_multisite() ) {
 } else {
 	mbrpe_uninstall_site();
 }
+
+// OPcache last-flush record. A network option on multisite (OPcache is per
+// server, not per site); delete_site_option() falls back to the options table
+// on a single site.
+delete_site_option( 'mbrpe_opcache_last_reset' );

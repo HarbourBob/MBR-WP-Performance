@@ -1,21 +1,33 @@
 === MBR Performance ===
-Tags: performance, optimization, speed, cache, database, webp, image
+Tags: performance, optimization, speed, cache, page cache, database, webp
 Requires at least: 5.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.23.1
+Stable tag: 2.1.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Comprehensive WordPress performance optimization plugin with controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, orphaned media cleanup, and WooCommerce optimisations.
+Comprehensive WordPress performance plugin: full page caching plus granular controls for core features, JavaScript, CSS, fonts, lazy loading, preloading, database optimization, WebP image conversion, automatic image sizing, orphaned media cleanup, and WooCommerce optimisations.
 
 == Description ==
 
 MBR Performance is a powerful, all-in-one performance optimization plugin that gives you complete control over your WordPress site's performance.
 
+As of 2.0.0 it includes a full page cache, so it no longer needs a separate caching plugin alongside it. If you already run one, MBR Performance detects it and leaves page caching switched off rather than fighting it — every other optimisation continues to work as before.
+
 A comprehensive User Guide (PDF) is bundled in the ZIP file.
 
 = Features =
+
+**Full Page Caching (new in 2.0.0)**
+* Static HTML page cache with three serving tiers — .htaccess rewrite (no PHP at all), an advanced-cache.php drop-in (PHP without WordPress), or an in-WordPress fallback where the filesystem is locked down
+* Pre-compressed gzip copies written alongside each page, so the server never compresses the same bytes twice
+* Marketing parameters stripped before lookup, so a link shared with ?utm_source= hits the same entry as the clean URL
+* Targeted purging — editing a post clears that post plus the archives, terms, author page, date archives and adjacent posts it appears on, not the whole cache
+* Never caches logged-in visitors, and never caches any page that sets a cookie
+* X-MBR-Cache response headers reporting HIT, MISS or BYPASS with the specific reason, so you can see exactly why any page is or isn't cached
+* Optional separate mobile cache, 404 caching, feed caching and TTL expiry
+* Refuses to run alongside another page cache, rather than producing content neither plugin can explain
 
 **Core Features**
 * Disable unnecessary WordPress features (emojis, embeds, dashicons, etc.)
@@ -163,6 +175,13 @@ A comprehensive User Guide (PDF) is bundled in the ZIP file.
 * Configurable sample rate for high-traffic sites, optional exclusion of logged-in sessions, and a one-click Clear RUM data control
 * Off by default; opt-in from the RUM tab
 
+**OPcache Status & Control (new in 2.1.0)**
+* Diagnostics panel reporting hit rate, memory use, cached files against the server's limit, restart counts and whether PHP checks for changed files
+* Plain-English findings when OPcache is missing, switched off, short of memory or file slots, or running with validate_timestamps off, naming the php.ini setting to ask your host about
+* One-click Flush OPcache on the Diagnostics tab and in the admin toolbar
+* Files the plugin writes itself (advanced-cache.php, the cache config, wp-config.php) are refreshed in OPcache the moment they change
+* OPcache is configured by your host in php.ini, so this reports and flushes; it cannot switch OPcache on or resize it
+
 **Multisite Network Support**
 * Network-wide activation and deactivation
 * Network default settings managed from the Network Admin
@@ -197,7 +216,21 @@ The plugin is designed to be safe, but we recommend:
 
 = Can I use this with a caching plugin? =
 
-Yes. This plugin provides complementary optimisations and deliberately does no page caching of its own. Where a feature overlaps with a caching/optimisation plugin you already run — for example Combine or Minify CSS/JS in WP Rocket, LiteSpeed Cache, Autoptimize, W3 Total Cache, FlyingPress or SiteGround Optimizer — a built-in Conflict Detector flags the specific overlapping toggles on the settings screen, so you can avoid running the same combine/minify pass on both sides.
+Yes, though from 2.0.0 you may not need to. MBR Performance now has its own full page cache, and it will not run alongside another one: if WP Rocket, LiteSpeed Cache, W3 Total Cache, WP Super Cache, Cache Enabler, WP Fastest Cache, FlyingPress, Surge, Breeze, Swift Performance or SiteGround Optimizer's file cache is active, page caching stays switched off and the Cache tab tells you which plugin is blocking it. Two page caches on one site produce stale, mismatched content that neither plugin can explain, so this is a hard block rather than a warning.
+
+Every other optimisation still works alongside those plugins exactly as before. Where a feature overlaps — Combine or Minify CSS/JS, for example — the built-in Conflict Detector flags the specific overlapping toggles on the settings screen, so you can avoid running the same pass on both sides.
+
+= Do I need to edit wp-config.php to use page caching? =
+
+No. Enabling page caching installs the advanced-cache.php drop-in and adds the WP_CACHE constant to wp-config.php for you, and removes both again when you switch it off or deactivate the plugin. Your wp-config.php is backed up to wp-config.php.mbrpe-backup the first time it is touched, and the edited file is syntax-checked before being written.
+
+If your host makes wp-config.php read-only — some managed hosts do — the Cache tab says so and shows you the single line to add by hand. Until you do, caching still works; pages are served from inside WordPress instead of before it, which is slower but still a substantial improvement.
+
+= Why isn't a particular page being cached? =
+
+Switch on "Send Debug Headers" on the Cache tab and load the page. Every response then carries X-MBR-Cache with one of HIT, MISS or BYPASS, and a bypass also carries X-MBR-Cache-Reason naming the specific rule — logged-in, excluded-cookie, excluded-uri, password-protected, DONOTCACHEPAGE, search, preview and so on.
+
+The common ones are expected: logged-in visitors are never served from cache, nor is any page that sets a cookie, nor the WooCommerce cart, checkout and account pages.
 
 = What is Used CSS (Mode A), and when should I use it? =
 
@@ -279,6 +312,84 @@ The Used CSS feature bundles two open-source libraries, loaded only while genera
 
 
 == Changelog ==
+
+= 2.1.2 =
+Fixes Used CSS (Mode A and Mode B) never reaching visitors when the page cache is on.
+
+* Fix: with page caching enabled, Used CSS never took effect. The first visit to a page is served untouched while its used CSS is generated in the background, and the page cache stored that first render, with its full, render-blocking stylesheets. From then on every visitor was served the stored copy straight from disk, so the request never reached PHP again and the optimised version was never shown or cached. The same applied to Mode B while a template was learning. Generating and learning renders are now served but not stored (X-MBR-Cache: BYPASS, reason used-css-generating or used-css-mode-b-learning), so the next visit renders the optimised page and that is what gets cached.
+* Fix: the page cache now listens for Used CSS and Mode B finishing a URL, and clears any entry stored for it. Previously only SiteGround Speed Optimizer's cache was purged at that point.
+* Fix: Used CSS and Mode B analysed the wrong HTML when other output buffers were open. They read the page with ob_get_clean() at shutdown, which takes the innermost buffer — HTML minify's or the Google Fonts strip's — and discards that module's processing for the request. They now capture their own buffer through a callback and analyse after WordPress has flushed every buffer, so the analysis sees exactly the delivered HTML and the other modules run normally.
+* Fix: a page with nothing for Used CSS to optimise (no local stylesheets) was re-analysed on every request. It now leaves a marker, cleared by the same events as the cache itself, and is page-cached normally.
+* Updating clears the page cache once, so pages stored before this fix are rebuilt through the corrected path on their next visit.
+
+= 2.1.1 =
+Fixes the OPcache panel reporting a working OPcache as switched off.
+
+* Fix: the OPcache panel said OPcache was "installed but switched off" on servers running it in file-cache-only mode, which is the standard configuration on SiteGround and some other managed hosts. In that mode compiled PHP is stored on disk rather than in shared memory, and PHP's status report marks the shared-memory cache as disabled; 2.1.0 read that as OPcache being off. "Switched off" is now reported only when opcache.enable itself is 0, which can be read even where the OPcache functions are unavailable.
+* New: file-cache mode is recognised and explained. The panel shows the mode, whether PHP checks for changed files, and whether the plugin's own files are refreshed on write. Memory and hit-rate figures do not exist in this mode and are not shown.
+* Fix: Flush OPcache is no longer offered in file-cache mode, where opcache_reset() leaves the on-disk cache untouched and would have reported success while changing nothing. The plugin's own files are still invalidated individually, which does remove their entries from the disk cache.
+* Fix: a host that runs OPcache but does not let plugins read its status is now reported as exactly that, rather than as OPcache being off.
+* Fix: the opcache.restrict_api check compares against the requested script, which is what PHP itself checks, rather than the plugin's own file path.
+
+= 2.1.0 =
+Adds OPcache status and control to the Diagnostics tab, and makes every PHP file the plugin writes take effect immediately on servers that do not check for changed files.
+
+* New: OPcache panel on the Diagnostics tab. Reports hit rate, memory used, wasted and free, cached files against the server's file-slot limit, out-of-memory and file-slot restarts, whether PHP checks for changed files and how often, and when OPcache last restarted. Missing data reads as unknown rather than zero.
+* New: plain-English findings. The panel explains when OPcache is not installed, installed but switched off, restricted to another path by the host (opcache.restrict_api), running out of memory or file slots, or holding a large share of outdated copies, and names the php.ini setting to ask the host about. OPcache is configured at server level, so the plugin reports and flushes; it does not pretend to offer switches it cannot provide.
+* New: Flush OPcache, on the Diagnostics tab and in the MBR Performance toolbar menu. Nonce-protected; requires manage_options, or super admin on multisite, where a flush affects every site on the server. The confirmation says plainly that on shared hosting the flush may cover other sites in the same PHP pool.
+* Fix: advanced-cache.php and wp-config.php are now invalidated in OPcache as soon as the plugin writes them, as the cache config already was. On a host with validate_timestamps off, a refreshed drop-in or a WP_CACHE change previously sat on disk unused until OPcache was next flushed, so the old drop-in could keep pairing with the new cache writer. The drop-in and config are also invalidated before removal.
+* New: on WordPress older than 6.2, plugins, themes and translations updated through WordPress are invalidated in OPcache after the update, and a core update flushes it. WordPress 6.2 and newer do this themselves, so the fallback only registers on older versions.
+* New: mbrpe_opcache_reset action, fired after every flush attempt with the result and the reason.
+* Fix: the Server tab could not switch its rules off. Both of its settings are checkboxes, and with both unticked the browser sent nothing for the section, so the saved values were kept and the .htaccess blocks stayed in place. The section is now always posted.
+* Multisite: the OPcache panel and flush control are shown to super admins only.
+
+= 2.0.2 =
+Bug-fix release for the full page cache. Recommended for every site using static (.htaccess) serving, where it affects search indexing.
+
+* Fix: pages served by the static (.htaccess) cache tier were sent with `X-Robots-Tag: noindex`. The guard .htaccess written into the cache directory set that header on every .html and .gz file in the folder, intending to stop search engines indexing the raw cache files if they were browsed directly. But directory rules apply to every response served from that folder, including the cache hits the root rewrite rules send there, so every `HIT-STATIC` page told search engines not to index it. Pages served by the drop-in or on a cache miss were unaffected, which is why the problem only showed on cached URLs without a query string.
+* Fix: the guard .htaccess now refuses direct requests for the cache path with a 403 instead. It matches on the original request line, which the rewrite that serves a cache hit does not change, so ordinary visitors are unaffected and nobody can read a cached page by addressing the cache directly.
+* Fix: plain (non-gzipped) static cache hits are now sent with `charset=UTF-8`. Only the pre-compressed copies declared a charset before, so clients that did not request gzip received `Content-Type: text/html` alone.
+* Fix: the guard file is now versioned and rewritten when out of date. It was previously written only if missing, and purging deliberately preserves it, so a faulty guard could never be replaced. Updating rewrites it immediately; the header is applied when a page is served, so existing cached pages are corrected at once without a purge.
+* Note: if a search engine has already dropped pages because of this, request re-indexing (for example with URL Inspection in Google Search Console) once the update is installed.
+
+= 2.0.1 =
+Security and hardening release. No feature changes; upgrading is recommended for every install, and required for anyone running MBR Performance on a multisite network.
+
+* Security: pasted Critical CSS is now stripped of tag fragments repeatedly rather than in a single pass. A single pass could be defeated by a crafted string whose removal rejoined its neighbours into a working `</style>`, which let anyone able to save plugin settings place arbitrary JavaScript on the front end. On multisite that crossed a real boundary, because site Administrators do not hold `unfiltered_html`.
+* Security: the Optimise / Repair / Convert to InnoDB tools now act only on the current site's own tables. They previously enumerated every table the database user could see, which on a multisite network meant every other site's tables, and on shared-database hosting could reach a neighbouring install. A Super Admin on the main site still gets the network-shared tables. Conversion failures now report the table name only, not the raw database error.
+* Security: the RUM beacon is rate-limited per client and capped on total stored rows. The previous limit was keyed on the request path, which the caller chooses, so rotating it left an unauthenticated endpoint writing a row per request.
+* Security: media deletion now resolves sub-size filenames with `basename()` and confirms every file sits inside the uploads directory before removing it, rather than trusting the path components in attachment metadata.
+* Security: the stylesheet and script combiners now check file extensions before reading. Resolving inside the WordPress directory was previously sufficient, and the result is published under wp-content/uploads.
+* Security: downloaded font files must now come from `fonts.gstatic.com` over HTTPS, and font family names are URL-encoded before being placed in the API request.
+* Fix: the cache key's scheme and host are now derived identically by the plugin and by the advanced-cache.php drop-in. The two had drifted — the drop-in trusted `X-Forwarded-Proto` and `X-Forwarded-SSL` unconditionally while the plugin used `is_ssl()` — so on a site not behind a proxy a forged header sent the reader to a branch the writer never populated, costing a permanent cache miss for those requests. The scheme is now pinned from `home_url()`; forwarded headers are consulted only when the new `trust_proxy` config flag is set.
+* Fix: the Host header is validated as a hostname and, on single-site installs, checked against the hosts the site actually answers to. It was previously character-stripped and used as-is, so varying the header alone created unlimited cache directories. Domain aliases can be added with the new `mbrpe_cache_hosts` filter.
+* Fix: Google Fonts with capitalised names now download. Family names were forced to Title Case before the request, turning "IBM Plex Sans" into "Ibm Plex Sans" — a name Google answers with a 400, so the download failed with no explanation. The name is now sent as you typed it, and an all-lower-case name is retried in Title Case so "open sans" still works. This affected every family with an acronym in it, including IBM Plex Sans, IBM Plex Mono, DM Sans, PT Serif and EB Garamond.
+* Fix: a font that fails to download is no longer recorded as installed, which previously left the front end requesting a stylesheet that was never written. Failures now explain that family names are case-sensitive and that the weight must be one the family publishes, instead of reporting a bare count.
+* Fix: enabling Google Fonts self-hosting or removal no longer takes unrelated theme CSS with it. Matching stylesheets were deregistered as well as dequeued, and a handle is more than a URL: WordPress silently refuses to print any stylesheet that named the removed handle as a dependency, and drops any inline CSS a theme attached to it. Customizer colour rules — a semi-transparent header background, for instance — are commonly attached that way, so they vanished along with the font request. The handle is now kept and its source blanked, which stops the font loading while leaving dependents and inline CSS intact. The same change is applied to the Font Awesome removal option.
+* Fix: the Disable Dashicons option no longer deregisters the dashicons handle, only stops it loading. Plenty of themes and plugins enqueue their own stylesheet with dashicons as a dependency, and deregistering it meant WordPress silently declined to print those stylesheets. The option applies to logged-out front-end visitors only, so an administrator checking the site while logged in would not have seen the missing styles.
+* Fix: removing Google Fonts resource hints no longer removes every other resource hint on the page. The option previously unhooked wp_resource_hints() entirely, discarding a theme's CDN preconnect and any plugin's dns-prefetch to drop at most two Google entries. Only the Google entries are removed now.
+* Fix: the Google Fonts response status is checked before the body is parsed, so a rejected request fails for the reason it actually failed.
+* Hardening: admin notices render server-supplied messages as text rather than markup.
+* Hardening: directory containment checks throughout now compare with a trailing separator, so a sibling directory whose name merely begins with the base cannot satisfy them.
+* Hardening: the bundled autoloader refuses traversal sequences in a resolved class name.
+* Internal: drop-in contract version raised to 2.0.1. Updating refreshes the installed drop-in, rewrites the cache config and clears existing cached pages once, because entries written before this release were keyed the old way.
+
+= 2.0.0 =
+* New: full page caching. The finished HTML of each page is written to disk and served to subsequent visitors instead of being rebuilt. Three serving tiers, fastest first: optional .htaccess rewrite rules that let Apache or LiteSpeed answer a hit straight from disk with no PHP at all; an advanced-cache.php drop-in that starts PHP but not WordPress, which works on every host including Nginx; and an in-WordPress fallback for installs where wp-content or wp-config.php is read-only. Each tier degrades to the next, and no failure produces an error page rather than a cache miss. Off by default.
+* New: targeted purging. Editing a post clears that post, the front page, the blog index, every term it belongs to across every taxonomy, its post type archive, its author archive, its year/month/day archives and its adjacent posts — plus the first twenty paginated pages of each archive — rather than emptying the whole cache. Comments, term edits, user profile changes and WooCommerce stock movements each purge what they actually affect. Menu, widget, theme, customizer, permalink and plugin changes purge everything, because they change every page. An option is provided to purge everything on every edit for themes that cross-link too heavily for targeted purging to be reliable.
+* New: X-MBR-Cache debug headers. Every response reports HIT, MISS or BYPASS, and a bypass names the specific rule that caused it. This is the difference between diagnosing a caching problem in a minute and guessing at it for an afternoon.
+* New: query-string normalisation. Around twenty analytics and ad-click parameters — utm_*, fbclid, gclid, mc_cid, msclkid and the rest — are stripped before the cache is consulted, so a page shared through a newsletter or an ad campaign serves the same entry as its clean URL instead of generating a fresh miss every time. Further parameters can be added, and an allow-list is available for filtered archives that genuinely need their own entries.
+* New: pre-compressed gzip copies written alongside each cached page, so the server never spends CPU compressing identical bytes on every hit.
+* New: Cache tab with a status panel that reports which serving tier is active, how many pages are cached, WP_CACHE and drop-in state, and directory writability — with a repair button beside anything that is wrong.
+* New: purge controls in the admin toolbar, for the whole cache or just the page you are looking at.
+* Safety: logged-in visitors are never served from cache, and no page that emits a Set-Cookie header is ever stored — that single check prevents most of the ways a page cache can hand one visitor another's content. Password-protected posts, previews, search results, the WooCommerce cart, checkout and account pages, and any request carrying a login, comment, password or cart cookie are all excluded by default, as is anything a theme or plugin marks with DONOTCACHEPAGE.
+* Safety: a response is only stored if it is a complete HTML document, so a fatal error or an upstream timeout mid-render cannot be frozen into the cache. Cache files are written to a temporary name and renamed into place, which is atomic, so a visitor can never read a half-written page.
+* Safety: MBR Performance refuses to enable page caching while another page cache is active, naming the plugin responsible on the Cache tab. Running two produces stale content neither plugin can account for.
+* Change: the cache buffer opens at the earliest possible point on template_redirect, so it wraps every other MBR optimisation. Minified HTML and Used CSS Mode B output are baked into the cached file, which means those modules cost nothing at all on a cache hit.
+* Change: wp-config.php and .htaccess are both backed up before they are first modified, to wp-config.php.mbrpe-backup and .htaccess.mbrpe-backup. The edited wp-config.php is syntax-checked before being written; if it does not parse, the original is left untouched.
+* Change: deactivating the plugin now removes the drop-in, the rewrite rules and every cached file. Leaving a live advanced-cache.php behind would keep serving stale pages with no plugin left to purge them.
+* Change: the plugin no longer describes itself as doing no page caching of its own. The Conflict Detector's softer overlap warnings are unchanged; page-cache conflicts are handled separately and block rather than warn.
+* Upgrade note: page caching is switched off after upgrading. An update should never change how your site is served without being asked, and on a site already running another caching plugin it would be actively unhelpful. Enable it on the Cache tab when you are ready.
 
 = 1.23.1 =
 * Fix: activation and deactivation now actually run. The hooks were registered against includes/mbrpe-bootstrap.php rather than the main plugin file, so WordPress never fired them — meaning a fresh install created none of its database tables and scheduled none of its cron jobs, and deactivating left the plugin's .htaccess blocks and caches behind. Both are now registered against the real plugin file.
@@ -565,6 +676,18 @@ This release prepares the plugin for the WordPress.org plugin directory and incl
 * Database optimization
 
 == Upgrade Notice ==
+
+= 2.1.2 =
+Fixes Used CSS never reaching visitors when the page cache is enabled. Updating clears the page cache once. Recommended for every site using Used CSS with page caching.
+
+= 2.1.1 =
+Fixes the OPcache panel reporting OPcache as switched off on servers running it in file-cache-only mode, including SiteGround. Recommended for everyone on 2.1.0.
+
+= 2.1.0 =
+Adds OPcache status and a Flush OPcache button to the Diagnostics tab, makes the plugin's own PHP files take effect immediately on hosts that do not check for changes, and fixes the Server tab being unable to switch its rules off.
+
+= 2.0.2 =
+Fixes static (.htaccess) cache hits being sent with X-Robots-Tag: noindex, which asked search engines not to index cached pages. Recommended for every site using static serving. No purge or settings change needed.
 
 = 1.22.0 =
 Adds Script Modules and Interactivity API support, including module preload hoisting that fixes late preload hints on classic themes. Off by default.
