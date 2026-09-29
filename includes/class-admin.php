@@ -129,6 +129,10 @@ class MBRPE_Admin {
      * Add toolbar menu
      */
     public function add_toolbar_menu( $wp_admin_bar ) {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            return;
+        }
+
         $wp_admin_bar->add_node( array(
             'id'    => 'mbr-performance',
             'title' => '<span class="ab-icon dashicons-performance"></span><span class="ab-label">' . __( 'MBR Performance', 'mbr-performance' ) . '</span>',
@@ -138,23 +142,11 @@ class MBRPE_Admin {
             ),
         ) );
         
-        // Add submenu items for each tab
-        $tabs = array(
-            'doctor' => __( 'Doctor', 'mbr-performance' ),
-            'cache' => __( 'Cache', 'mbr-performance' ),
-            'core' => __( 'Core Features', 'mbr-performance' ),
-            'javascript' => __( 'JavaScript', 'mbr-performance' ),
-            'css' => __( 'CSS', 'mbr-performance' ),
-            'fonts' => __( 'Fonts', 'mbr-performance' ),
-            'preloading' => __( 'Preloading', 'mbr-performance' ),
-            'lazy-loading' => __( 'Lazy Loading', 'mbr-performance' ),
-            'database' => __( 'Database', 'mbr-performance' ),
-            'webp' => __( 'WebP / AVIF', 'mbr-performance' ),
-            'rum' => __( 'RUM', 'mbr-performance' ),
-            'orphaned-media' => __( 'Orphaned Media', 'mbr-performance' ),
-            'woocommerce' => __( 'WooCommerce', 'mbr-performance' ),
-        );
-        
+        // Add submenu items for each tab — the same list, in the same order,
+        // as the tab row on the settings screen, so the two can't drift apart
+        // again (Server and Diagnostics were missing from this menu).
+        $tabs = self::get_tab_labels();
+
         foreach ( $tabs as $tab => $label ) {
             $wp_admin_bar->add_node( array(
                 'parent' => 'mbr-performance',
@@ -1090,8 +1082,14 @@ class MBRPE_Admin {
         <?php
     }
 
-    private function render_tabs() {
-        $tabs = array(
+    /**
+     * Settings tabs, in display order. Shared by the tab row and the
+     * toolbar menu.
+     *
+     * @return array slug => label
+     */
+    public static function get_tab_labels() {
+        return array(
             'doctor' => __( 'Doctor', 'mbr-performance' ),
             'cache' => __( 'Cache', 'mbr-performance' ),
             'core' => __( 'Core Features', 'mbr-performance' ),
@@ -1108,6 +1106,10 @@ class MBRPE_Admin {
             'orphaned-media' => __( 'Orphaned Media', 'mbr-performance' ),
             'woocommerce' => __( 'WooCommerce', 'mbr-performance' ),
         );
+    }
+
+    private function render_tabs() {
+        $tabs = self::get_tab_labels();
         
         echo '<h2 class="nav-tab-wrapper">';
         foreach ( $tabs as $tab => $label ) {
@@ -1617,6 +1619,13 @@ class MBRPE_Admin {
             if ( class_exists( 'MBRPE_Used_CSS_Mode_B' ) ) {
                 MBRPE_Used_CSS_Mode_B::purge_all();
             }
+        }
+
+        // Pages already in the page cache were built with the old settings
+        // and may link to combined or minified files that were just deleted,
+        // so they have to be rebuilt too.
+        if ( class_exists( 'MBRPE_Page_Cache_Purge' ) ) {
+            MBRPE_Page_Cache_Purge::purge_all( 'settings-saved' );
         }
 
         wp_send_json_success( array( 'message' => __( 'Settings saved successfully.', 'mbr-performance' ) ) );
@@ -2267,6 +2276,13 @@ class MBRPE_Admin {
             }
         }
 
+        // Pages already in the page cache were built with the old settings
+        // and may link to combined or minified files that were just deleted,
+        // so they have to be rebuilt too.
+        if ( class_exists( 'MBRPE_Page_Cache_Purge' ) ) {
+            MBRPE_Page_Cache_Purge::purge_all( 'settings-reset' );
+        }
+
         wp_send_json_success( array( 'message' => __( 'Settings reset to defaults.', 'mbr-performance' ) ) );
     }
     
@@ -2339,11 +2355,14 @@ class MBRPE_Admin {
         if ( class_exists( 'MBRPE_CSS_Optimizations' ) ) {
             $deleted = MBRPE_CSS_Optimizations::purge_combine_cache( $type );
         }
+        if ( $deleted > 0 && class_exists( 'MBRPE_Page_Cache_Purge' ) ) {
+            MBRPE_Page_Cache_Purge::purge_all( 'combine-cleared' );
+        }
 
         wp_send_json_success(
             array(
                 /* translators: %d: number of deleted files */
-                'message' => sprintf( _n( 'Cleared %d combined file.', 'Cleared %d combined files.', $deleted, 'mbr-performance' ), number_format_i18n( $deleted ) ),
+                'message' => sprintf( _n( 'Cleared %d cached file.', 'Cleared %d cached files.', $deleted, 'mbr-performance' ), number_format_i18n( $deleted ) ),
                 'deleted' => $deleted,
             )
         );

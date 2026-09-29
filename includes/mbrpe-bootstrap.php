@@ -148,6 +148,7 @@ class MBRPE {
         
         // CSS optimizations
         require_once MBRPE_PLUGIN_DIR . 'includes/class-css-optimizations.php';
+        require_once MBRPE_PLUGIN_DIR . 'includes/class-asset-minifier.php';
 
         // Used CSS (Mode A) — depends on CSS optimisation helpers above.
         require_once MBRPE_PLUGIN_DIR . 'includes/class-used-css.php';
@@ -618,6 +619,26 @@ class MBRPE {
         // Clear the page cache once so every page is re-rendered through the
         // fixed path. Pages rebuild on their next visit, as after any purge.
         if ( version_compare( $stored, '2.1.2', '<' ) ) {
+            if ( class_exists( 'MBRPE_Page_Cache_Purge' ) ) {
+                MBRPE_Page_Cache_Purge::purge_all( 'upgrade' );
+            }
+        }
+
+        // 2.1.3: Minify CSS/JS now minifies the files themselves, and the
+        // shared CSS minifier no longer joins a descendant combinator onto a
+        // following pseudo-class (".menu :hover" became ".menu:hover"). Rebuild
+        // everything that was produced by the old minifier, then clear the
+        // page cache so no stored page links to a removed bundle.
+        if ( version_compare( $stored, '2.1.3', '<' ) ) {
+            if ( class_exists( 'MBRPE_CSS_Optimizations' ) ) {
+                MBRPE_CSS_Optimizations::purge_combine_cache();
+            }
+            if ( class_exists( 'MBRPE_Used_CSS' ) ) {
+                MBRPE_Used_CSS::purge_all();
+            }
+            if ( class_exists( 'MBRPE_Used_CSS_Mode_B' ) ) {
+                MBRPE_Used_CSS_Mode_B::purge_all();
+            }
             if ( class_exists( 'MBRPE_Page_Cache_Purge' ) ) {
                 MBRPE_Page_Cache_Purge::purge_all( 'upgrade' );
             }

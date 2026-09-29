@@ -60,6 +60,13 @@ class MBRPE_CSS_Optimizations {
     private $async_count = 0;
 
     /**
+     * Handles whose inline CSS has already been minified this request.
+     *
+     * @var array
+     */
+    private $inline_minified = array();
+
+    /**
      * Single instance.
      *
      * @var MBRPE_CSS_Optimizations
@@ -206,9 +213,14 @@ class MBRPE_CSS_Optimizations {
             add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_loadcss_polyfill' ) );
         }
 
-        // Minify inline CSS (style tags only — external files are typically minified).
+        // Minify CSS: serve a minified copy of each local stylesheet that
+        // isn't already minified, and minify the inline CSS attached to
+        // enqueued handles. Until 2.1.3 this was a style_loader_tag filter that
+        // bailed out for any handle with a src — and WordPress never calls that
+        // filter for a handle without one — so it did nothing at all.
         if ( $this->get_option( 'minify_css' ) ) {
-            add_filter( 'style_loader_tag', array( $this, 'minify_inline_style' ), 100, 4 );
+            add_filter( 'style_loader_src', array( $this, 'minify_style_src' ), 20, 2 );
+            add_filter( 'print_styles_array', array( $this, 'minify_inline_styles' ), 20 );
         }
 
         // Combine CSS: merge contiguous, same-media, local stylesheets into a
@@ -357,29 +369,70 @@ class MBRPE_CSS_Optimizations {
     }
 
     /**
-     * Lightly minify inline style tags.
+     * Point a local stylesheet at its minified copy.
      *
-     * @param string $tag
+     * @since 2.1.3
+     *
+     * @param string $src
      * @param string $handle
-     * @param string $href
-     * @param string $media
      * @return string
      */
-    public function minify_inline_style( $tag, $handle, $href, $media ) {
-        if ( $this->should_skip() || '' !== $href ) {
-            return $tag;
+    public function minify_style_src( $src, $handle = '' ) {
+        if ( ! is_string( $src ) || '' === $src || $this->should_skip() ) {
+            return $src;
         }
-        return preg_replace_callback( '/(<style[^>]*>)(.*?)(<\/style>)/is', function ( $m ) {
-            $body = $m[2];
-            // Strip CSS comments.
-            $body = preg_replace( '#/\*.*?\*/#s', '', $body );
-            // Collapse whitespace.
-            $body = preg_replace( '/\s+/', ' ', $body );
-            // Tighten around braces, colons, semicolons.
-            $body = preg_replace( '/\s*([{}:;,])\s*/', '$1', $body );
-            $body = preg_replace( '/;}/', '}', $body );
-            return $m[1] . trim( $body ) . $m[3];
-        }, $tag );
+        if ( in_array( $handle, array( 'admin-bar', 'dashicons' ), true ) ) {
+            return $src;
+        }
+        if ( $this->is_excluded( (string) $handle, $src, $this->get_exclusion_list( 'exclude_optimization' ) ) ) {
+            return $src;
+        }
+        if ( ! class_exists( 'MBRPE_Asset_Minifier' ) ) {
+            return $src;
+        }
+        return MBRPE_Asset_Minifier::maybe_minified_url( $src, 'css' );
+    }
+
+    /**
+     * Minify the inline CSS attached to handles about to be printed.
+     *
+     * Inline CSS (wp_add_inline_style, global styles, block supports) is
+     * printed without passing through any content filter, so it is minified
+     * in place on the registered handle just before WordPress prints it.
+     *
+     * @since 2.1.3
+     *
+     * @param string[] $handles
+     * @return string[]
+     */
+    public function minify_inline_styles( $handles ) {
+        if ( ! is_array( $handles ) || $this->should_skip() ) {
+            return $handles;
+        }
+        $wp_styles  = wp_styles();
+        $exclusions = $this->get_exclusion_list( 'exclude_optimization' );
+        foreach ( $handles as $handle ) {
+            if ( isset( $this->inline_minified[ $handle ] ) || ! isset( $wp_styles->registered[ $handle ] ) ) {
+                continue;
+            }
+            $this->inline_minified[ $handle ] = true;
+            $obj = $wp_styles->registered[ $handle ];
+            if ( empty( $obj->extra['after'] ) || ! is_array( $obj->extra['after'] ) ) {
+                continue;
+            }
+            if ( $this->is_excluded( (string) $handle, (string) $obj->src, $exclusions ) ) {
+                continue;
+            }
+            foreach ( $obj->extra['after'] as $i => $css ) {
+                if ( is_string( $css ) && '' !== $css ) {
+                    $min = self::minify_css_string( $css );
+                    if ( '' !== $min ) {
+                        $obj->extra['after'][ $i ] = $min;
+                    }
+                }
+            }
+        }
+        return $handles;
     }
 
     /**
@@ -967,12 +1020,23 @@ class MBRPE_CSS_Optimizations {
         // Strip comments, collapse whitespace, tighten around punctuation.
         $css = preg_replace( '#/\*.*?\*/#s', '', $css );
         $css = preg_replace( '/\s+/', ' ', $css );
-        $css = preg_replace( '/\s*([{}:;,])\s*/', '$1', $css );
+        // Space before a colon is left alone: in a selector it is a
+        // descendant combinator (".menu :hover" is not ".menu:hover").
+        $css = preg_replace( '/\s*([{};,])\s*/', '$1', $css );
+        $css = preg_replace( '/:\s+/', ':', $css );
         $css = str_replace( ';}', '}', $css );
         $css = trim( (string) $css );
 
+        // Restore newest first. A url() is protected after the quoted string
+        // inside it, so its saved text still holds that string's token; one
+        // strtr() pass put the url() back but left the token inside it, and
+        // every quoted url('…') — font files, background images — reached the
+        // browser as url(\0MBRPECSS1\0). Walking backwards restores the
+        // outer token before the inner one it contains.
         if ( ! empty( $tokens ) ) {
-            $css = strtr( $css, $tokens );
+            foreach ( array_reverse( $tokens, true ) as $key => $original ) {
+                $css = str_replace( $key, $original, $css );
+            }
         }
 
         return $css;
@@ -1031,6 +1095,18 @@ class MBRPE_CSS_Optimizations {
      * @return int Number of files deleted.
      */
     public static function purge_combine_cache( $type = 'all' ) {
+        // Minified copies live alongside and are cleared on the same events.
+        $minified = class_exists( 'MBRPE_Asset_Minifier' ) ? MBRPE_Asset_Minifier::purge( $type ) : 0;
+        return $minified + self::purge_combine_bundles( $type );
+    }
+
+    /**
+     * Delete combined bundles only.
+     *
+     * @param string $type 'css', 'js' or 'all'.
+     * @return int
+     */
+    private static function purge_combine_bundles( $type = 'all' ) {
         $upload = wp_upload_dir();
         if ( empty( $upload['basedir'] ) ) {
             return 0;
@@ -1079,16 +1155,16 @@ class MBRPE_CSS_Optimizations {
 
         $upload = wp_upload_dir();
         if ( empty( $upload['basedir'] ) ) {
-            return $stats;
+            return self::add_minified_stats( $stats );
         }
         $dir = trailingslashit( $upload['basedir'] ) . self::COMBINE_DIRNAME;
         if ( ! is_dir( $dir ) ) {
-            return $stats;
+            return self::add_minified_stats( $stats );
         }
 
         $files = scandir( $dir );
         if ( false === $files ) {
-            return $stats;
+            return self::add_minified_stats( $stats );
         }
 
         foreach ( $files as $file ) {
@@ -1106,6 +1182,21 @@ class MBRPE_CSS_Optimizations {
             } elseif ( 'js' === $ext ) {
                 $stats['js']++;
                 $stats['js_bytes'] += (int) filesize( $filepath );
+            }
+        }
+        return self::add_minified_stats( $stats );
+    }
+
+    /**
+     * Fold the minified-copy counts into the cache stats.
+     *
+     * @param array $stats
+     * @return array
+     */
+    private static function add_minified_stats( $stats ) {
+        if ( class_exists( 'MBRPE_Asset_Minifier' ) ) {
+            foreach ( MBRPE_Asset_Minifier::stats() as $k => $v ) {
+                $stats[ $k ] += $v;
             }
         }
         return $stats;

@@ -58,11 +58,14 @@ $css_options = isset( $options['css'] ) ? $options['css'] : array();
                 <th scope="row">
                     <label for="minify_css">
                         <?php esc_html_e( 'Minify CSS', 'mbr-performance' ); ?>
-                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Removes whitespace and comments to reduce file size', 'mbr-performance' ); ?>">?</span>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Serves a minified copy of each local stylesheet that is not already minified, and minifies inline CSS', 'mbr-performance' ); ?>">?</span>
                     </label>
                 </th>
                 <td>
                     <input type="checkbox" name="mbrpe_options[css][minify_css]" id="minify_css" value="1" <?php checked( isset( $css_options['minify_css'] ) && $css_options['minify_css'] ); ?>>
+                    <p class="description">
+                        <?php esc_html_e( 'Minified copies are written to /uploads/mbr-performance-min/ the first time each stylesheet is requested, and rebuilt automatically when the original changes. Files that are already minified (.min.css, or saving under 5%) keep their original URL. External stylesheets and anything on the exclusion list below are left alone.', 'mbr-performance' ); ?>
+                    </p>
                 </td>
             </tr>
             
@@ -114,7 +117,7 @@ $css_options = isset( $options['css'] ) ? $options['css'] : array();
             </tr>
             
             <tr class="mbr-performance-child-row">
-                <th scope="row"><?php esc_html_e( 'Combined CSS cache', 'mbr-performance' ); ?></th>
+                <th scope="row"><?php esc_html_e( 'Combined & minified CSS cache', 'mbr-performance' ); ?></th>
                 <td>
                     <?php
                     $mbr_combine_stats = class_exists( 'MBRPE_CSS_Optimizations' )
@@ -123,13 +126,13 @@ $css_options = isset( $options['css'] ) ? $options['css'] : array();
                     $mbr_css_size = $mbr_combine_stats['css_bytes'] > 0 ? size_format( $mbr_combine_stats['css_bytes'] ) : '0 B';
                     ?>
                     <p class="description" style="margin-bottom:8px;">
-                        <?php esc_html_e( 'Cached combined CSS files:', 'mbr-performance' ); ?>
+                        <?php esc_html_e( 'Cached combined and minified CSS files:', 'mbr-performance' ); ?>
                         <strong id="mbr-combine-css-count"><?php echo esc_html( number_format_i18n( $mbr_combine_stats['css'] ) ); ?></strong>
                         (<span id="mbr-combine-css-size"><?php echo esc_html( $mbr_css_size ); ?></span>)
                     </p>
-                    <button type="button" class="button" id="mbr-clear-combine-css" data-cache-type="css"><?php esc_html_e( 'Clear combined CSS cache', 'mbr-performance' ); ?></button>
+                    <button type="button" class="button" id="mbr-clear-combine-css" data-cache-type="css"><?php esc_html_e( 'Clear CSS file cache', 'mbr-performance' ); ?></button>
                     <span id="mbr-combine-css-status"></span>
-                    <p class="description"><?php esc_html_e( 'Bundles also rebuild automatically when settings or stylesheets change.', 'mbr-performance' ); ?></p>
+                    <p class="description"><?php esc_html_e( 'Files also rebuild automatically when settings or stylesheets change. Clearing also clears the page cache.', 'mbr-performance' ); ?></p>
                 </td>
             </tr>
         </table>

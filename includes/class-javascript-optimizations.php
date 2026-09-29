@@ -35,6 +35,13 @@ class MBRPE_JavaScript_Optimizations {
     private $options = array();
 
     /**
+     * Handles whose inline script has already been minified this request.
+     *
+     * @var array
+     */
+    private $inline_minified = array();
+
+    /**
      * Get instance.
      *
      * @return MBRPE_JavaScript_Optimizations
@@ -159,8 +166,14 @@ class MBRPE_JavaScript_Optimizations {
             add_action( 'wp_enqueue_scripts', array( $this, 'remove_jquery' ), 100 );
         }
 
+        // Minify JavaScript: serve a minified copy of each local script that
+        // isn't already minified, and minify inline script attached to
+        // enqueued handles. Until 2.1.3 this was a script_loader_tag filter
+        // that bailed out whenever the script had a src — and WordPress never
+        // calls that filter for one without — so it did nothing at all.
         if ( $this->get_option( 'minify_javascript' ) ) {
-            add_filter( 'script_loader_tag', array( $this, 'minify_inline_script' ), 99, 3 );
+            add_filter( 'script_loader_src', array( $this, 'minify_script_src' ), 20, 2 );
+            add_filter( 'print_scripts_array', array( $this, 'minify_inline_scripts' ), 20 );
         }
 
         // Combine JS: merge contiguous runs of "pure" external scripts (no
@@ -317,28 +330,73 @@ class MBRPE_JavaScript_Optimizations {
     }
 
     /**
-     * Lightly minify inline scripts.
+     * Point a local script at its minified copy.
      *
-     * Only touches inline <script>...</script> bodies. External script files
-     * are left alone — they are typically already minified.
+     * @since 2.1.3
      *
-     * @param string $tag
-     * @param string $handle
      * @param string $src
+     * @param string $handle
      * @return string
      */
-    public function minify_inline_script( $tag, $handle, $src ) {
-        if ( $this->should_skip() || '' !== $src ) {
-            return $tag;
+    public function minify_script_src( $src, $handle = '' ) {
+        if ( ! is_string( $src ) || '' === $src || $this->should_skip() ) {
+            return $src;
         }
-        return preg_replace_callback( '/(<script[^>]*>)(.*?)(<\/script>)/is', function ( $m ) {
-            $body = $m[2];
-            $body = preg_replace( '#/\*(?!!).*?\*/#s', '', $body );
-            $body = preg_replace( '#(^|\s)//[^\n\r]*#', '$1', $body );
-            $body = preg_replace( '/^[ \t]+|[ \t]+$/m', '', $body );
-            $body = preg_replace( '/\n{2,}/', "\n", $body );
-            return $m[1] . $body . $m[3];
-        }, $tag );
+        if ( in_array( $handle, array( 'admin-bar' ), true ) ) {
+            return $src;
+        }
+        if ( $this->is_excluded( (string) $handle, $src, $this->get_exclusion_list( 'exclude_optimization' ) ) ) {
+            return $src;
+        }
+        if ( ! class_exists( 'MBRPE_Asset_Minifier' ) ) {
+            return $src;
+        }
+        return MBRPE_Asset_Minifier::maybe_minified_url( $src, 'js' );
+    }
+
+    /**
+     * Minify the inline script attached to handles about to be printed —
+     * wp_add_inline_script() before/after blocks and wp_localize_script()
+     * data — in place on the registered handle.
+     *
+     * @since 2.1.3
+     *
+     * @param string[] $handles
+     * @return string[]
+     */
+    public function minify_inline_scripts( $handles ) {
+        if ( ! is_array( $handles ) || $this->should_skip() || ! class_exists( 'MBRPE_Asset_Minifier' ) ) {
+            return $handles;
+        }
+        $wp_scripts = wp_scripts();
+        $exclusions = $this->get_exclusion_list( 'exclude_optimization' );
+        foreach ( $handles as $handle ) {
+            if ( isset( $this->inline_minified[ $handle ] ) || ! isset( $wp_scripts->registered[ $handle ] ) ) {
+                continue;
+            }
+            $this->inline_minified[ $handle ] = true;
+            $obj = $wp_scripts->registered[ $handle ];
+            if ( empty( $obj->extra ) || ! is_array( $obj->extra ) ) {
+                continue;
+            }
+            if ( $this->is_excluded( (string) $handle, (string) $obj->src, $exclusions ) ) {
+                continue;
+            }
+            foreach ( array( 'before', 'after' ) as $position ) {
+                if ( empty( $obj->extra[ $position ] ) || ! is_array( $obj->extra[ $position ] ) ) {
+                    continue;
+                }
+                foreach ( $obj->extra[ $position ] as $i => $js ) {
+                    if ( is_string( $js ) && '' !== $js ) {
+                        $obj->extra[ $position ][ $i ] = MBRPE_Asset_Minifier::minify_inline_js( $js );
+                    }
+                }
+            }
+            if ( ! empty( $obj->extra['data'] ) && is_string( $obj->extra['data'] ) ) {
+                $obj->extra['data'] = MBRPE_Asset_Minifier::minify_inline_js( $obj->extra['data'] );
+            }
+        }
+        return $handles;
     }
 
     /**
@@ -637,7 +695,7 @@ __MBR_TIMEOUT__
      * @return string
      */
     private function script_run_fingerprint( $run ) {
-        $parts = array( MBRPE_VERSION, 'js' );
+        $parts = array( MBRPE_VERSION, 'js', $this->get_option( 'minify_javascript' ) ? 'min1' : 'min0' );
         foreach ( $run as $member ) {
             $mtime   = is_file( $member['path'] ) ? filemtime( $member['path'] ) : 0;
             $parts[] = $member['handle'] . '|' . $member['path'] . '|' . ( $mtime ? $mtime : '0' ) . '|' . $member['ver'];
@@ -650,9 +708,9 @@ __MBR_TIMEOUT__
      *
      * Files are separated by a newline and a semicolon so that a file which
      * omits its trailing semicolon can't fuse with the next under automatic
-     * semicolon insertion. The bundle is intentionally not minified: vendor
-     * scripts are typically pre-minified, and regex minification of arbitrary
-     * JavaScript is unsafe.
+     * semicolon insertion. With Minify JavaScript on, each member that is
+     * not already a .min.js file is minified with the bundled tokeniser first;
+     * a member it cannot parse is included exactly as it was.
      *
      * @param array $run
      * @return string Combined JavaScript, or an empty string on failure.
@@ -668,6 +726,16 @@ __MBR_TIMEOUT__
             }
             // Strip a leading UTF-8 byte-order mark.
             $js = preg_replace( '/^\xEF\xBB\xBF/', '', $js );
+
+            if ( $this->get_option( 'minify_javascript' )
+                && class_exists( 'MBRPE_Asset_Minifier' )
+                && ! preg_match( '/[.\-]min\.m?js$/i', $member['path'] )
+            ) {
+                $min = MBRPE_Asset_Minifier::minify_js( $js );
+                if ( '' !== $min && strlen( $min ) < strlen( $js ) ) {
+                    $js = $min;
+                }
+            }
 
             if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
                 $chunks[] = "/* mbrpe: {$member['handle']} */\n" . $js;

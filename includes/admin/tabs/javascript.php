@@ -123,11 +123,14 @@ $js_options = isset( $options['javascript'] ) ? $options['javascript'] : array()
                 <th scope="row">
                     <label for="minify_javascript">
                         <?php esc_html_e( 'Minify JavaScript', 'mbr-performance' ); ?>
-                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Removes whitespace and comments to reduce file size', 'mbr-performance' ); ?>">?</span>
+                        <span class="mbr-tooltip" data-tip="<?php esc_attr_e( 'Serves a minified copy of each local script that is not already minified, and minifies inline script', 'mbr-performance' ); ?>">?</span>
                     </label>
                 </th>
                 <td>
                     <input type="checkbox" name="mbrpe_options[javascript][minify_javascript]" id="minify_javascript" value="1" <?php checked( isset( $js_options['minify_javascript'] ) && $js_options['minify_javascript'] ); ?>>
+                    <p class="description">
+                        <?php esc_html_e( 'Uses a proper JavaScript tokeniser, not pattern matching. Minified copies are written to /uploads/mbr-performance-min/ and rebuilt when the original changes. Already-minified files, scripts that work out their own URL at run time (webpack chunks, workers), external scripts and anything on the exclusion list below keep their original URL. A script that cannot be parsed is served unchanged.', 'mbr-performance' ); ?>
+                    </p>
                 </td>
             </tr>
             
@@ -159,7 +162,7 @@ $js_options = isset( $options['javascript'] ) ? $options['javascript'] : array()
             </tr>
 
             <tr class="mbr-performance-child-row">
-                <th scope="row"><?php esc_html_e( 'Combined JS cache', 'mbr-performance' ); ?></th>
+                <th scope="row"><?php esc_html_e( 'Combined & minified JS cache', 'mbr-performance' ); ?></th>
                 <td>
                     <?php
                     $mbr_combine_stats = class_exists( 'MBRPE_CSS_Optimizations' )
@@ -168,13 +171,13 @@ $js_options = isset( $options['javascript'] ) ? $options['javascript'] : array()
                     $mbr_js_size = $mbr_combine_stats['js_bytes'] > 0 ? size_format( $mbr_combine_stats['js_bytes'] ) : '0 B';
                     ?>
                     <p class="description" style="margin-bottom:8px;">
-                        <?php esc_html_e( 'Cached combined JS files:', 'mbr-performance' ); ?>
+                        <?php esc_html_e( 'Cached combined and minified JS files:', 'mbr-performance' ); ?>
                         <strong id="mbr-combine-js-count"><?php echo esc_html( number_format_i18n( $mbr_combine_stats['js'] ) ); ?></strong>
                         (<span id="mbr-combine-js-size"><?php echo esc_html( $mbr_js_size ); ?></span>)
                     </p>
-                    <button type="button" class="button" id="mbr-clear-combine-js" data-cache-type="js"><?php esc_html_e( 'Clear combined JS cache', 'mbr-performance' ); ?></button>
+                    <button type="button" class="button" id="mbr-clear-combine-js" data-cache-type="js"><?php esc_html_e( 'Clear JS file cache', 'mbr-performance' ); ?></button>
                     <span id="mbr-combine-js-status"></span>
-                    <p class="description"><?php esc_html_e( 'Bundles also rebuild automatically when settings or scripts change.', 'mbr-performance' ); ?></p>
+                    <p class="description"><?php esc_html_e( 'Files also rebuild automatically when settings or scripts change. Clearing also clears the page cache.', 'mbr-performance' ); ?></p>
                 </td>
             </tr>
         </table>
