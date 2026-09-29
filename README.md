@@ -7,7 +7,7 @@ and multisite.
 Free, GPL-licensed, self-hosted. No telemetry, no CDN dependency for the plugin's own assets, and
 no account to sign up for.
 
-**Current version:** 2.1.2
+**Current version:** 2.1.3
 **Requires:** WordPress 5.9+ · PHP 7.4+
 **Tested to:** WordPress 7.0
 **Licence:** GPLv2 or later
@@ -77,7 +77,7 @@ Or clone into `wp-content/plugins/`:
 git clone https://github.com/HarbourBob/mbr-performance.git
 ```
 
-Settings live under **MBR Performance** in the admin toolbar. A 41-page user guide (PDF) is bundled
+Settings live under **MBR Performance** in the admin toolbar. A 45-page user guide (PDF) is bundled
 in the ZIP.
 
 ### Enabling page caching
