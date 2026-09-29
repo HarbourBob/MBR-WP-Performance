@@ -96,6 +96,7 @@ function mbrpe_uninstall_cron_hooks() {
 function mbrpe_uninstall_cache_dirs() {
 	return array(
 		'mbr-performance-combine',
+		'mbr-performance-min',
 		'mbr-performance-usedcss',
 		'mbr-performance-usedcss-b',
 	);
@@ -124,6 +125,31 @@ function mbrpe_uninstall_rmdir( $dir ) {
 		return;
 	}
 	if ( 0 !== strpos( wp_normalize_path( $real ), trailingslashit( wp_normalize_path( $base ) ) ) ) {
+		return;
+	}
+
+	// The minified-asset cache mirrors the source tree in subdirectories;
+	// walk it without following links. Every other cache is one level deep.
+	if ( 'mbr-performance-min' === basename( $real ) ) {
+		try {
+			$it = new RecursiveIteratorIterator(
+				new RecursiveDirectoryIterator( $real, FilesystemIterator::SKIP_DOTS ),
+				RecursiveIteratorIterator::CHILD_FIRST
+			);
+			foreach ( $it as $item ) {
+				if ( $item->isLink() ) {
+					continue;
+				}
+				if ( $item->isDir() ) {
+					@rmdir( $item->getPathname() ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_rmdir
+				} else {
+					wp_delete_file( $item->getPathname() );
+				}
+			}
+		} catch ( Exception $e ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedCatch
+			// Leave whatever could not be read.
+		}
+		@rmdir( $real ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 		return;
 	}
 

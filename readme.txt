@@ -3,7 +3,7 @@ Tags: performance, optimization, speed, cache, page cache, database, webp
 Requires at least: 5.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.1.2
+Stable tag: 2.1.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -312,6 +312,19 @@ The Used CSS feature bundles two open-source libraries, loaded only while genera
 
 
 == Changelog ==
+
+= 2.1.3 =
+Minify CSS and Minify JavaScript now actually minify your files.
+
+* Fix: Minify CSS and Minify JavaScript did nothing. Both were meant to shorten inline style and script blocks only, and even that never ran: the filters returned early for any handle with a src, and WordPress never calls them for a handle without one. The external files PageSpeed Insights lists under "Minify CSS" and "Minify JavaScript" were never touched, except inside a Combine CSS bundle.
+* New: each local stylesheet and script that is not already minified is served from a minified copy under /uploads/mbr-performance-min/, written on first request and rebuilt automatically when the original changes. The copy mirrors the original's path, so URL-fragment exclusions still match it. Files named .min.css or .min.js, files that would save under 5%, external files, excluded files and scripts that locate themselves at run time (webpack chunks, workers) keep their original URL.
+* New: JavaScript is minified with a bundled tokeniser (JShrink, BSD licence) rather than pattern matching. A script it cannot parse is served unchanged. Combined JavaScript bundles are now minified too when Minify JavaScript is on.
+* New: inline CSS and script attached to enqueued handles (wp_add_inline_style, wp_add_inline_script, wp_localize_script, global styles) is minified.
+* Fix: the CSS minifier broke every quoted url(). A quoted string is protected before the url() around it, and restoring them in one pass put the url() back with the string's placeholder still inside, so url('font.woff2') reached the browser as a meaningless token. This affected Combine CSS with minification on and the CSS inlined by Used CSS and Mode B: quoted font and background-image URLs in them failed to load.
+* Fix: the shared CSS minifier removed the space before a colon, turning a descendant pseudo-class such as ".menu :hover" into ".menu:hover". This also affected Used CSS and Mode B output, whose caches are cleared on update.
+* Fix: saving or resetting settings deleted combined bundles but left the page cache holding pages that linked to them. Saving, resetting, or clearing the CSS or JS file cache now clears the page cache as well.
+* Fix: Server and Diagnostics were missing from the MBR Performance toolbar menu. The menu and the tab row now share one list. The menu is shown only to users who can manage options.
+* Updating clears the combined, Used CSS, Mode B and page caches once.
 
 = 2.1.2 =
 Fixes Used CSS (Mode A and Mode B) never reaching visitors when the page cache is on.
@@ -676,6 +689,9 @@ This release prepares the plugin for the WordPress.org plugin directory and incl
 * Database optimization
 
 == Upgrade Notice ==
+
+= 2.1.3 =
+Minify CSS and Minify JavaScript now minify your stylesheet and script files; previously they had no effect. Updating clears the page cache once.
 
 = 2.1.2 =
 Fixes Used CSS never reaching visitors when the page cache is enabled. Updating clears the page cache once. Recommended for every site using Used CSS with page caching.

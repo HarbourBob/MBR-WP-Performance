@@ -140,7 +140,12 @@
         showMessage: function($container, message, type) {
             type = type || 'success';
             var cssClass = type === 'success' ? 'notice-success' : 'notice-error';
-            $container.html('<div class="notice ' + cssClass + ' inline"><p>' + message + '</p></div>');
+            // Build the shell, then set the text. Server messages interpolate
+            // data (table names, font families, error strings) and this helper
+            // has ~30 callers, so no one of them should be able to turn a
+            // message into markup.
+            $container.html('<div class="notice ' + cssClass + ' inline"><p></p></div>');
+            $container.find('p').text(message == null ? '' : String(message));
         },
 
         /**
