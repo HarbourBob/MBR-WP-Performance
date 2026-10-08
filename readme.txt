@@ -3,7 +3,7 @@ Tags: performance, optimization, speed, cache, page cache, database, webp
 Requires at least: 5.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 2.1.3
+Stable tag: 2.1.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -312,6 +312,20 @@ The Used CSS feature bundles two open-source libraries, loaded only while genera
 
 
 == Changelog ==
+
+= 2.1.5 =
+No more "strip_tags(): Passing null" deprecation notice on the settings screen.
+
+* Fix: on PHP 8.1 and later with debugging on, opening the MBR Performance screen showed "Deprecated: strip_tags(): Passing null to parameter #1 ($string)" from wp-admin/admin-header.php. The settings screen is a hidden page with no sidebar parent, and WordPress only looks for page titles in the sidebar menu, so it left the title empty and passed null to strip_tags(). The plugin now supplies the title itself before the header is printed. A side effect: the browser tab now reads "MBR Performance" rather than being blank.
+* Fix: the hidden settings page is registered with an empty parent rather than null, which avoids a further PHP 8.1+ deprecation inside plugin_basename().
+* Docs: the user guide is updated to 2.1.5, with two new Troubleshooting entries covering this fix and the 2.1.4 Mode B status fix.
+
+= 2.1.4 =
+A static front page no longer sits on "Still learning" forever under Used CSS Mode B.
+
+* Fix: under Used CSS Mode B, a static front page was reported as "Still learning" (Samples 1 / 3, or whatever the target was) however much traffic it received. Samples count distinct URLs, and a static front page only ever has one, so it could never reach the target. It was in fact being served optimised from the second visit — only the status was wrong. Single-URL templates (a static front page, and WooCommerce's cart and checkout) now have a target of 1, and the CSS tab shows them as "Learned — serving". Existing caches are corrected on the spot; there is no need to clear them. A front page that lists your latest posts keeps the normal target, because its paginated URLs are genuine extra samples.
+* New: the mbrpe_modeb_single_url_templates filter, for adding a custom template that only ever has one URL.
+* Tweak: a tooltip on the Mode B Samples column, and a line in the "URLs sampled per template" description, explaining single-URL templates.
 
 = 2.1.3 =
 Minify CSS and Minify JavaScript now actually minify your files.
@@ -689,6 +703,12 @@ This release prepares the plugin for the WordPress.org plugin directory and incl
 * Database optimization
 
 == Upgrade Notice ==
+
+= 2.1.5 =
+Removes a PHP 8.1+ "strip_tags(): Passing null" deprecation notice on the settings screen, and gives the screen a proper browser-tab title.
+
+= 2.1.4 =
+Used CSS Mode B: a static front page, cart and checkout now show as learned instead of "Still learning" forever. Display fix only; nothing to clear.
 
 = 2.1.3 =
 Minify CSS and Minify JavaScript now minify your stylesheet and script files; previously they had no effect. Updating clears the page cache once.
