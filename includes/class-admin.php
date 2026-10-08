@@ -161,14 +161,35 @@ class MBRPE_Admin {
      * Add hidden admin page (not in sidebar, only accessible via toolbar)
      */
     public function add_hidden_admin_page() {
-        add_submenu_page(
-            null, // No parent = hidden from sidebar menu
+        $hook = add_submenu_page(
+            '', // Empty parent = hidden from sidebar menu. '' rather than null: null trips PHP 8.1+ deprecations inside plugin_basename().
             __( 'MBR Performance', 'mbr-performance' ),
             __( 'MBR Performance', 'mbr-performance' ),
             'manage_options',
             'mbr-performance',
             array( $this, 'render_settings_page' )
         );
+
+        // A parentless page is never found by get_admin_page_title(), which
+        // only searches the sidebar menu arrays. That leaves the global $title
+        // null, and admin-header.php then passes it to strip_tags() — a
+        // deprecation notice on PHP 8.1+ and a blank browser-tab title on
+        // every version. Set it ourselves before the header is printed.
+        if ( $hook ) {
+            add_action( 'load-' . $hook, array( $this, 'set_admin_page_title' ) );
+        }
+    }
+
+    /**
+     * Supply the admin page title WordPress cannot work out for a hidden page.
+     *
+     * @since 2.1.5
+     */
+    public function set_admin_page_title() {
+        global $title;
+        if ( empty( $title ) ) {
+            $title = __( 'MBR Performance', 'mbr-performance' ); // phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Intentional: core leaves it unset for hidden pages.
+        }
     }
 
     /**

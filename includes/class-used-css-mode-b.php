@@ -56,7 +56,7 @@ class MBRPE_Used_CSS_Mode_B {
 	 * Sidecar format version. Bumped if the JSON shape ever changes, so an old
 	 * sidecar is discarded rather than misread.
 	 */
-	const META_VERSION = 1;
+	const META_VERSION = 2;
 
 	/**
 	 * Default number of distinct URLs sampled per template before the template
@@ -186,11 +186,51 @@ class MBRPE_Used_CSS_Mode_B {
 	/**
 	 * How many distinct URLs to sample per template.
 	 *
+	 * Single-URL templates (see single_url_templates()) always return 1: they
+	 * can never produce a second distinct sample, so asking for more would
+	 * leave them reported as "still learning" forever.
+	 *
 	 * @return int
 	 */
 	private function sample_target() {
+		if ( '' !== (string) $this->template && self::is_single_url_template( $this->template ) ) {
+			return 1;
+		}
 		$n = isset( $this->options['modeb_samples'] ) ? (int) $this->options['modeb_samples'] : self::DEFAULT_SAMPLES;
 		return max( 1, min( 10, $n ) );
+	}
+
+	/**
+	 * Templates that only ever resolve to one URL, and so can only ever yield
+	 * one sample however much traffic they get.
+	 *
+	 * Samples are keyed on the request path with the query string stripped, so
+	 * a static front page is only ever "/", and WooCommerce's cart and
+	 * checkout are each a single page. A front page that lists latest posts is
+	 * deliberately NOT included: /page/2/, /page/3/ and so on are genuine
+	 * distinct URLs with their own pagination markup, so the normal target
+	 * still applies there.
+	 *
+	 * @since 2.1.4
+	 * @return string[]
+	 */
+	public static function single_url_templates() {
+		$ids = array( 'cart', 'checkout' );
+		if ( 'page' === get_option( 'show_on_front' ) && (int) get_option( 'page_on_front' ) > 0 ) {
+			$ids[] = 'front_page';
+		}
+		return (array) apply_filters( 'mbrpe_modeb_single_url_templates', $ids );
+	}
+
+	/**
+	 * Whether a template id is single-URL.
+	 *
+	 * @since 2.1.4
+	 * @param string $template Template id.
+	 * @return bool
+	 */
+	public static function is_single_url_template( $template ) {
+		return in_array( (string) $template, self::single_url_templates(), true );
 	}
 
 	/**
@@ -258,10 +298,14 @@ class MBRPE_Used_CSS_Mode_B {
 	 */
 	public static function templates() {
 		$templates = array(
+			// front_page and blog_home must outrank 'page': a static front page
+			// (and the posts page on some setups) also satisfies is_page(), so
+			// with page at 20 they were swallowed into "Pages" and never learned
+			// as templates of their own.
+			'front_page'  => array( 10, static function () { return is_front_page(); } ),
+			'blog_home'   => array( 15, static function () { return is_home(); } ),
 			'page'        => array( 20, static function () { return is_page(); } ),
 			'single_post' => array( 20, static function () { return is_singular( 'post' ); } ),
-			'front_page'  => array( 30, static function () { return is_front_page(); } ),
-			'blog_home'   => array( 35, static function () { return is_home(); } ),
 			'archive'     => array( 50, static function () { return is_archive(); } ),
 			'singular'    => array( 60, static function () { return is_singular(); } ),
 			'global'      => array( 100, '__return_true' ),
@@ -465,7 +509,7 @@ class MBRPE_Used_CSS_Mode_B {
 		$this->meta_file  = $dir['path'] . '/' . $key . '.json';
 		$this->meta       = self::read_meta( $this->meta_file );
 
-		$have_css = is_readable( $this->cache_file ) && filesize( $this->cache_file ) > 0;
+		$have_css = ! empty( $this->meta['sheets'] ) && is_array( $this->meta['sheets'] );
 		$url_key  = self::url_key( $this->request_path() );
 		$sampled  = isset( $this->meta['urls'][ $url_key ] );
 		$learned  = (int) ( isset( $this->meta['samples'] ) ? $this->meta['samples'] : 0 ) >= $this->sample_target();
@@ -560,17 +604,12 @@ class MBRPE_Used_CSS_Mode_B {
 			return $html;
 		}
 
-		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reading the plugin's own cached CSS from wp-uploads.
-		$css = file_get_contents( $this->cache_file );
-		if ( false === $css || '' === trim( $css ) ) {
-			return $html;
-		}
-
 		$covered = isset( $this->meta['sheets'] ) && is_array( $this->meta['sheets'] ) ? $this->meta['sheets'] : array();
 		if ( empty( $covered ) ) {
 			return $html; // Learned nothing removable; leave the page alone.
 		}
-		$covered = array_flip( $covered );
+
+		$dir = dirname( $this->cache_file );
 
 		// Protect <noscript> blocks so a fallback <link> inside one — possibly
 		// left by another async layer — is never treated as a live stylesheet.
@@ -585,30 +624,51 @@ class MBRPE_Used_CSS_Mode_B {
 			$html
 		);
 
-		$inlined = false;
-		$style   = "\n<style id=\"mbrpe-used-css-b\">" . $css . "</style>\n";
-
+		// Each covered sheet is replaced by its own used CSS, exactly where its
+		// link stood. Two rules make this safe:
+		//
+		//   1. Position — every sheet's rules stay at their original place in
+		//      the cascade, so an un-covered sheet between two covered ones
+		//      keeps winning and losing exactly as it did before.
+		//   2. Presence — a link is only removed if that sheet's used CSS file
+		//      exists. If it is missing for any reason (a purge mid-request, a
+		//      failed write, disk full) the link is left alone. Removal without
+		//      its replacement is the one thing that produces an unstyled page.
+		$loaded = array();
 		$result = preg_replace_callback(
 			'#<link\b[^>]*\brel=(["\'])stylesheet\1[^>]*>#i',
-			function ( $m ) use ( $covered, &$inlined, $style ) {
+			function ( $m ) use ( $covered, $dir, &$loaded ) {
 				$tag = $m[0];
 
 				if ( ! preg_match( '/\bhref=(["\'])(.*?)\1/i', $tag, $h ) ) {
 					return $tag;
 				}
 				$href = self::normalise_href( trim( html_entity_decode( $h[2] ) ) );
-				if ( '' === $href || ! isset( $covered[ $href ] ) ) {
+				if ( '' === $href || ! isset( $covered[ $href ]['file'] ) ) {
 					// Not a sheet this template learned — leave it exactly as
-					// WordPress emitted it, still render-blocking. This is the
-					// safety rule that makes per-template removal viable.
+					// WordPress emitted it, still render-blocking.
 					return $tag;
 				}
 
-				if ( ! $inlined ) {
-					$inlined = true;
-					return $style;
+				if ( isset( $loaded[ $href ] ) ) {
+					return ''; // Same sheet linked twice; already inlined once.
 				}
-				return '';
+
+				$file = $dir . '/' . basename( (string) $covered[ $href ]['file'] );
+				if ( ! is_file( $file ) || ! is_readable( $file ) ) {
+					return $tag;
+				}
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reading the plugin's own cached CSS from wp-uploads.
+				$css = file_get_contents( $file );
+				if ( false === $css ) {
+					return $tag;
+				}
+				$loaded[ $href ] = true;
+
+				if ( '' === trim( $css ) ) {
+					return ''; // Analysed, and nothing in it is used by this template.
+				}
+				return "\n<style class=\"mbrpe-used-css-b\" data-src=\"" . esc_attr( basename( $href ) ) . '">' . $css . "</style>\n";
 			},
 			$html
 		);
@@ -688,28 +748,61 @@ class MBRPE_Used_CSS_Mode_B {
 		require_once MBRPE_PLUGIN_DIR . 'includes/class-used-css-engine.php';
 		require_once MBRPE_PLUGIN_DIR . 'includes/class-used-css-engine-b.php';
 
-		$sheets = $this->analysable_sheets( $html );
-		if ( empty( $sheets ) ) {
+		$on_page = $this->analysable_sheets( $html );
+		if ( empty( $on_page ) ) {
 			return;
 		}
 
 		// Re-read the sidecar now rather than trusting the copy taken at
 		// template_redirect: a concurrent request may have written a newer one
 		// between then and now, and losing its samples would quietly undo work.
-		$meta = self::read_meta( $this->meta_file );
+		$meta     = self::read_meta( $this->meta_file );
+		$previous = isset( $meta['sheets'] ) && is_array( $meta['sheets'] ) ? $meta['sheets'] : array();
 
 		$engine = new MBRPE_Used_CSS_Engine_B();
 		$engine->add_safelist( $this->safelist() );
 		$engine->set_union( isset( $meta['union'] ) && is_array( $meta['union'] ) ? array_fill_keys( $meta['union'], true ) : array() );
 		$engine->load_html( $html );
 
-		$combined = '';
-		$covered  = isset( $meta['sheets'] ) && is_array( $meta['sheets'] ) ? $meta['sheets'] : array();
+		// Work list: every sheet on this page, plus every sheet an earlier
+		// sample covered that this page happens not to load.
+		//
+		// The second half is the fix for pages breaking after they had been
+		// learned. Previously each pass rewrote the template's CSS from only
+		// the sheets on the *current* page, while the covered list kept every
+		// sheet ever seen. A sheet that only an earlier sample loaded (an
+		// Elementor post-123.css, a widget plugin's sheet) stayed on the
+		// removal list with its rules gone from the inlined CSS — so the next
+		// visit to that earlier page was served with the sheet stripped and
+		// nothing in its place. Every covered sheet is now re-analysed on every
+		// pass; the union carries the selectors earlier pages kept, so their
+		// rules survive even though this page's DOM never uses them.
+		$work = array();
+		foreach ( $on_page as $src => $media ) {
+			$key = self::normalise_href( $src );
+			if ( '' !== $key ) {
+				$work[ $key ] = array( 'src' => $src, 'media' => $media );
+			}
+		}
+		foreach ( $previous as $key => $info ) {
+			if ( ! isset( $work[ $key ] ) && is_array( $info ) && ! empty( $info['src'] ) ) {
+				$work[ $key ] = array(
+					'src'   => (string) $info['src'],
+					'media' => isset( $info['media'] ) ? (string) $info['media'] : 'all',
+				);
+			}
+		}
 
-		foreach ( $sheets as $href => $media ) {
-			$path = MBRPE_CSS_Optimizations::url_to_path( $href );
+		$dir     = dirname( $this->cache_file );
+		$prefix  = preg_replace( '/\.css$/', '', basename( $this->cache_file ) );
+		$covered = array();
+		$bytes   = 0;
+
+		foreach ( $work as $key => $item ) {
+			$src  = $item['src'];
+			$path = MBRPE_CSS_Optimizations::url_to_path( $src );
 			if ( '' === $path || ! is_readable( $path ) ) {
-				continue;
+				continue; // Gone from disk — no longer covered, so never removed.
 			}
 			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reading a local stylesheet from disk for analysis.
 			$css = file_get_contents( $path );
@@ -718,42 +811,52 @@ class MBRPE_Used_CSS_Mode_B {
 			}
 
 			// A sheet that pulls in another sheet cannot be removed safely: the
-			// engine drops @import (it is invalid once inlined mid-document),
-			// and under Mode A the imported file still arrived via the deferred
-			// original. With the original deleted it would never arrive at all,
-			// so this sheet stays a normal link and is not analysed.
+			// engine drops @import (invalid once inlined mid-document), and with
+			// the original deleted the imported file would never arrive.
 			if ( self::has_import( $css ) ) {
 				continue;
 			}
 
 			// Absolutise url()s against the sheet's own location so they still
 			// resolve once the CSS is inlined into the document.
-			$css = MBRPE_CSS_Optimizations::rewrite_css_urls( $css, $href );
-			$res = $engine->analyse( $css, $href );
-			$out = $res['used_css'];
+			$css = MBRPE_CSS_Optimizations::rewrite_css_urls( $css, $src );
+			$res = $engine->analyse( $css, $src );
+			$out = trim( (string) $res['used_css'] );
 
-			if ( '' !== trim( $out ) ) {
+			if ( '' !== $out ) {
 				// A media="screen" sheet only applied to screens; inlining it
 				// bare would leak its rules into print. Restore the context.
-				if ( 'screen' === $media ) {
+				if ( 'screen' === $item['media'] ) {
 					$out = '@media screen{' . $out . '}';
 				}
-				$combined .= $out;
+				$out = MBRPE_CSS_Optimizations::minify_css_string( $out );
 			}
 
-			$key = self::normalise_href( $href );
-			if ( '' !== $key && ! in_array( $key, $covered, true ) ) {
-				$covered[] = $key;
+			$file = $prefix . '.' . substr( md5( $key ), 0, 12 ) . '.css';
+			// An empty file is meaningful: "analysed, nothing used, safe to drop".
+			if ( ! MBRPE_CSS_Optimizations::write_file( $dir . '/' . $file, $out ) ) {
+				continue; // No replacement on disk means no removal.
+			}
+
+			$covered[ $key ] = array(
+				'src'   => $src,
+				'media' => $item['media'],
+				'file'  => $file,
+			);
+			$bytes += strlen( $out );
+		}
+
+		// Tidy per-sheet files for sheets that dropped out of coverage.
+		foreach ( $previous as $key => $info ) {
+			if ( ! isset( $covered[ $key ] ) && is_array( $info ) && ! empty( $info['file'] ) ) {
+				$stale = $dir . '/' . basename( (string) $info['file'] );
+				if ( is_file( $stale ) ) {
+					wp_delete_file( $stale );
+				}
 			}
 		}
 
-		$combined = trim( $combined );
-		if ( '' === $combined ) {
-			return;
-		}
-		$combined = MBRPE_CSS_Optimizations::minify_css_string( $combined );
-
-		if ( ! MBRPE_CSS_Optimizations::write_file( $this->cache_file, $combined ) ) {
+		if ( empty( $covered ) ) {
 			return;
 		}
 
@@ -771,19 +874,16 @@ class MBRPE_Used_CSS_Mode_B {
 				'urls'       => $urls,
 				'samples'    => count( $urls ),
 				'target'     => $this->sample_target(),
-				'sheets'     => array_values( $covered ),
+				'sheets'     => $covered,
 				'union'      => array_keys( $engine->get_union() ),
 				'union_full' => $engine->union_full(),
-				'bytes'      => strlen( $combined ),
+				'bytes'      => $bytes,
 				'built'      => time(),
 			)
 		);
 
-		// The unoptimised render of this URL is now sitting in the host page
-		// cache; purge just this URL so the next hit re-renders through PHP.
-		// Note that other URLs of this template may still be cached in their
-		// unoptimised form until they naturally expire — which is harmless,
-		// they simply keep their stylesheets for a while longer.
+		// Purge just this URL from the page cache so the next hit re-renders
+		// through PHP with the optimised CSS.
 		$this->purge_page_cache( $this->current_url );
 	}
 
@@ -1015,6 +1115,19 @@ class MBRPE_Used_CSS_Mode_B {
 		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) {
 			return;
 		}
+		// save_post fires for every post type, including private plumbing —
+		// nav menu items, form entries, logs, orders, Elementor library items,
+		// customizer changesets. Wiping every template on each of those meant
+		// a busy site could never finish learning. Only content a visitor can
+		// reach changes template markup.
+		$post = get_post( $post_id );
+		if ( ! $post || 'auto-draft' === $post->post_status ) {
+			return;
+		}
+		$type = get_post_type_object( $post->post_type );
+		if ( ! $type || ! $type->public ) {
+			return;
+		}
 		self::purge_all();
 	}
 
@@ -1060,15 +1173,26 @@ class MBRPE_Used_CSS_Mode_B {
 			if ( empty( $meta['template'] ) ) {
 				continue;
 			}
-			$css   = preg_replace( '/\.json$/', '.css', $file );
-			$bytes = ( is_string( $css ) && is_file( $css ) ) ? (int) filesize( $css ) : 0;
+			$bytes = (int) ( isset( $meta['bytes'] ) ? $meta['bytes'] : 0 );
 
-			$id     = (string) $meta['template'];
+			$id = (string) $meta['template'];
+
+			// Work the target out live for single-URL templates rather than
+			// trusting the sidecar: sidecars written before 2.1.4 recorded the
+			// general target (e.g. 4) for the front page, which it can never
+			// reach, so it would otherwise read "still learning" until the
+			// cache was cleared.
+			$single = self::is_single_url_template( $id );
+			$target = $single
+				? 1
+				: (int) ( isset( $meta['target'] ) ? $meta['target'] : self::DEFAULT_SAMPLES );
+
 			$rows[] = array(
 				'template'   => $id,
 				'label'      => isset( $labels[ $id ] ) ? $labels[ $id ] : $id,
 				'samples'    => (int) ( isset( $meta['samples'] ) ? $meta['samples'] : 0 ),
-				'target'     => (int) ( isset( $meta['target'] ) ? $meta['target'] : self::DEFAULT_SAMPLES ),
+				'target'     => $target,
+				'single_url' => $single,
 				'bytes'      => $bytes,
 				'built'      => (int) ( isset( $meta['built'] ) ? $meta['built'] : 0 ),
 				'sheets'     => count( isset( $meta['sheets'] ) && is_array( $meta['sheets'] ) ? $meta['sheets'] : array() ),

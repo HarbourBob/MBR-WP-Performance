@@ -212,7 +212,14 @@ class MBRPE_JavaScript_Optimizations {
         if ( '' === $src || false === stripos( $tag, '<script' ) ) {
             return $tag;
         }
-        if ( preg_match( '/\s(async|type=["\']module["\'])/i', $tag ) ) {
+        // $tag can hold several <script> elements: translations and any
+        // wp_add_inline_script() 'before'/'after' blocks wrap the main one.
+        // Only the main (src-bearing) opening tag decides async/module skips,
+        // otherwise text inside an inline block could trigger a false match.
+        if ( ! preg_match( '/<script\b[^>]*\ssrc=["\'][^"\']+["\'][^>]*>/i', $tag, $main_open ) ) {
+            return $tag;
+        }
+        if ( preg_match( '/\s(async|type=["\']module["\'])/i', $main_open[0] ) ) {
             return $tag;
         }
 
@@ -221,9 +228,25 @@ class MBRPE_JavaScript_Optimizations {
         if ( $this->get_option( 'delay_javascript' ) ) {
             $delay_list = $this->get_exclusion_list( 'delay_scripts' );
             if ( $this->is_excluded( $handle, $src, $delay_list ) ) {
-                $tag = preg_replace( '/\stype=["\'][^"\']*["\']/i', '', $tag );
-                $tag = str_replace( '<script ', '<script type="mbr-delayed" data-mbr-src="' . esc_attr( $src ) . '" ', $tag ); // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Rewrites the tag of a script already enqueued via wp_enqueue_script(); this script_loader_tag filter only transforms existing markup and cannot enqueue.
-                $tag = preg_replace( '/\ssrc=["\'][^"\']+["\']/i', '', $tag );
+                // Neutralise every <script> in the handle's output so inline
+                // before/after code waits with the file it belongs to. Only the
+                // src-bearing tag gets data-mbr-src; inline blocks keep their
+                // text and are re-executed from it by the runtime. (Previously a
+                // blanket str_replace stamped data-mbr-src onto the inline
+                // blocks too, so their code was discarded and the file loaded
+                // again in its place — e.g. elementorFrontendConfig was lost.)
+                $tag = preg_replace_callback(
+                    '/<script\b([^>]*)>/i',
+                    function ( $m ) {
+                        $attrs = preg_replace( '/\stype=["\'][^"\']*["\']/i', '', $m[1] );
+                        if ( preg_match( '/\ssrc=["\']([^"\']+)["\']/i', $attrs, $s ) ) {
+                            $attrs = preg_replace( '/\ssrc=["\'][^"\']+["\']/i', '', $attrs );
+                            $attrs = ' data-mbr-src="' . esc_attr( html_entity_decode( $s[1], ENT_QUOTES ) ) . '"' . $attrs;
+                        }
+                        return '<script type="mbr-delayed"' . $attrs . '>'; // phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Rewrites markup of an already-enqueued script.
+                    },
+                    $tag
+                );
                 return $tag;
             }
         }
@@ -417,11 +440,19 @@ class MBRPE_JavaScript_Optimizations {
         ob_start();
         ?>
         (function(){
-            var fired=false;
+            var fired=false, ev=__MBR_EVENTS__;
             function loadAll(){
                 if(fired) return;
                 fired=true;
-                document.querySelectorAll('script[type="mbr-delayed"]').forEach(function(s){
+                ev.forEach(function(e){ window.removeEventListener(e,loadAll,{passive:true}); });
+                // Execute strictly in document order. Script elements created
+                // from JS are async by default, and inline ones run the moment
+                // they are inserted, so a plain loop let dependants (and inline
+                // "after" blocks) run before the files they rely on.
+                var queue=Array.prototype.slice.call(document.querySelectorAll('script[type="mbr-delayed"]'));
+                function next(){
+                    var s=queue.shift();
+                    if(!s){ window.dispatchEvent(new Event('mbr-delayed-loaded')); return; }
                     var n=document.createElement('script');
                     for(var i=0;i<s.attributes.length;i++){
                         var a=s.attributes[i];
@@ -429,19 +460,38 @@ class MBRPE_JavaScript_Optimizations {
                         n.setAttribute(a.name,a.value);
                     }
                     var src=s.getAttribute('data-mbr-src');
-                    if(src){ n.src=src; } else { n.text=s.text||s.textContent||''; }
-                    s.parentNode.insertBefore(n,s);
-                    s.parentNode.removeChild(s);
-                });
-                window.dispatchEvent(new Event('mbr-delayed-loaded'));
+                    if(src){
+                        n.async=false;
+                        n.onload=n.onerror=next;
+                        n.src=src;
+                        s.parentNode.replaceChild(n,s);
+                    } else {
+                        n.text=s.text||s.textContent||'';
+                        s.parentNode.replaceChild(n,s);
+                        next();
+                    }
+                }
+                next();
             }
-            var ev=['mousemove','touchstart','keydown','scroll','wheel','click'];
-            ev.forEach(function(e){ window.addEventListener(e,loadAll,{once:true,passive:true}); });
+            ev.forEach(function(e){ window.addEventListener(e,loadAll,{passive:true}); });
 __MBR_TIMEOUT__
         })();
         <?php
         $runtime = ob_get_clean();
         $runtime = str_replace( '__MBR_TIMEOUT__', $timeout_ms > 0 ? 'setTimeout(loadAll,' . absint( $timeout_ms ) . ');' : '', $runtime );
+
+        /**
+         * Filter the events that release delayed scripts.
+         *
+         * mousemove/scroll/wheel fire almost immediately on desktop and do not
+         * count as user activation, so sites that need "wait for a real
+         * gesture" can drop them here.
+         *
+         * @param string[] $events DOM event names.
+         */
+        $events = apply_filters( 'mbrpe_delay_events', array( 'mousemove', 'touchstart', 'keydown', 'scroll', 'wheel', 'click' ) );
+        $events = array_values( array_filter( array_map( 'sanitize_key', (array) $events ) ) );
+        $runtime = str_replace( '__MBR_EVENTS__', wp_json_encode( $events ), $runtime );
         wp_register_script( 'mbr-performance-delay', false, array(), MBRPE_VERSION, true );
         wp_enqueue_script( 'mbr-performance-delay' );
         wp_add_inline_script( 'mbr-performance-delay', $runtime );
